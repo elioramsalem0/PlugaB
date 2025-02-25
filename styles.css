@@ -163,3 +163,33 @@ button:hover {
     margin-bottom: 15px;
     font-size: 0.9em;
 }
+
+/* עיצוב כפתורי פעולה בלשונית הדוחות */
+.action-buttons {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.action-buttons button {
+    flex: 1;
+    margin: 0;
+    padding: 8px;
+    font-size: 0.9em;
+}
+
+.action-buttons button:nth-child(1) {
+    background-color: #28a745; /* ירוק לכפתור הייצוא */
+}
+
+.action-buttons button:nth-child(2) {
+    background-color: #17a2b8; /* תכלת לכפתור הגיבוי */
+}
+
+.action-buttons button:nth-child(3) {
+    background-color: #6f42c1; /* סגול לכפתור השחזור */
+}
+
+.action-buttons button:hover {
+    opacity: 0.9;
+}
