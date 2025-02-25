@@ -393,6 +393,12 @@ function submitForm() {
         return;
     }
     
+    const password = prompt("הכנס סיסמת עריכה:");
+    if (password !== "eadmin") {
+        alert("סיסמה שגויה!");
+        return;
+    }
+    
     const selectedUnit = document.getElementById("unit").value;
     const selectedDate = document.getElementById("date").value;
     const selectedTime = document.getElementById("time").value;
