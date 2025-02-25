@@ -4,8 +4,6 @@ body {
     text-align: center;
     padding: 20px;
     direction: rtl;
-    margin: 0;
-    line-height: 1.6;
 }
 
 .container {
@@ -13,20 +11,17 @@ body {
     background: white;
     padding: 20px;
     border-radius: 10px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     margin: auto;
     text-align: right;
 }
 
-/* Inputs and Buttons */
-input, select, button {
+select, input, button {
     width: 100%;
     padding: 10px;
-    margin: 10px 0;
-    border: 1px solid #ddd;
+    margin: 5px 0;
+    border: 1px solid #ccc;
     border-radius: 5px;
-    box-sizing: border-box;
-    font-size: 16px;
 }
 
 button {
@@ -34,99 +29,123 @@ button {
     color: white;
     border: none;
     cursor: pointer;
-    transition: background-color 0.3s ease;
+    margin-bottom: 10px;
 }
 
 button:hover {
     background-color: #0056b3;
 }
 
-/* Login Container */
+.soldier-list {
+    max-height: 250px;
+    overflow-y: auto;
+    border: 1px solid #ccc;
+    padding: 10px;
+    text-align: right;
+    margin-bottom: 10px;
+}
+
+.soldier-list label {
+    display: block;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 5px;
+}
+
+.soldier-list label.selected {
+    background-color: #007bff;
+    color: white;
+}
+
+.report-section {
+    margin-top: 20px;
+}
+
+.summary {
+    margin: 10px 0;
+    padding: 10px;
+    background-color: #f0f8ff;
+    border-radius: 5px;
+}
+
+.stats-summary {
+    margin: 10px 0;
+    padding: 10px;
+    background-color: #fffaf0;
+    border-radius: 5px;
+    border-right: 4px solid #ffa500;
+}
+
+.badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 10px;
+    background-color: #dc3545;
+    color: white;
+    font-size: 0.8em;
+    margin-right: 5px;
+    margin-bottom: 5px;
+}
+
+.report-card {
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 10px;
+    margin-bottom: 10px;
+    background-color: #fff;
+}
+
+.report-card h3 {
+    margin-top: 0;
+}
+
+.search-box {
+    margin-bottom: 10px;
+}
+
+.tab-buttons {
+    display: flex;
+    margin-bottom: 15px;
+}
+
+.tab-button {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    background-color: #ddd;
+    cursor: pointer;
+}
+
+.tab-button.active {
+    background-color: #007bff;
+    color: white;
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
 #login-container {
     max-width: 400px;
-    margin: 50px auto;
     background: white;
-    padding: 30px;
+    padding: 20px;
     border-radius: 10px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-}
-
-#login-container h2 {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    margin: 50px auto;
     text-align: center;
-    color: #333;
-    margin-bottom: 20px;
 }
 
-/* Soldiers List */
-.soldiers-list {
-    max-height: 300px;
-    overflow-y: auto;
-    border: 1px solid #ddd;
-    margin: 15px 0;
-    padding: 10px;
-    background-color: #f9f9f9;
+.error-message {
+    color: #dc3545;
+    font-size: 0.9em;
+    margin-top: 5px;
 }
 
-.soldiers-list label {
-    display: flex;
-    align-items: center;
-    margin: 5px 0;
-    padding: 5px;
-    background-color: #fff;
-    border-radius: 5px;
-    border: 1px solid #eee;
-}
-
-.soldiers-list label input[type="checkbox"] {
-    margin-left: 10px;
-    width: auto;
-}
-
-.soldiers-list label select {
-    margin-right: 10px;
-    width: auto;
-    flex-grow: 1;
-}
-
-/* Summary */
-.summary {
-    background-color: #f0f8ff;
-    padding: 10px;
-    border-radius: 5px;
-    margin: 15px 0;
-    text-align: center;
-    border: 1px solid #d1e7ff;
-}
-
-/* User Info */
-.user-info {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-    padding: 10px;
-    background-color: #f8f9fa;
-    border-radius: 5px;
-}
-
-.user-info button {
-    width: auto;
-    padding: 5px 15px;
-    margin: 0;
-}
-
-/* Responsive Design */
-@media (max-width: 600px) {
-    .container, #login-container {
-        width: 95%;
-        margin: 20px auto;
-        padding: 15px;
-    }
-}
-
-/* Login Actions */
 .login-action {
-    text-align: center;
     margin-top: 15px;
     font-size: 0.9em;
 }
@@ -137,29 +156,40 @@ button:hover {
     cursor: pointer;
 }
 
-.login-action a:hover {
-    text-decoration: underline;
+.user-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    font-size: 0.9em;
 }
 
-/* Labels */
-label {
-    display: block;
-    margin-bottom: 5px;
-    color: #555;
+/* עיצוב כפתורי פעולה בלשונית הדוחות */
+.action-buttons {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
 }
 
-/* Error Handling */
-.error {
-    color: #dc3545;
-    font-size: 0.8em;
-    margin-top: 5px;
+.action-buttons button {
+    flex: 1;
+    margin: 0;
+    padding: 8px;
+    font-size: 0.9em;
 }
 
-/* Focus States */
-input:focus, 
-select:focus, 
-button:focus {
-    outline: none;
-    border-color: #007bff;
-    box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+.action-buttons button:nth-child(1) {
+    background-color: #28a745; /* ירוק לכפתור הייצוא */
+}
+
+.action-buttons button:nth-child(2) {
+    background-color: #17a2b8; /* תכלת לכפתור הגיבוי */
+}
+
+.action-buttons button:nth-child(3) {
+    background-color: #6f42c1; /* סגול לכפתור השחזור */
+}
+
+.action-buttons button:hover {
+    opacity: 0.9;
 }
