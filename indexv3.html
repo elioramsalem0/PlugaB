@@ -15,103 +15,65 @@
 </head>
 <body>
     <!-- מסך כניסה -->
-    <div id="login-container" style="display: block;">
+    <div id="login-container">
         <h2>כניסה למערכת נוכחות</h2>
         <div id="login-form">
-            <div id="login-error" class="error-message"></div>
             <input type="email" id="email" placeholder="אימייל" required>
             <input type="password" id="password" placeholder="סיסמה" required>
-            <button id="login-button" onclick="login()">כניסה</button>
+            <button id="login-button">כניסה</button>
             <div class="login-action">
                 <span>אין לך חשבון? <a onclick="showRegisterForm()">הרשם</a></span>
             </div>
-            <div class="login-action">
-                <a onclick="forgotPassword()">שכחתי סיסמה</a>
-            </div>
         </div>
+        
         <div id="register-form" style="display: none;">
-            <div id="register-error" class="error-message"></div>
             <input type="text" id="reg-firstname" placeholder="שם פרטי" required>
             <input type="text" id="reg-lastname" placeholder="שם משפחה" required>
             <input type="email" id="reg-email" placeholder="אימייל" required>
             <input type="password" id="reg-password" placeholder="סיסמה" required>
-            <input type="password" id="reg-password-confirm" placeholder="אימות סיסמה" required>
             <input type="text" id="reg-access-code" placeholder="קוד גישה מיוחד" required>
-            <button id="register-button" onclick="register()">הרשמה</button>
+            <button id="register-button">הרשמה</button>
             <div class="login-action">
                 <span>יש לך כבר חשבון? <a onclick="showLoginForm()">התחבר</a></span>
             </div>
         </div>
     </div>
 
-    <!-- מסך ראשי של המערכת (יוצג רק לאחר כניסה מוצלחת) -->
+    <!-- מסך ראשי של המערכת -->
     <div id="main-container" style="display: none;">
         <div class="container">
             <div class="user-info">
                 <span id="user-fullname"></span>
-                <button id="logout-button" onclick="logout()" style="width: auto; padding: 5px 10px;">התנתק</button>
+                <button onclick="app.auth.logout()">התנתק</button>
             </div>
             
             <h2>טופס דיווח נוכחות</h2>
             
-            <div class="tab-buttons">
-                <button id="tab-form" class="tab-button active" onclick="switchTab('form')">דיווח חדש</button>
-                <button id="tab-reports" class="tab-button" onclick="switchTab('reports')">הצגת דוחות</button>
+            <label>בחר מחלקה:</label>
+            <select id="unit">
+                <option value="">-- בחר מחלקה --</option>
+                <option value="מחלקה 1">מחלקה 1</option>
+                <option value="מחלקה 2">מחלקה 2</option>
+                <option value="מחלקה 3">מחלקה 3</option>
+                <option value="מפלג">מפלג</option>
+            </select>
+            
+            <label>תאריך:</label>
+            <input type="date" id="date">
+            
+            <label>שעה:</label>
+            <select id="time">
+                <option value="08:00">08:00</option>
+                <option value="18:00">18:00</option>
+            </select>
+            
+            <div id="soldiers" class="soldiers-list"></div>
+            
+            <div class="summary">
+                <strong>חיילים נעדרים: <span id="absent-count">0</span></strong>
             </div>
             
-            <div id="form-tab" class="tab-content active">
-                <div id="global-stats" class="stats-summary">
-                    <strong>סיכום כללי:</strong>
-                    <div id="total-stats"></div>
-                </div>
-                
-                <label>בחר מחלקה:</label>
-                <select id="unit" onchange="confirmUnitChange()">
-                    <option value="">-- בחר מחלקה --</option>
-                    <option value="מחלקה 1">מחלקה 1</option>
-                    <option value="מחלקה 2">מחלקה 2</option>
-                    <option value="מחלקה 3">מחלקה 3</option>
-                    <option value="מפלג">מפלג</option>
-                </select>
-                <br><br>
-                <label>תאריך:</label>
-                <input type="date" id="date" onchange="updateDateWithToday()">
-                <br><br>
-                <label>שעה:</label>
-                <select id="time">
-                    <option value="08:00">08:00</option>
-                    <option value="18:00">18:00</option>
-                </select>
-                <br><br>
-                <div class="search-box">
-                    <input type="text" id="search" placeholder="חפש חיילים..." onkeyup="filterSoldiers()">
-                </div>
-                <p>לחץ על שם החייל כדי לסמן אותו כנעדר:</p>
-                <div id="soldiers" class="soldier-list"></div>
-                
-                <div class="summary">
-                    <strong>חיילים נעדרים: <span id="absent-count">0</span></strong>
-                    <div id="selected-soldiers"></div>
-                </div>
-                
-                <button onclick="submitForm()">שלח דיווח</button>
-            </div>
-            
-            <div id="reports-tab" class="tab-content">
-                <h2>דוחות נוכחות</h2>
-                
-                <!-- כפתורי ייצוא וגיבוי נוספו כאן -->
-                <div class="action-buttons">
-                    <button onclick="exportToExcel()">ייצוא לאקסל</button>
-                    <button onclick="backupData()">גיבוי נתונים</button>
-                    <button onclick="restoreData()">שחזור מגיבוי</button>
-                </div>
-                
-                <div class="search-box">
-                    <input type="text" id="report-search" placeholder="חפש לפי תאריך, מחלקה או שם חייל..." onkeyup="filterReports()">
-                </div>
-                <div id="report-list"></div>
-            </div>
+            <button id="submit-report">שלח דיווח</button>
         </div>
     </div>
 
