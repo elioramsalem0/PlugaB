@@ -65,6 +65,9 @@
                     <div id="total-stats"></div>
                 </div>
                 
+                <!-- שדה סמוי לצורך מצב עריכה -->
+                <input type="hidden" id="edit-report-id" value="">
+                
                 <label>בחר מחלקה:</label>
                 <select id="unit" onchange="confirmUnitChange()">
                     <option value="">-- בחר מחלקה --</option>
@@ -94,13 +97,20 @@
                     <div id="selected-soldiers"></div>
                 </div>
                 
-                <button onclick="submitForm()">שלח דיווח</button>
+                <!-- אזור הצגת הסטטוסים של החיילים הנעדרים -->
+                <div id="status-area" class="status-container">
+                    <h3>סטטוס חיילים נעדרים</h3>
+                    <div id="soldier-status-list"></div>
+                </div>
+                
+                <button onclick="submitForm()" id="submit-button">שלח דיווח</button>
+                <button onclick="cancelEdit()" id="cancel-edit-button" style="display: none; background-color: #dc3545;">ביטול עריכה</button>
             </div>
             
             <div id="reports-tab" class="tab-content">
                 <h2>דוחות נוכחות</h2>
                 
-                <!-- כפתורי ייצוא וגיבוי נוספו כאן -->
+                <!-- כפתורי ייצוא וגיבוי -->
                 <div class="action-buttons">
                     <button onclick="exportToExcel()">ייצוא לאקסל</button>
                     <button onclick="backupData()">גיבוי נתונים</button>
@@ -111,6 +121,25 @@
                     <input type="text" id="report-search" placeholder="חפש לפי תאריך, מחלקה או שם חייל..." onkeyup="filterReports()">
                 </div>
                 <div id="report-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- דיאלוג בחירת סטטוס לחייל נעדר -->
+    <div id="status-dialog" class="dialog">
+        <div class="dialog-content">
+            <h3>בחר סטטוס לחייל: <span id="soldier-name"></span></h3>
+            <select id="status-select">
+                <option value="בבית">בבית</option>
+                <option value="גימלים">גימלים</option>
+                <option value="אחר">אחר...</option>
+            </select>
+            <div id="other-status-container" style="display: none; margin-top: 10px;">
+                <input type="text" id="other-status" placeholder="הזן סטטוס...">
+            </div>
+            <div class="dialog-buttons">
+                <button onclick="saveStatus()">שמור</button>
+                <button onclick="closeStatusDialog()">ביטול</button>
             </div>
         </div>
     </div>
