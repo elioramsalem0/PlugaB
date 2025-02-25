@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>טופס דיווח נוכחות</title>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+    
+    <script>
+        // תצורת Firebase שלך
+        const firebaseConfig = {
+          apiKey: "AIzaSyDAktpDrlseX7iAVUg0sDrZNLjbu37U6QA",
+          authDomain: "plugab-10731.firebaseapp.com",
+          databaseURL: "https://plugab-10731-default-rtdb.europe-west1.firebasedatabase.app",
+          projectId: "plugab-10731",
+          storageBucket: "plugab-10731.firebasestorage.app",
+          messagingSenderId: "812896087311",
+          appId: "1:812896087311:web:312963fa112f947400227a",
+          measurementId: "G-N0KGBYSDGX"
+        };
+        
+        // אתחול Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+    </script>
+    
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            text-align: center;
+            padding: 20px;
+            direction: rtl;
+        }
+        .container {
+            max-width: 600px;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            margin: auto;
+            text-align: right;
+        }
+        select, input, button {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .soldier-list {
+            max-height: 250px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+            text-align: right;
+            margin-bottom: 10px;
+        }
+        .soldier-list label {
+            display: block;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 5px;
+        }
+        .soldier-list label.selected {
+            background-color: #007bff;
+            color: white;
+        }
+        .report-section {
+            margin-top: 20px;
+        }
+        .summary {
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #f0f8ff;
+            border-radius: 5px;
+        }
+        .stats-summary {
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #fffaf0;
+            border-radius: 5px;
+            border-right: 4px solid #ffa500;
+        }
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 10px;
+            background-color: #dc3545;
+            color: white;
+            font-size: 0.8em;
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+        .report-card {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+            margin-bottom: 10px;
+            background-color: #fff;
+        }
+        .report-card h3 {
+            margin-top: 0;
+        }
+        .search-box {
+            margin-bottom: 10px;
+        }
+        .tab-buttons {
+            display: flex;
+            margin-bottom: 15px;
+        }
+        .tab-button {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            background-color: #ddd;
+            cursor: pointer;
+        }
+        .tab-button.active {
+            background-color: #007bff;
+            color: white;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>טופס דיווח נוכחות</h2>
+        
+        <div class="tab-buttons">
+            <button id="tab-form" class="tab-button active" onclick="switchTab('form')">דיווח חדש</button>
+            <button id="tab-reports" class="tab-button" onclick="switchTab('reports')">הצגת דוחות</button>
+        </div>
+        
+        <div id="form-tab" class="tab-content active">
+            <div id="global-stats" class="stats-summary">
+                <strong>סיכום כללי:</strong>
+                <div id="total-stats"></div>
+            </div>
+            
+            <label>בחר מחלקה:</label>
+            <select id="unit" onchange="confirmUnitChange()">
+                <option value="">-- בחר מחלקה --</option>
+                <option value="מחלקה 1">מחלקה 1</option>
+                <option value="מחלקה 2">מחלקה 2</option>
+                <option value="מחלקה 3">מחלקה 3</option>
+                <option value="מפלג">מפלג</option>
+            </select>
+            <br><br>
+            <label>תאריך:</label>
+            <input type="date" id="date" onchange="updateDateWithToday()">
+            <br><br>
+            <label>שעה:</label>
+            <select id="time">
+                <option value="08:00">08:00</option>
+                <option value="18:00">18:00</option>
+            </select>
+            <br><br>
+            <div class="search-box">
+                <input type="text" id="search" placeholder="חפש חיילים..." onkeyup="filterSoldiers()">
+            </div>
+            <p>לחץ על שם החייל כדי לסמן אותו כנעדר:</p>
+            <div id="soldiers" class="soldier-list"></div>
+            
+            <div class="summary">
+                <strong>חיילים נעדרים: <span id="absent-count">0</span></strong>
+                <div id="selected-soldiers"></div>
+            </div>
+            
+            <button onclick="submitForm()">שלח דיווח</button>
+        </div>
+        
+        <div id="reports-tab" class="tab-content">
+            <h2>דוחות נוכחות</h2>
+            <div class="search-box">
+                <input type="text" id="report-search" placeholder="חפש לפי תאריך, מחלקה או שם חייל..." onkeyup="filterReports()">
+            </div>
+            <div id="report-list"></div>
+        </div>
+    </div>
+
+    <!-- כפתורי גיבוי ושחזור -->
+    <div class="container" style="margin-top: 20px;">
+        <h3>כלי גיבוי</h3>
+        <div style="display: flex; gap: 10px;">
+            <button onclick="backupData()" style="flex: 1;">גיבוי נתונים</button>
+            <button onclick="restoreData()" style="flex: 1;">שחזור מגיבוי</button>
+        </div>
+    </div>
+
+    <script>
+        // פונקציות גיבוי ושחזור
+        function backupData() {
+            const dataStr = JSON.stringify(reports);
+            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+            
+            const exportFileDefaultName = `attendance_backup_${new Date().toLocaleDateString()}.json`;
+            
+            const linkElement = document.createElement('a');
+            linkElement.setAttribute('href', dataUri);
+            linkElement.setAttribute('download', exportFileDefaultName);
+            linkElement.click();
+            
+            alert("גיבוי הנתונים הושלם בהצלחה!");
+        }
+        
+        function restoreData() {
+            if (!confirm("פעולה זו תחליף את כל הנתונים הקיימים במערכת. האם להמשיך?")) {
+                return;
+            }
+            
+            const password = prompt("הכנס סיסמת שחזור:");
+            if (password !== "eadmin") {
+                alert("סיסמה שגויה!");
+                return;
+            }
+            
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            
+            input.onchange = e => {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                
+                reader.onload = readerEvent => {
+                    try {
+                        const content = readerEvent.target.result;
+                        const importedReports = JSON.parse(content);
+                        
+                        // בדיקת תקינות הנתונים
+                        let isValidData = true;
+                        for (const key in importedReports) {
+                            const report = importedReports[key];
+                            if (!report.date || !report.time || !report.unit || !Array.isArray(report.absent)) {
+                                isValidData = false;
+                                break;
+                            }
+                        }
+                        
+                        if (!isValidData) {
+                            alert("הקובץ אינו בפורמט תקין של גיבוי דוחות נוכחות.");
+                            return;
+                        }
+                        
+                        // עדכון המשתנה הגלובלי
+                        reports = importedReports;
+                        
+                        // שמירה ב-Firebase
+                        database.ref('reports').set(reports)
+                            .then(() => {
+                                // שמירה מקומית
+                                localStorage.setItem('attendanceReports', content);
+                                renderReportList();
+                                updateGlobalStats();
+                                alert('נתונים שוחזרו בהצלחה!');
+                            })
+                            .catch(error => {
+                                console.error("שגיאה בשמירת נתונים מיובאים ב-Firebase:", error);
+                                
+                                // שמירה מקומית בכל מקרה
+                                localStorage.setItem('attendanceReports', content);
+                                renderReportList();
+                                updateGlobalStats();
+                                
+                                alert('הנתונים שוחזרו למכשיר, אך התרחשה שגיאה בשמירה בענן: ' + error.message);
+                            });
+                            
+                    } catch (error) {
+                        alert('שגיאה בשחזור הנתונים: ' + error.message);
+                    }
+                };
+                
+                reader.readAsText(file, 'UTF-8');
+            };
+            
+            input.click();
+        }
+
+        const soldiers = {
+            "מחלקה 1": ["אביב לוי", "אבנר לוי", "איגור חביבובלין", "אמיר בלוך", "אסף אופיר", "הלל בנאמו", "חביב דדון", "לוי יצחק דובאוו", "לירון פוריאן", "פבל אבירם", "עדן מור"],
+            "מחלקה 2": ["אליהו ברקלי", "אוהד מאיר", "אלכסנדר ליטבין", "אסיף יו סבאג", "ג'קי מוקמל", "דביר יעקב", "דניאל זוקובסקי", "חן בן צבי", "ערן יופה", "רפאל אביטבול", "תומר צביון", "עליסיה טרשצנקו"],
+            "מחלקה 3": ["דניאל יונתן", "אביבה קללאו", "אופיר מזרחי", "איתי מלטבשי", "דקל חן", "ולדיסלב שבצ'נקו", "ליז קוקישווילי", "מאור גבאי", "נועם גזית", "עידן מלול", "רקפת זיו", "שיר דקלו"],
+            "מפלג": ["אלי מור", "אליאור אמסלם", "ג'סי שלו", "הגר שוקר", "מיקי ביתן", "עומר אנטמן", "עמית שחר", "רועי דנינו", "רן בן טוב", "שקד קסלר"]
+        };
+        
+        // משתנה לשמירת הדוחות
+        let reports = {};
+        
+        window.onload = function() {
+            // הגדרת התאריך הנוכחי כברירת מחדל
+            updateDateWithToday();
+            
+            // קודם בדוק אם יש נתונים באחסון המקומי במקרה של אין אינטרנט
+            const localReports = JSON.parse(localStorage.getItem('attendanceReports')) || {};
+            
+            // טעינת דוחות מ-Firebase
+            database.ref('reports').once('value')
+                .then(snapshot => {
+                    // שמירת הנתונים מ-Firebase
+                    reports = snapshot.val() || {};
+                    
+                    // אם אין נתונים ב-Firebase אבל יש באחסון המקומי, השתמש בהם
+                    if (Object.keys(reports).length === 0 && Object.keys(localReports).length > 0) {
+                        reports = localReports;
+                        // שמירת הנתונים המקומיים בענן
+                        database.ref('reports').set(reports);
+                    }
+                    
+                    // שמירת עותק באחסון המקומי
+                    localStorage.setItem('attendanceReports', JSON.stringify(reports));
+                    
+                    // הצגת הדוחות השמורים
+                    renderReportList();
+                    // עדכון הסטטיסטיקות
+                    updateGlobalStats();
+                })
+                .catch(error => {
+                    console.error("שגיאה בטעינת נתונים מ-Firebase:", error);
+                    
+                    // במקרה של שגיאה, השתמש בנתונים מקומיים אם יש
+                    reports = localReports;
+                    renderReportList();
+                    updateGlobalStats();
+                    
+                    // הודעה למשתמש
+                    if (Object.keys(reports).length > 0) {
+                        alert("לא ניתן להתחבר לשרת - משתמש בנתונים מקומיים");
+                    }
+                });
+        };
+        
+        function updateDateWithToday() {
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            
+            const defaultDate = `${year}-${month}-${day}`;
+            
+            if (!document.getElementById('date').value) {
+                document.getElementById('date').value = defaultDate;
+            }
+        }
+        
+        function switchTab(tabName) {
+            // הסרת המחלקה 'active' מכל כפתורי הלשונית
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active');
+            });
+            
+            // הסרת המחלקה 'active' מכל תוכן הלשונית
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // הפעלת הכפתור והלשונית שנבחרו
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+            document.getElementById(`${tabName}-tab`).classList.add('active');
+            
+            // רענון הדוחות וסטטיסטיקות אם הלשונית היא דוחות או טופס
+            if (tabName === 'reports') {
+                renderReportList();
+            } else if (tabName === 'form') {
+                updateGlobalStats();
+            }
+        }
+        
+        function confirmUnitChange() {
+            const selectedLabels = document.querySelectorAll('.soldier-list label.selected');
+            
+            if (selectedLabels.length > 0) {
+                if (confirm("שינוי מחלקה ימחק את הבחירה הנוכחית. האם להמשיך?")) {
+                    updateSoldiers();
+                } else {
+                    // שחזור המחלקה הקודמת
+                    const prevUnit = document.getElementById('unit').dataset.prevValue || "";
+                    document.getElementById('unit').value = prevUnit;
+                    return;
+                }
+            } else {
+                updateSoldiers();
+            }
+            
+            // שמירת המחלקה הנוכחית לשימוש עתידי
+            document.getElementById('unit').dataset.prevValue = document.getElementById('unit').value;
+        }
+        
+        function updateSoldiers() {
+            const selectedUnit = document.getElementById("unit").value;
+            const soldiersDiv = document.getElementById("soldiers");
+            soldiersDiv.innerHTML = "";
+            
+            if (selectedUnit) {
+                soldiers[selectedUnit].sort().forEach(soldier => {
+                    const label = document.createElement("label");
+                    label.innerText = soldier;
+                    label.classList.add("soldier-item");
+                    label.onclick = function() {
+                        label.classList.toggle("selected");
+                        updateSelectedSoldiers();
+                    };
+                    soldiersDiv.appendChild(label);
+                });
+            }
+            
+            // ניקוי רשימת החיילים שנבחרו
+            updateSelectedSoldiers();
+        }
+        
+        function updateSelectedSoldiers() {
+            const selectedSoldiers = Array.from(document.querySelectorAll(".soldier-list label.selected")).map(label => label.innerText);
+            const selectedSoldiersDiv = document.getElementById("selected-soldiers");
+            const absentCountSpan = document.getElementById("absent-count");
+            
+            selectedSoldiersDiv.innerHTML = "";
+            
+            if (selectedSoldiers.length) {
+                selectedSoldiers.forEach(soldier => {
+                    const badge = document.createElement("span");
+                    badge.classList.add("badge");
+                    badge.innerText = soldier;
+                    selectedSoldiersDiv.appendChild(badge);
+                });
+            } else {
+                selectedSoldiersDiv.innerHTML = "<em>אין חיילים נעדרים</em>";
+            }
+            
+            absentCountSpan.innerText = selectedSoldiers.length;
+        }
+        
+        function filterSoldiers() {
+            const searchTerm = document.getElementById("search").value.toLowerCase();
+            const soldierLabels = document.querySelectorAll(".soldier-list label");
+            
+            soldierLabels.forEach(label => {
+                if (label.innerText.toLowerCase().includes(searchTerm)) {
+                    label.style.display = "block";
+                } else {
+                    label.style.display = "none";
+                }
+            });
+        }
+        
+        function filterReports() {
+            const searchTerm = document.getElementById("report-search").value.toLowerCase();
+            const reportCards = document.querySelectorAll(".report-card");
+            
+            reportCards.forEach(card => {
+                if (card.innerText.toLowerCase().includes(searchTerm)) {
+                    card.style.display = "block";
+                } else {
+                    card.style.display = "none";
+                }
+            });
+        }
+        
+        function checkExistingReport(date, time, unit) {
+            // בדיקה אם קיים כבר דוח לאותו תאריך, שעה ומחלקה
+            const reportId = `${date}_${time}_${unit}`.replace(/[\s:]/g, '_');
+            
+            return reports[reportId] !== undefined;
+        }
+        
+        function submitForm() {
+            // הורדתי את בדיקת הסיסמה מכאן - כבר אין צורך בסיסמה לשליחת דוח
+            
+            const selectedUnit = document.getElementById("unit").value;
+            const selectedDate = document.getElementById("date").value;
+            const selectedTime = document.getElementById("time").value;
+            const absentSoldiers = Array.from(document.querySelectorAll(".soldier-list label.selected")).map(label => label.innerText);
+            
+            if (!selectedUnit || !selectedDate || !selectedTime) {
+                alert("אנא מלא את כל השדות לפני שליחת הדיווח.");
+                return;
+            }
+            
+            // בדיקה אם קיים כבר דוח עם אותו תאריך, שעה ומחלקה
+            if (checkExistingReport(selectedDate, selectedTime, selectedUnit)) {
+                if (!confirm("כבר קיים דוח לתאריך, שעה ומחלקה אלו. האם ברצונך לעדכן את הדוח הקיים?")) {
+                    return;
+                }
+            }
+            
+            // יצירת מזהה ייחודי לדוח
+            const reportId = `${selectedDate}_${selectedTime}_${selectedUnit}`.replace(/[\s:]/g, '_');
+            
+            // יצירת דוח עם חותמת זמן
+            const reportTimestamp = new Date().toISOString();
+            
+            // יצירת אובייקט הדוח
+            const reportData = { 
+                date: selectedDate, 
+                time: selectedTime, 
+                unit: selectedUnit, 
+                absent: absentSoldiers,
+                timestamp: reportTimestamp
+            };
+            
+            // עדכון המשתנה הגלובלי
+            reports[reportId] = reportData;
+            
+            // ניסיון לשמור ב-Firebase
+            database.ref('reports/' + reportId).set(reportData)
+                .then(() => {
+                    // שמירת הדוחות לאחסון מקומי כגיבוי
+                    localStorage.setItem('attendanceReports', JSON.stringify(reports));
+                    
+                    alert("הדיווח נשלח בהצלחה!");
+                    
+                    // ניקוי הטופס
+                    document.querySelectorAll(".soldier-list label.selected").forEach(label => {
+                        label.classList.remove("selected");
+                    });
+                    updateSelectedSoldiers();
+                    
+                    // עדכון הסטטיסטיקות
+                    updateGlobalStats();
+                    
+                    // מעבר ללשונית הדוחות
+                    switchTab('reports');
+                })
+                .catch(error => {
+                    console.error("שגיאה בשמירת נתונים ב-Firebase:", error);
+                    
+                    // שמירת הדוחות לאחסון מקומי בכל מקרה
+                    localStorage.setItem('attendanceReports', JSON.stringify(reports));
+                    
+                    alert("הדיווח נשמר באופן מקומי, אך התרחשה שגיאה בשמירה בענן: " + error.message);
+                    
+                    // עדכון הסטטיסטיקות
+                    updateGlobalStats();
+                    
+                    // מעבר ללשונית הדוחות
+                    switchTab('reports');
+                });
+        }
+        
+        function deleteReport(reportId) {
+            const password = prompt("הכנס סיסמת מחיקה:");
+            if (password !== "eadmin") {
+                alert("סיסמה שגויה!");
+                return;
+            }
+            
+            if (confirm("האם אתה בטוח שברצונך למחוק דוח זה?")) {
+                // מחיקה מהמשתנה הגלובלי
+                delete reports[reportId];
+                
+                // ניסיון למחוק מ-Firebase
+                database.ref('reports/' + reportId).remove()
+                    .then(() => {
+                        // עדכון האחסון המקומי
+                        localStorage.setItem('attendanceReports', JSON.stringify(reports));
+                        renderReportList();
+                        updateGlobalStats();
+                        alert("הדוח נמחק בהצלחה!");
+                    })
+                    .catch(error => {
+                        console.error("שגיאה במחיקת נתונים מ-Firebase:", error);
+                        
+                        // עדכון האחסון המקומי בכל מקרה
+                        localStorage.setItem('attendanceReports', JSON.stringify(reports));
+                        renderReportList();
+                        updateGlobalStats();
+                        
+                        alert("הדוח נמחק מהמכשיר, אך התרחשה שגיאה במחיקה מהענן: " + error.message);
+                    });
+            }
+        }
+        
+        function renderReportList() {
+            const reportListDiv = document.getElementById("report-list");
+            reportListDiv.innerHTML = "";
+            
+            if (Object.keys(reports).length === 0) {
+                reportListDiv.innerHTML = "<p>אין דוחות זמינים.</p>";
+                return;
+            }
+            
+            // מיון הדוחות לפי תאריך וזמן (החדש ביותר תחילה)
+            const sortedReports = Object.entries(reports).sort((a, b) => {
+                const dateA = new Date(`${a[1].date}T${a[1].time}`);
+                const dateB = new Date(`${b[1].date}T${b[1].time}`);
+                return dateB - dateA;
+            });
+            
+            sortedReports.forEach(([reportId, data]) => {
+                const reportCard = document.createElement("div");
+                reportCard.classList.add("report-card");
+                
+                // המרת תאריך לפורמט עברי
+                const dateObj = new Date(data.date);
+                const formattedDate = `${dateObj.getDate()}/${dateObj.getMonth() + 1}/${dateObj.getFullYear()}`;
+                
+                reportCard.innerHTML = `
+                    <h3>${data.unit} - ${formattedDate} ${data.time}</h3>
+                    <p><strong>מספר חיילים נעדרים:</strong> ${data.absent.length}</p>
+                `;
+                
+                if (data.absent.length) {
+                    reportCard.innerHTML += `<p><strong>חיילים נעדרים:</strong> ${data.absent.join(", ")}</p>`;
+                } else {
+                    reportCard.innerHTML += `<p><strong>חיילים נעדרים:</strong> אין חיילים נעדרים</p>`;
+                }
+                
+                // כפתור מחיקה
+                const deleteButton = document.createElement("button");
+                deleteButton.innerText = "מחק דוח";
+                deleteButton.style.backgroundColor = "#dc3545";
+                deleteButton.onclick = function() {
+                    deleteReport(reportId);
+                };
+                reportCard.appendChild(deleteButton);
+                
+                reportListDiv.appendChild(reportCard);
+            });
+        }
+        
+        function updateGlobalStats() {
+            const statsDiv = document.getElementById("total-stats");
+            
+            // איסוף הנתונים
+            let totalReports = Object.keys(reports).length;
+            let totalAbsent = 0;
+            let absentByUnit = {};
+            let mostRecentDate = "";
+            
+            // חישוב סטטיסטיקות
+            for (const unit of Object.keys(soldiers)) {
+                absentByUnit[unit] = 0;
+            }
+            
+            // מיון הדוחות לפי תאריך וזמן (החדש ביותר תחילה)
+            const sortedReports = Object.entries(reports).sort((a, b) => {
+                const dateA = new Date(`${a[1].date}T${a[1].time}`);
+                const dateB = new Date(`${b[1].date}T${b[1].time}`);
+                return dateB - dateA;
+            });
+            
+            if (sortedReports.length > 0) {
+                const latestReport = sortedReports[0][1];
+                const dateObj = new Date(latestReport.date);
+                mostRecentDate = `${dateObj.getDate()}/${dateObj.getMonth() + 1}/${dateObj.getFullYear()}`;
+            }
+            
+            // חישוב סך כל החיילים הנעדרים
+            for (const report of Object.values(reports)) {
+                totalAbsent += report.absent.length;
+                
+                if (report.unit in absentByUnit) {
+                    absentByUnit[report.unit] += report.absent.length;
+                }
+            }
+            
+            // הצגת הסטטיסטיקות
+            statsDiv.innerHTML = `
+                <p><strong>סך הכל דוחות:</strong> ${totalReports}</p>
+                <p><strong>סך הכל חיילים נעדרים:</strong> ${totalAbsent}</p>
+            `;
+            
+            if (mostRecentDate) {
+                statsDiv.innerHTML += `<p><strong>תאריך דיווח אחרון:</strong> ${mostRecentDate}</p>`;
+            }
+            
+            statsDiv.innerHTML += `<p><strong>נעדרים לפי מחלקה:</strong></p>`;
+            
+            for (const [unit, count] of Object.entries(absentByUnit)) {
+                if (count > 0) {
+                    statsDiv.innerHTML += `<p>${unit}: ${count}</p>`;
+                }
+            }
+        }
+        
+        function exportToExcel() {
+            // בדיקת אם ישנן דוחות לייצוא
+            if (Object.keys(reports).length === 0) {
+                alert("אין דוחות לייצוא.");
+                return;
+            }
+            
+            // יצירת אובייקט הטבלה שיהפוך ל-HTML
+            let tableHTML = '<table border="1">';
+            tableHTML += '<tr><th>תאריך ושעה</th><th>מחלקה 1</th><th>מחלקה 2</th><th>מחלקה 3</th><th>מפלג</th></tr>';
+            
+            // מיון דוחות לפי תאריך
+            const sortedReports = Object.values(reports).sort((a, b) => {
+                const dateA = new Date(`${a.date}T${a.time}`);
+                const dateB = new Date(`${b.date}T${b.time}`);
+                return dateB - dateA;
+            });
+            
+            // מציאת התאריכים הייחודיים במבנה שרשור
+            const uniqueDates = [];
+            sortedReports.forEach(report => {
+                const dateObj = new Date(report.date);
+                const formattedDate = `${dateObj.getDate()}.${dateObj.getMonth() + 1}.${dateObj.getFullYear()}`;
+                const dateTimeKey = `${formattedDate} ${report.time}`;
+                if (!uniqueDates.includes(dateTimeKey)) {
+                    uniqueDates.push(dateTimeKey);
+                }
+            });
+            
+            // בניית שורות הדוח
+            uniqueDates.forEach(dateTime => {
+                tableHTML += '<tr>';
+                tableHTML += `<td>${dateTime}</td>`;
+                
+                // עבור כל מחלקה, מצא את החיילים הנעדרים בתאריך זה
+                ["מחלקה 1", "מחלקה 2", "מחלקה 3", "מפלג"].forEach(unitName => {
+                    const unitReports = sortedReports.filter(report => {
+                        const dateObj = new Date(report.date);
+                        const formattedDate = `${dateObj.getDate()}.${dateObj.getMonth() + 1}.${dateObj.getFullYear()}`;
+                        const reportDateTime = `${formattedDate} ${report.time}`;
+                        return reportDateTime === dateTime && report.unit === unitName;
+                    });
+                    
+                    tableHTML += '<td>';
+                    
+                    // אם יש דיווח למחלקה זו בתאריך הזה, הוסף את החיילים
+                    if (unitReports.length > 0 && unitReports[0].absent.length > 0) {
+                        unitReports[0].absent.forEach(soldier => {
+                            tableHTML += `${soldier}<br>`;
+                        });
+                    }
+                    
+                    tableHTML += '</td>';
+                });
+                
+                tableHTML += '</tr>';
+            });
+            
+            tableHTML += '</table>';
+            
+            // יצירת Blob עם HTML שאקסל יכול לפתוח
+            const blob = new Blob(['\ufeff', tableHTML], { type: 'application/vnd.ms-excel' });
+            const link = document.createElement("a");
+            
+            // יצירת URL לקובץ
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", `דוח_נוכחות_${new Date().toLocaleDateString()}.xls`);
+            link.style.visibility = 'hidden';
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
