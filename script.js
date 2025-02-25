@@ -21,10 +21,6 @@ let isLoggedIn = false;
 // משתנה גלובלי לשמירת הדוחות
 let reports = {};
 
-// משתנים לסטטוס חיילים
-let currentSoldierStatuses = {};
-let currentSoldierForStatus = "";
-
 // קוד גישה מיוחד להרשמה - רק מי שיודע אותו יכול להירשם
 const SPECIAL_ACCESS_CODE = "plugab2025";
 
@@ -71,16 +67,6 @@ auth.onAuthStateChanged(function(user) {
     }
 });
 
-// האזנה לשינויים בבחירת הסטטוס
-document.getElementById('status-select').addEventListener('change', function() {
-    const otherContainer = document.getElementById('other-status-container');
-    if (this.value === 'אחר') {
-        otherContainer.style.display = 'block';
-        document.getElementById('other-status').focus();
-    } else {
-        otherContainer.style.display = 'none';
-    }
-});
 // פונקציות התחברות והרשמה
 function login() {
     const email = document.getElementById('email').value;
@@ -211,6 +197,92 @@ function showLoginForm() {
     document.getElementById('login-form').style.display = 'block';
     document.getElementById('register-form').style.display = 'none';
 }
+
+// טעינת הנתונים
+function loadData() {
+    // עדכון התאריך הנוכחי
+    updateDateWithToday();
+    
+    // קודם בדוק אם יש נתונים באחסון המקומי במקרה של אין אינטרנט
+    const localReports = JSON.parse(localStorage.getItem('attendanceReports')) || {};
+    
+    // טעינת דוחות מ-Firebase
+    database.ref('reports').once('value')
+        .then(snapshot => {
+            // שמירת הנתונים מ-Firebase
+            reports = snapshot.val() || {};
+            
+            // אם אין נתונים ב-Firebase אבל יש באחסון המקומי, השתמש בהם
+            if (Object.keys(reports).length === 0 && Object.keys(localReports).length > 0) {
+                reports = localReports;
+                // שמירת הנתונים המקומיים בענן
+                database.ref('reports').set(reports);
+            }
+            
+            // שמירת עותק באחסון המקומי
+            localStorage.setItem('attendanceReports', JSON.stringify(reports));
+            
+            // הצגת הדוחות והסטטיסטיקות
+            renderReportList();
+            updateGlobalStats();
+        })
+        .catch(error => {
+            console.error("שגיאה בטעינת נתונים מ-Firebase:", error);
+            
+            // במקרה של שגיאה, השתמש בנתונים מקומיים אם יש
+            reports = localReports;
+            renderReportList();
+            updateGlobalStats();
+            
+            // הודעה למשתמש
+            if (Object.keys(reports).length > 0) {
+                alert("לא ניתן להתחבר לשרת - משתמש בנתונים מקומיים");
+            }
+        });
+}
+
+function updateDateWithToday() {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    
+    const defaultDate = `${year}-${month}-${day}`;
+    
+    if (!document.getElementById('date').value) {
+        document.getElementById('date').value = defaultDate;
+    }
+}
+
+function switchTab(tabName) {
+    // בדיקה אם המשתמש מחובר
+    if (!isLoggedIn) {
+        alert("עליך להתחבר למערכת כדי לבצע פעולה זו");
+        return;
+    }
+    
+    // הסרת המחלקה 'active' מכל כפתורי הלשונית
+    document.querySelectorAll('.tab-button').forEach(button => {
+        button.classList.remove('active');
+    });
+    
+    // הסרת המחלקה 'active' מכל תוכן הלשונית
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+    
+    // הפעלת הכפתור והלשונית שנבחרו
+    document.getElementById(`tab-${tabName}`).classList.add('active');
+    document.getElementById(`${tabName}-tab`).classList.add('active');
+    
+    // רענון הדוחות וסטטיסטיקות אם הלשונית היא דוחות או טופס
+    if (tabName === 'reports') {
+        renderReportList();
+    } else if (tabName === 'form') {
+        updateGlobalStats();
+    }
+}
+
 function confirmUnitChange() {
     // בדיקה אם המשתמש מחובר
     if (!isLoggedIn) {
@@ -224,8 +296,6 @@ function confirmUnitChange() {
     if (selectedLabels.length > 0) {
         if (confirm("שינוי מחלקה ימחק את הבחירה הנוכחית. האם להמשיך?")) {
             updateSoldiers();
-            currentSoldierStatuses = {}; // איפוס סטטוסים בשינוי מחלקה
-            updateSoldierStatusList();
         } else {
             // שחזור המחלקה הקודמת
             const prevUnit = document.getElementById('unit').dataset.prevValue || "";
@@ -234,8 +304,6 @@ function confirmUnitChange() {
         }
     } else {
         updateSoldiers();
-        currentSoldierStatuses = {}; // איפוס סטטוסים בשינוי מחלקה
-        updateSoldierStatusList();
     }
     
     // שמירת המחלקה הנוכחית לשימוש עתידי
@@ -254,16 +322,6 @@ function updateSoldiers() {
             label.classList.add("soldier-item");
             label.onclick = function() {
                 label.classList.toggle("selected");
-                
-                if (label.classList.contains("selected")) {
-                    // אם החייל נבחר כנעדר, פתח דיאלוג לבחירת סטטוס
-                    showStatusDialog(soldier);
-                } else {
-                    // אם החייל כבר לא נעדר, מחק את הסטטוס שלו
-                    delete currentSoldierStatuses[soldier];
-                    updateSoldierStatusList();
-                }
-                
                 updateSelectedSoldiers();
             };
             soldiersDiv.appendChild(label);
@@ -293,121 +351,6 @@ function updateSelectedSoldiers() {
     }
     
     absentCountSpan.innerText = selectedSoldiers.length;
-    
-    // הצג/הסתר את אזור הסטטוס בהתאם למספר החיילים הנעדרים
-    document.getElementById('status-area').style.display = selectedSoldiers.length > 0 ? 'block' : 'none';
-}
-
-// פונקציות לטיפול בסטטוס חיילים
-function showStatusDialog(soldierName) {
-    currentSoldierForStatus = soldierName;
-    
-    // הגדר את שם החייל בדיאלוג
-    document.getElementById('soldier-name').textContent = soldierName;
-    
-    // קבע את ערך ברירת המחדל של הסטטוס אם כבר יש לחייל סטטוס
-    const statusSelect = document.getElementById('status-select');
-    const otherStatusInput = document.getElementById('other-status');
-    const otherStatusContainer = document.getElementById('other-status-container');
-    
-    if (currentSoldierStatuses[soldierName]) {
-        const currentStatus = currentSoldierStatuses[soldierName];
-        // בדוק אם הסטטוס הוא אחד מהערכים הקבועים
-        if (['בבית', 'גימלים'].includes(currentStatus)) {
-            statusSelect.value = currentStatus;
-            otherStatusContainer.style.display = 'none';
-        } else {
-            statusSelect.value = 'אחר';
-            otherStatusInput.value = currentStatus;
-            otherStatusContainer.style.display = 'block';
-        }
-    } else {
-        // אפס את הערכים אם אין סטטוס קיים
-        statusSelect.value = 'בבית';
-        otherStatusInput.value = '';
-        otherStatusContainer.style.display = 'none';
-    }
-    
-    // הצג את הדיאלוג
-    const dialog = document.getElementById('status-dialog');
-    dialog.style.display = 'flex';
-}
-
-function closeStatusDialog() {
-    document.getElementById('status-dialog').style.display = 'none';
-}
-
-function saveStatus() {
-    const statusSelect = document.getElementById('status-select');
-    let selectedStatus = statusSelect.value;
-    
-    // אם נבחר "אחר", קח את הערך מהשדה הנוסף
-    if (selectedStatus === 'אחר') {
-        const otherStatusValue = document.getElementById('other-status').value.trim();
-        if (otherStatusValue) {
-            selectedStatus = otherStatusValue;
-        }
-    }
-    
-    // שמור את הסטטוס
-    currentSoldierStatuses[currentSoldierForStatus] = selectedStatus;
-    
-    // עדכן את רשימת הסטטוסים בממשק
-    updateSoldierStatusList();
-    
-    // סגור את הדיאלוג
-    closeStatusDialog();
-}
-
-function updateSoldierStatusList() {
-    const statusListContainer = document.getElementById('soldier-status-list');
-    statusListContainer.innerHTML = '';
-    
-    // קבל את החיילים הנעדרים
-    const selectedSoldiers = Array.from(document.querySelectorAll(".soldier-list label.selected")).map(label => label.innerText);
-    
-    if (selectedSoldiers.length === 0) {
-        statusListContainer.innerHTML = '<div class="status-empty">אין חיילים נעדרים</div>';
-        return;
-    }
-    
-    // יצירת פריט עבור כל חייל נעדר
-    selectedSoldiers.forEach(soldier => {
-        const statusItem = document.createElement('div');
-        statusItem.className = 'status-item';
-        
-        const soldierNameSpan = document.createElement('span');
-        soldierNameSpan.textContent = soldier;
-        
-        const statusBadge = document.createElement('span');
-        statusBadge.className = 'status-badge';
-        
-        // קבע את הסטטוס וסוג התג בהתאם לסטטוס
-        const status = currentSoldierStatuses[soldier] || 'לא צוין';
-        statusBadge.textContent = status;
-        
-        if (status === 'בבית') {
-            statusBadge.classList.add('home');
-        } else if (status === 'גימלים') {
-            statusBadge.classList.add('medical');
-        } else if (status !== 'לא צוין') {
-            statusBadge.classList.add('other');
-        }
-        
-        // כפתור לשינוי סטטוס
-        const changeStatus = document.createElement('span');
-        changeStatus.className = 'status-change';
-        changeStatus.textContent = 'שנה';
-        changeStatus.onclick = function() {
-            showStatusDialog(soldier);
-        };
-        
-        statusItem.appendChild(soldierNameSpan);
-        statusItem.appendChild(statusBadge);
-        statusItem.appendChild(changeStatus);
-        
-        statusListContainer.appendChild(statusItem);
-    });
 }
 
 function filterSoldiers() {
@@ -435,6 +378,7 @@ function filterReports() {
         }
     });
 }
+
 function checkExistingReport(date, time, unit) {
     // בדיקה אם קיים כבר דוח לאותו תאריך, שעה ומחלקה
     const reportId = `${date}_${time}_${unit}`.replace(/[\s:]/g, '_');
@@ -465,16 +409,15 @@ function submitForm() {
         return;
     }
     
-    // יצירת מזהה ייחודי לדוח
-    const editReportId = document.getElementById('edit-report-id').value;
-    const reportId = editReportId || `${selectedDate}_${selectedTime}_${selectedUnit}`.replace(/[\s:]/g, '_');
-    
-    // אם לא במצב עריכה, בדוק אם קיים כבר דוח זהה
-    if (!editReportId && checkExistingReport(selectedDate, selectedTime, selectedUnit)) {
+    // בדיקה אם קיים כבר דוח עם אותו תאריך, שעה ומחלקה
+    if (checkExistingReport(selectedDate, selectedTime, selectedUnit)) {
         if (!confirm("כבר קיים דוח לתאריך, שעה ומחלקה אלו. האם ברצונך לעדכן את הדוח הקיים?")) {
             return;
         }
     }
+    
+    // יצירת מזהה ייחודי לדוח
+    const reportId = `${selectedDate}_${selectedTime}_${selectedUnit}`.replace(/[\s:]/g, '_');
     
     // יצירת דוח עם חותמת זמן
     const reportTimestamp = new Date().toISOString();
@@ -487,246 +430,131 @@ function submitForm() {
             const lastName = userData.lastName || '';
             const fullName = firstName && lastName ? `${firstName} ${lastName}` : auth.currentUser.email;
             
-            // מידע על סטטוס החיילים
-            const soldierStatusInfo = {};
-            absentSoldiers.forEach(soldier => {
-                soldierStatusInfo[soldier] = currentSoldierStatuses[soldier] || 'לא צוין';
-            });
+            // יצירת אובייקט הדוח
+            const reportData = { 
+                date: selectedDate, 
+                time: selectedTime, 
+                unit: selectedUnit, 
+                absent: absentSoldiers,
+                timestamp: reportTimestamp,
+                createdBy: fullName
+            };
             
-// יצירת אובייקט הדוח
-const reportData = { 
-    date: selectedDate, 
-    time: selectedTime, 
-    unit: selectedUnit, 
-    absent: absentSoldiers,
-    soldierStatus: soldierStatusInfo,
-    timestamp: reportTimestamp,
-    createdBy: fullName
-};
-
-// עדכון המשתנה הגלובלי
-reports[reportId] = reportData;
-
-// ניסיון לשמור ב-Firebase
-database.ref('reports/' + reportId).set(reportData)
-    .then(() => {
-        // שמירת הדוחות לאחסון מקומי כגיבוי
-        localStorage.setItem('attendanceReports', JSON.stringify(reports));
-        
-        let successMessage = "הדיווח נשלח בהצלחה!";
-        if (editReportId) {
-            successMessage = "הדיווח עודכן בהצלחה!";
-            // איפוס מצב עריכה
-            cancelEdit();
-        }
-        
-        alert(successMessage);
-        
-        // ניקוי הטופס אם לא במצב עריכה
-        if (!editReportId) {
+            // עדכון המשתנה הגלובלי
+            reports[reportId] = reportData;
+            
+            // ניסיון לשמור ב-Firebase
+            database.ref('reports/' + reportId).set(reportData)
+                .then(() => {
+                    // שמירת הדוחות לאחסון מקומי כגיבוי
+                    localStorage.setItem('attendanceReports', JSON.stringify(reports));
+                    
+                    alert("הדיווח נשלח בהצלחה!");
+                    
+                    // ניקוי הטופס
+                    document.querySelectorAll(".soldier-list label.selected").forEach(label => {
+                        label.classList.remove("selected");
+                    });
+                    updateSelectedSoldiers();
+                    
+                    // עדכון הסטטיסטיקות
+                    updateGlobalStats();
+                    
+                    // מעבר ללשונית הדוחות
+                    switchTab('reports');
+                })
+                .catch(error => {
+                    console.error("שגיאה בשמירת נתונים ב-Firebase:", error);
+                    
+                    // שמירת הדוחות לאחסון מקומי בכל מקרה
+                    localStorage.setItem('attendanceReports', JSON.stringify(reports));
+                    
+                    alert("הדיווח נשמר באופן מקומי, אך התרחשה שגיאה בשמירה בענן: " + error.message);
+                    
+                    // עדכון הסטטיסטיקות
+                    updateGlobalStats();
+                    
+                    // מעבר ללשונית הדוחות
+                    switchTab('reports');
+                });
+        })
+        .catch(error => {
+            console.error("שגיאה בקבלת מידע המשתמש:", error);
+            
+            // במקרה של שגיאה משתמשים באימייל כברירת מחדל
+            const reportData = { 
+                date: selectedDate, 
+                time: selectedTime, 
+                unit: selectedUnit, 
+                absent: absentSoldiers,
+                timestamp: reportTimestamp,
+                createdBy: auth.currentUser.email
+            };
+            
+            // עדכון המשתנה הגלובלי
+            reports[reportId] = reportData;
+            
+            // ניסיון לשמור ב-Firebase
+            database.ref('reports/' + reportId).set(reportData);
+            
+            // שמירת הדוחות לאחסון מקומי כגיבוי
+            localStorage.setItem('attendanceReports', JSON.stringify(reports));
+                    
+            alert("הדיווח נשלח בהצלחה!");
+            
+            // ניקוי הטופס
             document.querySelectorAll(".soldier-list label.selected").forEach(label => {
                 label.classList.remove("selected");
             });
             updateSelectedSoldiers();
-            currentSoldierStatuses = {};
-            updateSoldierStatusList();
-        }
-        
-        // עדכון הסטטיסטיקות
-        updateGlobalStats();
-        
-        // מעבר ללשונית הדוחות
-        switchTab('reports');
-    })
-    .catch(error => {
-        console.error("שגיאה בשמירת נתונים ב-Firebase:", error);
-        
-        // שמירת הדוחות לאחסון מקומי בכל מקרה
-        localStorage.setItem('attendanceReports', JSON.stringify(reports));
-        
-        alert("הדיווח נשמר באופן מקומי, אך התרחשה שגיאה בשמירה בענן: " + error.message);
-        
-        // עדכון הסטטיסטיקות
-        updateGlobalStats();
-        
-        // מעבר ללשונית הדוחות
-        switchTab('reports');
-    });
-})
-.catch(error => {
-console.error("שגיאה בקבלת מידע המשתמש:", error);
-
-// במקרה של שגיאה משתמשים באימייל כברירת מחדל
-const soldierStatusInfo = {};
-absentSoldiers.forEach(soldier => {
-    soldierStatusInfo[soldier] = currentSoldierStatuses[soldier] || 'לא צוין';
-});
-
-const reportData = { 
-    date: selectedDate, 
-    time: selectedTime, 
-    unit: selectedUnit, 
-    absent: absentSoldiers,
-    soldierStatus: soldierStatusInfo,
-    timestamp: reportTimestamp,
-    createdBy: auth.currentUser.email
-};
-
-// עדכון המשתנה הגלובלי
-reports[reportId] = reportData;
-
-// ניסיון לשמור ב-Firebase
-database.ref('reports/' + reportId).set(reportData);
-
-// שמירת הדוחות לאחסון מקומי כגיבוי
-localStorage.setItem('attendanceReports', JSON.stringify(reports));
-        
-let successMessage = "הדיווח נשלח בהצלחה!";
-if (editReportId) {
-    successMessage = "הדיווח עודכן בהצלחה!";
-    // איפוס מצב עריכה
-    cancelEdit();
-}
-
-alert(successMessage);
-
-// ניקוי הטופס אם לא במצב עריכה
-if (!editReportId) {
-    document.querySelectorAll(".soldier-list label.selected").forEach(label => {
-        label.classList.remove("selected");
-    });
-    updateSelectedSoldiers();
-    currentSoldierStatuses = {};
-    updateSoldierStatusList();
-}
-
-// עדכון הסטטיסטיקות
-updateGlobalStats();
-
-// מעבר ללשונית הדוחות
-switchTab('reports');
-});
-}
-
-function editReport(reportId) {
-// בדיקה אם המשתמש מחובר
-if (!isLoggedIn) {
-alert("עליך להתחבר למערכת כדי לערוך דיווח");
-return;
-}
-
-const password = prompt("הכנס סיסמת עריכה:");
-if (password !== "eadmin") {
-alert("סיסמה שגויה!");
-return;
-}
-
-// קבלת הדיווח הקיים
-const report = reports[reportId];
-if (!report) {
-alert("הדיווח לא נמצא!");
-return;
-}
-
-// מעבר ללשונית הטופס
-switchTab('form');
-
-// הגדרת מצב עריכה
-document.getElementById('edit-report-id').value = reportId;
-document.getElementById('submit-button').innerText = "עדכן דיווח";
-document.getElementById('cancel-edit-button').style.display = "block";
-
-// מילוי הטופס בנתונים הקיימים
-document.getElementById('unit').value = report.unit;
-document.getElementById('date').value = report.date;
-document.getElementById('time').value = report.time;
-
-// טעינת החיילים מהמחלקה
-updateSoldiers();
-
-// סימון החיילים הנעדרים
-const soldierLabels = document.querySelectorAll(".soldier-list label");
-soldierLabels.forEach(label => {
-if (report.absent.includes(label.innerText)) {
-label.classList.add("selected");
-}
-});
-
-// טעינת הסטטוסים אם יש
-currentSoldierStatuses = {};
-if (report.soldierStatus) {
-currentSoldierStatuses = {...report.soldierStatus};
-} else {
-// במקרה שאין סטטוסים בדיווח הקיים (דיווחים ישנים)
-report.absent.forEach(soldier => {
-currentSoldierStatuses[soldier] = 'לא צוין';
-});
-}
-
-// עדכון הממשק
-updateSelectedSoldiers();
-updateSoldierStatusList();
-}
-
-function cancelEdit() {
-// ניקוי מצב עריכה
-document.getElementById('edit-report-id').value = '';
-document.getElementById('submit-button').innerText = "שלח דיווח";
-document.getElementById('cancel-edit-button').style.display = "none";
-
-// איפוס הטופס
-document.getElementById('unit').value = '';
-document.querySelectorAll(".soldier-list label.selected").forEach(label => {
-label.classList.remove("selected");
-});
-updateSelectedSoldiers();
-
-// איפוס סטטוסים
-currentSoldierStatuses = {};
-updateSoldierStatusList();
-
-// עדכון החיילים
-document.getElementById('soldiers').innerHTML = '';
+            
+            // עדכון הסטטיסטיקות
+            updateGlobalStats();
+            
+            // מעבר ללשונית הדוחות
+            switchTab('reports');
+        });
 }
 
 function deleteReport(reportId) {
-// בדיקה אם המשתמש מחובר
-if (!isLoggedIn) {
-alert("עליך להתחבר למערכת כדי למחוק דיווח");
-return;
-}
-
-const password = prompt("הכנס סיסמת מחיקה:");
-if (password !== "eadmin") {
-alert("סיסמה שגויה!");
-return;
-}
-
-if (confirm("האם אתה בטוח שברצונך למחוק דוח זה?")) {
-// מחיקה מהמשתנה הגלובלי
-delete reports[reportId];
-
-// ניסיון למחוק מ-Firebase
-database.ref('reports/' + reportId).remove()
-.then(() => {
-    // עדכון האחסון המקומי
-    localStorage.setItem('attendanceReports', JSON.stringify(reports));
-    renderReportList();
-    updateGlobalStats();
-    alert("הדוח נמחק בהצלחה!");
-})
-.catch(error => {
-    console.error("שגיאה במחיקת נתונים מ-Firebase:", error);
+    // בדיקה אם המשתמש מחובר
+    if (!isLoggedIn) {
+        alert("עליך להתחבר למערכת כדי למחוק דיווח");
+        return;
+    }
     
-    // עדכון האחסון המקומי בכל מקרה
-    localStorage.setItem('attendanceReports', JSON.stringify(reports));
-    renderReportList();
-    updateGlobalStats();
+    const password = prompt("הכנס סיסמת מחיקה:");
+    if (password !== "eadmin") {
+        alert("סיסמה שגויה!");
+        return;
+    }
     
-    alert("הדוח נמחק מהמכשיר, אך התרחשה שגיאה במחיקה מהענן: " + error.message);
-});
+    if (confirm("האם אתה בטוח שברצונך למחוק דוח זה?")) {
+        // מחיקה מהמשתנה הגלובלי
+        delete reports[reportId];
+        
+        // ניסיון למחוק מ-Firebase
+        database.ref('reports/' + reportId).remove()
+            .then(() => {
+                // עדכון האחסון המקומי
+                localStorage.setItem('attendanceReports', JSON.stringify(reports));
+                renderReportList();
+                updateGlobalStats();
+                alert("הדוח נמחק בהצלחה!");
+            })
+            .catch(error => {
+                console.error("שגיאה במחיקת נתונים מ-Firebase:", error);
+                
+                // עדכון האחסון המקומי בכל מקרה
+                localStorage.setItem('attendanceReports', JSON.stringify(reports));
+                renderReportList();
+                updateGlobalStats();
+                
+                alert("הדוח נמחק מהמכשיר, אך התרחשה שגיאה במחיקה מהענן: " + error.message);
+            });
+    }
 }
-}
+
 function renderReportList() {
     const reportListDiv = document.getElementById("report-list");
     reportListDiv.innerHTML = "";
@@ -763,61 +591,20 @@ function renderReportList() {
         `;
         
         if (data.absent.length) {
-            // הצגת החיילים הנעדרים עם הסטטוס שלהם
-            const absentList = document.createElement('div');
-            absentList.className = 'absent-list';
-            absentList.innerHTML = '<p><strong>חיילים נעדרים:</strong></p>';
-            
-            data.absent.forEach(soldier => {
-                let status = 'לא צוין';
-                if (data.soldierStatus && data.soldierStatus[soldier]) {
-                    status = data.soldierStatus[soldier];
-                }
-                
-                const soldierItem = document.createElement('div');
-                soldierItem.className = 'absent-item';
-                
-                let statusClass = '';
-                if (status === 'בבית') statusClass = 'home';
-                else if (status === 'גימלים') statusClass = 'medical';
-                else if (status !== 'לא צוין') statusClass = 'other';
-                
-                soldierItem.innerHTML = `
-                    <span>${soldier}</span>
-                    <span class="status-badge ${statusClass}">${status}</span>
-                `;
-                
-                absentList.appendChild(soldierItem);
-            });
-            
-            reportCard.appendChild(absentList);
+            reportCard.innerHTML += `<p><strong>חיילים נעדרים:</strong> ${data.absent.join(", ")}</p>`;
         } else {
             reportCard.innerHTML += `<p><strong>חיילים נעדרים:</strong> אין חיילים נעדרים</p>`;
         }
         
-        // כפתורי פעולה
-        const actionsDiv = document.createElement('div');
-        actionsDiv.className = 'report-actions';
-        
-        // כפתור עריכה
-        const editButton = document.createElement('button');
-        editButton.innerText = "ערוך דוח";
-        editButton.className = 'edit-button';
-        editButton.onclick = function() {
-            editReport(reportId);
-        };
-        actionsDiv.appendChild(editButton);
-        
         // כפתור מחיקה
-        const deleteButton = document.createElement('button');
+        const deleteButton = document.createElement("button");
         deleteButton.innerText = "מחק דוח";
-        deleteButton.className = 'delete-button';
+        deleteButton.style.backgroundColor = "#dc3545";
         deleteButton.onclick = function() {
             deleteReport(reportId);
         };
-        actionsDiv.appendChild(deleteButton);
+        reportCard.appendChild(deleteButton);
         
-        reportCard.appendChild(actionsDiv);
         reportListDiv.appendChild(reportCard);
     });
 }
@@ -876,6 +663,7 @@ function updateGlobalStats() {
         }
     }
 }
+
 // פונקציות גיבוי ושחזור
 function backupData() {
     // בדיקה אם המשתמש מחובר
@@ -949,7 +737,7 @@ function restoreData() {
                 database.ref('reports').set(reports)
                     .then(() => {
                         // שמירה מקומית
-                        localStorage.setItem('attendanceReports', JSON.stringify(reports));
+                        localStorage.setItem('attendanceReports', content);
                         renderReportList();
                         updateGlobalStats();
                         alert('נתונים שוחזרו בהצלחה!');
@@ -958,7 +746,7 @@ function restoreData() {
                         console.error("שגיאה בשמירת נתונים מיובאים ב-Firebase:", error);
                         
                         // שמירה מקומית בכל מקרה
-                        localStorage.setItem('attendanceReports', JSON.stringify(reports));
+                        localStorage.setItem('attendanceReports', content);
                         renderReportList();
                         updateGlobalStats();
                         
@@ -1027,14 +815,10 @@ function exportToExcel() {
             
             tableHTML += '<td>';
             
-            // אם יש דיווח למחלקה זו בתאריך הזה, הוסף את החיילים עם הסטטוס שלהם
+            // אם יש דיווח למחלקה זו בתאריך הזה, הוסף את החיילים
             if (unitReports.length > 0 && unitReports[0].absent.length > 0) {
                 unitReports[0].absent.forEach(soldier => {
-                    let status = 'לא צוין';
-                    if (unitReports[0].soldierStatus && unitReports[0].soldierStatus[soldier]) {
-                        status = unitReports[0].soldierStatus[soldier];
-                    }
-                    tableHTML += `${soldier} (${status})<br>`;
+                    tableHTML += `${soldier}<br>`;
                 });
             }
             
