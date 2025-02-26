@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מערכת ניהול משימות</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="g_styles.css">
+    <!-- ספריית xlsx לייצוא לאקסל -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.19.3/package/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+    <!-- מסך התחברות (מוסתר) - ישמש רק למעבר למצב מנהל -->
+    <div id="loginScreen" class="login-container hidden">
+        <div class="login-box">
+            <div class="login-logo">
+                <svg class="icon" viewBox="0 0 24 24" style="width: 40px; height: 40px;">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="9" cy="7" r="4"></circle>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                </svg>
+            </div>
+            <h2>התחברות למצב מנהל</h2>
+            <div id="loginError" class="login-error hidden"></div>
+            <form id="loginForm" class="login-form">
+                <input type="text" id="username" placeholder="שם משתמש" required>
+                <input type="password" id="password" placeholder="סיסמה" required>
+                <button type="submit">התחבר</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <!-- כותרת וניווט -->
+        <div class="flex justify-between items-center mb-4 p-3">
+            <div class="page-title">
+                <h1 class="text-2xl font-bold">מערכת ניהול משימות</h1>
+            </div>
+            <div class="flex gap-2">
+                <button id="toggleRole" class="button button-gray">
+                    <svg class="icon" viewBox="0 0 24 24">
+                        <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"></path>
+                        <path d="M19.692 10.13a7.42 7.42 0 0 0-.692-1.372 7.5 7.5 0 0 0-14 0c-.229.44-.481.9-.692 1.372a2.6 2.6 0 0 0 0 3.74c.211.472.463.932.692 1.372a7.5 7.5 0 0 0 14 0c.229-.44.481-.9.692-1.372a2.6 2.6 0 0 0 0-3.74Z"></path>
+                    </svg>
+                    <span id="roleText">צופה</span>
+                </button>
+                <button id="toggleReport" class="button button-blue">
+                    <svg class="icon" viewBox="0 0 24 24">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <path d="M14 2v6h6"></path>
+                        <path d="M16 13H8"></path>
+                        <path d="M16 17H8"></path>
+                        <path d="M10 9H8"></path>
+                    </svg>
+                    <span>הצג דוח</span>
+                </button>
+            </div>
+        </div>
+        
+        <!-- תצוגת דוח (מוסתרת בהתחלה) -->
+        <div id="reportView" class="report-container hidden">
+            <div class="report-header">
+                <h2 class="text-xl font-bold">דוח פעילות חיילים</h2>
+                <div class="report-controls">
+                    <button id="exportExcel" class="button button-green">
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <path d="M14 2v6h6"></path>
+                            <path d="M12 18v-6"></path>
+                            <path d="M8 18v-1"></path>
+                            <path d="M16 18v-3"></path>
+                        </svg>
+                        ייצוא לאקסל
+                    </button>
+                </div>
+            </div>
+            <div id="reportContent" class="space-y-6">
+                <!-- תוכן הדוח יוזרק כאן בג'אווהסקריפט -->
+            </div>
+        </div>
+        
+        <!-- תצוגת לוח זמנים -->
+        <div id="schedulerView" class="main-content">
+            <!-- לוח זמנים -->
+            <div class="scheduler-container">
+                <!-- לוח שבועי -->
+                <div class="calendar-panel">
+                    <div class="calendar-container">
+                        <!-- כותרת לוח -->
+                        <div class="calendar-header">
+                            <button id="prevWeek" class="button button-gray">
+                                <svg class="icon" viewBox="0 0 24 24">
+                                    <path d="M5 12h14"></path>
+                                    <path d="m12 5 7 7-7 7"></path>
+                                </svg>
+                                שבוע קודם
+                            </button>
+                            <div id="dateRange" class="font-bold">טווח תאריכים</div>
+                            <button id="nextWeek" class="button button-gray">
+                                שבוע הבא
+                                <svg class="icon" viewBox="0 0 24 24">
+                                    <path d="M19 12H5"></path>
+                                    <path d="M12 19l-7-7 7-7"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        
+                        <!-- טבלת לוח -->
+                        <div class="overflow-x-auto">
+                            <table>
+                                <thead>
+                                    <tr id="daysHeaderRow">
+                                        <th class="w-32">משימות</th>
+                                        <!-- ימי השבוע יוזרקו כאן בג'אווהסקריפט -->
+                                    </tr>
+                                </thead>
+                                <tbody id="calendarBody">
+                                    <!-- תוכן הלוח יוזרק כאן בג'אווהסקריפט -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- רשימת חיילים -->
+            <div class="soldiers-panel">
+                <div class="resize-handle" id="resizeHandle"></div>
+                <div class="p-3 bg-gray-100 flex justify-between items-center">
+                    <div class="font-bold">
+                        <svg class="icon" viewBox="0 0 24 24" style="display: inline; margin-left: 0.25rem;">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="9" cy="7" r="4"></circle>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                        </svg>
+                        רשימת חיילים
+                    </div>
+                    <div class="flex gap-2">
+                        <div class="relative">
+                            <input
+                                type="text"
+                                id="searchInput"
+                                placeholder="חיפוש..."
+                                class="rounded border px-8 py-1 text-sm"
+                            />
+                            <div class="search-icon-container">
+                                <svg class="icon" viewBox="0 0 24 24">
+                                    <circle cx="11" cy="11" r="8"></circle>
+                                    <path d="m21 21-4.3-4.3"></path>
+                                </svg>
+                            </div>
+                        </div>
+                        <div id="addSoldierForm" class="flex gap-1">
+                            <input
+                                type="text"
+                                id="newFirstName"
+                                placeholder="שם פרטי"
+                                class="rounded border px-2 py-1 text-sm w-24"
+                            />
+                            <input
+                                type="text"
+                                id="newLastName"
+                                placeholder="שם משפחה"
+                                class="rounded border px-2 py-1 text-sm w-24"
+                            />
+                            <select
+                                id="newRole"
+                                class="rounded border px-2 py-1 text-sm"
+                            >
+                                <option value="doctor">רופא</option>
+                                <option value="paramedic">פראמדיק</option>
+                                <option value="trainee">חניך</option>
+                                <option value="mentor">חונך</option>
+                            </select>
+                            <button id="addSoldierBtn" class="button button-green">
+                                <svg class="icon" viewBox="0 0 24 24">
+                                    <path d="M12 5v14M5 12h14"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="soldiersList" class="soldiers-list">
+                    <!-- רשימת חיילים תוזרק כאן בג'אווהסקריפט -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- דיאלוג הוספה מהירה -->
+    <div id="quickAddDialog" class="hidden">
+        <div class="dialog-overlay"></div>
+        <div class="quick-add-dialog">
+            <div class="dialog-header">
+                <h3 class="dialog-title">הוספת חיילים למשימה</h3>
+                <button class="close-button" id="closeQuickAdd">
+                    <svg class="icon" viewBox="0 0 24 24">
+                        <path d="M18 6L6 18"></path>
+                        <path d="M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div>
+                <div class="mb-2">
+                    <strong>משימה: </strong><span id="quickAddTaskName"></span>
+                </div>
+                <div class="mb-4">
+                    <strong>תאריך: </strong><span id="quickAddDate"></span>
+                </div>
+                <div class="mb-2 font-bold">חיילים זמינים:</div>
+                <div id="availableSoldiers" class="soldiers-selection">
+                    <!-- רשימת החיילים הזמינים תוצג כאן -->
+                </div>
+                <div class="flex justify-end gap-2 mt-4">
+                    <button id="quickAddCancel" class="button button-gray">ביטול</button>
+                    <button id="quickAddConfirm" class="button button-blue">הוסף חיילים</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="g_script.js"></script>
+</body>
+</html>
