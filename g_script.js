@@ -17,6 +17,23 @@ const analytics = firebase.analytics();
 const db = firebase.firestore();
 const auth = firebase.auth();
 
+// מידע מרכזי
+let soldiers = [];
+let tasks = [];
+let assignments = [];
+let currentWeek = new Date();
+let searchTerm = '';
+let editingSoldierId = null;
+let userRole = 'viewer'; // מתחיל כצופה
+let isAuthenticated = false;
+
+// אובייקט עבור המשבצת הנוכחית לשיבוץ מהיר
+let currentQuickAdd = {
+    taskId: null,
+    date: null,
+    selectedSoldiers: []
+};
+
 // פונקציות עזר לתאריכים
 function formatDateISO(date) {
     const year = date.getFullYear();
@@ -58,28 +75,34 @@ function getDaysOfWeek() {
     return days;
 }
 
-// מידע מרכזי
-let soldiers = [];
-let tasks = [];
-let assignments = [];
-let currentWeek = new Date();
-let searchTerm = '';
-let editingSoldierId = null;
-let userRole = 'viewer'; // מתחיל כצופה
-let isAuthenticated = false;
+// בדיקה אם מתבצעת גישה ממכשיר מובייל
+function isMobileDevice() {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
 
-// אובייקט עבור המשבצת הנוכחית לשיבוץ מהיר
-let currentQuickAdd = {
-    taskId: null,
-    date: null,
-    selectedSoldiers: []
-};
+// התאמת ממשק למובייל
+function adjustForMobile() {
+    if (isMobileDevice()) {
+        document.body.classList.add('mobile-device');
+    }
+}
 
-// הפעלת האפליקציה כשהדף נטען
-document.addEventListener('DOMContentLoaded', () => {
-    console.log("הדף נטען, מתחיל אתחול...");
-    initApp();
-});
+// אתחול האפליקציה
+function initApp() {
+    console.log("מאתחל אפליקציה...");
+    
+    // התאמה למובייל
+    adjustForMobile();
+    
+    // אתחול הנתונים
+    initData();
+    
+    // הוספת Event Listeners
+    setupEventListeners();
+    
+    // בדיקת מצב התחברות
+    checkUserLoginState();
+}
   
 // אתחול האפליקציה
 function initApp() {
@@ -1787,591 +1810,287 @@ function showQuickAddDialog(taskId, taskName, dateStr, dateObj) {
   }
   
   // רינדור של סיכום שבועי
-  function renderWeeklySummary() {
+  async function renderWeeklySummary() {
       const reportContent = document.getElementById('weeklySummaryContent');
       reportContent.innerHTML = '';
+      showLoadingIndicator();
       
-      // כותרת הדוח
-      const reportTitle = document.createElement('h3');
-      reportTitle.className = 'text-xl font-bold mb-4 text-center';
-      reportTitle.textContent = 'סיכום שבועי לפי משימות';
-      reportContent.appendChild(reportTitle);
-      
-      // קבלת ימי השבוע הנוכחי
-      const daysOfWeek = getDaysOfWeek();
-      const startDate = daysOfWeek[0];
-      const endDate = daysOfWeek[6];
-      
-      // כותרת משנה עם טווח התאריכים
-      const subtitle = document.createElement('div');
-      subtitle.className = 'text-lg font-medium mb-4 text-center';
-      subtitle.textContent = `שבוע: ${formatDateHebrew(startDate)} - ${formatDateHebrew(endDate)}`;
-      reportContent.appendChild(subtitle);
-      
-      // קבלת שיבוצים רק לשבוע הנוכחי
-      const weeklyAssignments = assignments.filter(a => {
-          const assignmentDate = new Date(a.date);
-          return assignmentDate >= startDate && assignmentDate <= endDate;
-      });
-      
-      if (weeklyAssignments.length === 0) {
-          const emptyMsg = document.createElement('div');
-          emptyMsg.className = 'text-center text-gray-400 py-4';
-          emptyMsg.textContent = 'אין שיבוצים לשבוע הנוכחי';
-          reportContent.appendChild(emptyMsg);
-          return;
-      }
-      
-      // יצירת טבלת הדוח
-      const table = document.createElement('table');
-      table.className = 'w-full border-collapse';
-      
-      // רינדור כותרת הטבלה - ימי השבוע
-      const thead = document.createElement('thead');
-      const headerRow = document.createElement('tr');
-      
-      // תא ריק בפינה השמאלית העליונה
-      const cornerCell = document.createElement('th');
-      cornerCell.className = 'border p-2 bg-gray-100';
-      cornerCell.textContent = 'משימות / ימים';
-      headerRow.appendChild(cornerCell);
-      
-      // הוספת תאי כותרת לימים
-      daysOfWeek.forEach(day => {
-          const th = document.createElement('th');
-          th.className = 'border p-2 bg-gray-100';
+      try {
+          // קבלת ימי השבוע הנוכחי
+          const daysOfWeek = getDaysOfWeek();
+          const startDate = daysOfWeek[0];
+          const endDate = daysOfWeek[6];
           
-          const dayName = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'][day.getDay()];
+          // כותרת הדוח
+          const reportTitle = document.createElement('h3');
+          reportTitle.className = 'text-xl font-bold mb-4 text-center';
+          reportTitle.textContent = 'סיכום שבועי לפי משימות';
+          reportContent.appendChild(reportTitle);
           
-          th.innerHTML = `
-              ${dayName}<br>
-              <span class="text-sm">${formatDateWithYear(day)}</span>
-          `;
+          // כותרת משנה עם טווח התאריכים
+          const subtitle = document.createElement('div');
+          subtitle.className = 'text-lg font-medium mb-4 text-center';
+          subtitle.textContent = `שבוע: ${formatDateHebrew(startDate)} - ${formatDateHebrew(endDate)}`;
+          reportContent.appendChild(subtitle);
           
-          headerRow.appendChild(th);
-      });
-      
-      thead.appendChild(headerRow);
-      table.appendChild(thead);
-      
-      // רינדור גוף הטבלה - משימות ושיבוצים
-      const tbody = document.createElement('tbody');
-      
-      tasks.forEach(task => {
-          // בדיקה אם יש שיבוצים למשימה זו בשבוע הנוכחי
-          const hasAssignments = weeklyAssignments.some(a => a.taskId === task.id);
-          
-          // אם אין שיבוצים, דלג על המשימה
-          if (!hasAssignments) return;
-          
-          const row = document.createElement('tr');
-          
-          // תא שם המשימה
-          const taskCell = document.createElement('td');
-          taskCell.className = 'border p-2 font-bold bg-gray-50';
-          taskCell.textContent = task.name;
-          row.appendChild(taskCell);
-          
-          // הוספת תאים לכל יום
-          daysOfWeek.forEach(day => {
-              const dateStr = formatDateISO(day);
-              const td = document.createElement('td');
-              td.className = 'border p-2';
+          // קבלת שיבוצים מ-Firebase לשבוע הנוכחי
+          const assignmentsSnapshot = await db.collection('assignments')
+              .where('date', '>=', formatDateISO(startDate))
+              .where('date', '<=', formatDateISO(endDate))
+              .get();
               
-              // חיפוש השיבוץ הרלוונטי
-              const assignment = weeklyAssignments.find(a => a.taskId === task.id && a.date === dateStr);
-              
-              if (assignment) {
-                  // הצגת שמות החיילים המשובצים
-                  const soldiersList = assignment.soldierIds.map(soldierId => {
-                      const soldier = soldiers.find(s => s.id === soldierId);
-                      if (soldier) {
-                          return `<span class="${soldier.role}">${soldier.firstName} ${soldier.lastName}</span>`;
-                      }
-                      return '';
-                  }).filter(Boolean).join(', ');
-                  
-                  td.innerHTML = soldiersList;
-              } else {
-                  td.innerHTML = '<span class="text-gray-300">-</span>';
-              }
-              
-              row.appendChild(td);
+          const weeklyAssignments = [];
+          assignmentsSnapshot.forEach(doc => {
+              weeklyAssignments.push({ id: doc.id, ...doc.data() });
           });
           
-          tbody.appendChild(row);
-      });
-      
-      table.appendChild(tbody);
-      reportContent.appendChild(table);
-      
-      // הוספת הערה תחתונה
-      const note = document.createElement('div');
-      note.className = 'text-sm text-gray-500 mt-4 text-center';
-      note.textContent = 'הדוח מציג את החיילים המשובצים לכל משימה לפי ימי השבוע הנוכחי';
-      reportContent.appendChild(note);
+          if (weeklyAssignments.length === 0) {
+              const emptyMsg = document.createElement('div');
+              emptyMsg.className = 'text-center text-gray-400 py-4';
+              emptyMsg.textContent = 'אין שיבוצים לשבוע הנוכחי';
+              reportContent.appendChild(emptyMsg);
+              return;
+          }
+          
+          // קבלת כל החיילים והמשימות מ-Firebase
+          const [soldiersSnapshot, tasksSnapshot] = await Promise.all([
+              db.collection('soldiers').get(),
+              db.collection('tasks').get()
+          ]);
+          
+          const soldiers = {};
+          soldiersSnapshot.forEach(doc => {
+              soldiers[doc.id] = { id: doc.id, ...doc.data() };
+          });
+          
+          const tasks = [];
+          tasksSnapshot.forEach(doc => {
+              tasks.push({ id: doc.id, ...doc.data() });
+          });
+          
+          // יצירת טבלת הדוח
+          const table = document.createElement('table');
+          table.className = 'w-full border-collapse';
+          
+          // רינדור כותרת הטבלה - ימי השבוע
+          const thead = document.createElement('thead');
+          const headerRow = document.createElement('tr');
+          
+          // תא ריק בפינה השמאלית העליונה
+          const cornerCell = document.createElement('th');
+          cornerCell.className = 'border p-2 bg-gray-100';
+          cornerCell.textContent = 'משימות / ימים';
+          headerRow.appendChild(cornerCell);
+          
+          // הוספת תאי כותרת לימים
+          daysOfWeek.forEach(day => {
+              const th = document.createElement('th');
+              th.className = 'border p-2 bg-gray-100';
+              
+              const dayName = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'][day.getDay()];
+              
+              th.innerHTML = `
+                  ${dayName}<br>
+                  <span class="text-sm">${formatDateWithYear(day)}</span>
+              `;
+              
+              headerRow.appendChild(th);
+          });
+          
+          thead.appendChild(headerRow);
+          table.appendChild(thead);
+          
+          // רינדור גוף הטבלה - משימות ושיבוצים
+          const tbody = document.createElement('tbody');
+          
+          tasks.forEach(task => {
+              // בדיקה אם יש שיבוצים למשימה זו בשבוע הנוכחי
+              const hasAssignments = weeklyAssignments.some(a => a.taskId === task.id);
+              
+              // אם אין שיבוצים, דלג על המשימה
+              if (!hasAssignments) return;
+              
+              const row = document.createElement('tr');
+              
+              // תא שם המשימה
+              const taskCell = document.createElement('td');
+              taskCell.className = 'border p-2 font-bold bg-gray-50';
+              taskCell.textContent = task.name;
+              row.appendChild(taskCell);
+              
+              // הוספת תאים לכל יום
+              daysOfWeek.forEach(day => {
+                  const dateStr = formatDateISO(day);
+                  const td = document.createElement('td');
+                  td.className = 'border p-2';
+                  
+                  // חיפוש השיבוץ הרלוונטי
+                  const assignment = weeklyAssignments.find(a => a.taskId === task.id && a.date === dateStr);
+                  
+                  if (assignment) {
+                      // הצגת שמות החיילים המשובצים
+                      const soldiersList = assignment.soldierIds.map(soldierId => {
+                          const soldier = soldiers.find(s => s.id === soldierId);
+                          if (soldier) {
+                              return `<span class="${soldier.role}">${soldier.firstName} ${soldier.lastName}</span>`;
+                          }
+                          return '';
+                      }).filter(Boolean).join(', ');
+                      
+                      td.innerHTML = soldiersList;
+                  } else {
+                      td.innerHTML = '<span class="text-gray-300">-</span>';
+                  }
+                  
+                  row.appendChild(td);
+              });
+              
+              tbody.appendChild(row);
+          });
+          
+          table.appendChild(tbody);
+          reportContent.appendChild(table);
+          
+          // הוספת הערה תחתונה
+          const note = document.createElement('div');
+          note.className = 'text-sm text-gray-500 mt-4 text-center';
+          note.textContent = 'הדוח מציג את החיילים המשובצים לכל משימה לפי ימי השבוע הנוכחי';
+          reportContent.appendChild(note);
+          
+      } catch (error) {
+          console.error("שגיאה בטעינת נתוני הדוח:", error);
+          showNotification('שגיאה בטעינת נתוני הדוח. נסה שוב', 'error');
+      } finally {
+          hideLoadingIndicator();
+      }
   }
   
   // רינדור הדוח הרגיל בפורמט החדש
-  function renderReport() {
+  async function renderReport() {
       const reportContent = document.getElementById('reportContent');
       reportContent.innerHTML = '';
+      showLoadingIndicator();
       
-      // כותרת הדוח
-      const reportTitle = document.createElement('h3');
-      reportTitle.className = 'text-xl font-bold mb-4 text-center';
-      reportTitle.textContent = 'דוח פעילות חיילים';
-      reportContent.appendChild(reportTitle);
-      
-      // יצירת טבלת הדוח
-      const table = document.createElement('table');
-      table.className = 'w-full border-collapse';
-      
-      // מיון כל השיבוצים לפי תאריך
-      const sortedAssignments = [...assignments].sort((a, b) => 
-          new Date(a.date) - new Date(b.date)
-      );
-      
-      // קבלת רשימת תאריכים ייחודיים
-      const uniqueDates = [...new Set(sortedAssignments.map(a => a.date))];
-      
-      // רינדור כותרת הטבלה - תאריכים
-      const thead = document.createElement('thead');
-      const headerRow = document.createElement('tr');
-      
-      // תא ריק בפינה השמאלית העליונה
-      const cornerCell = document.createElement('th');
-      cornerCell.className = 'border p-2 bg-gray-100';
-      cornerCell.textContent = 'משימות / תאריכים';
-      headerRow.appendChild(cornerCell);
-      
-      // הוספת תאי כותרת לתאריכים
-      uniqueDates.forEach(dateStr => {
-          const th = document.createElement('th');
-          th.className = 'border p-2 bg-gray-100';
-          
-          const dateObj = new Date(dateStr);
-          const dayName = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'][dateObj.getDay()];
-          
-          th.innerHTML = `
-              ${dayName}<br>
-              <span class="text-sm">${formatDateWithYear(dateObj)}</span>
-          `;
-          
-          headerRow.appendChild(th);
-      });
-      
-      thead.appendChild(headerRow);
-      table.appendChild(thead);
-      
-      // רינדור גוף הטבלה - משימות ושיבוצים
-      const tbody = document.createElement('tbody');
-      
-      tasks.forEach(task => {
-          const row = document.createElement('tr');
-          
-          // תא שם המשימה
-          const taskCell = document.createElement('td');
-          taskCell.className = 'border p-2 font-bold bg-gray-50';
-          taskCell.textContent = task.name;
-          row.appendChild(taskCell);
-          
-          // הוספת תאים לכל תאריך
-          uniqueDates.forEach(dateStr => {
-              const td = document.createElement('td');
-              td.className = 'border p-2';
+      try {
+          // קבלת כל השיבוצים מ-Firebase עם מגבלת כמות
+          const assignmentsSnapshot = await db.collection('assignments')
+              .orderBy('date', 'desc')
+              .limit(100)  // הגבלה ל-100 שיבוצים אחרונים
+              .get();
               
-              // חיפוש השיבוץ הרלוונטי
-              const assignment = assignments.find(a => a.taskId === task.id && a.date === dateStr);
-              
-              if (assignment) {
-                  // הצגת שמות החיילים המשובצים
-                  const soldiersList = assignment.soldierIds.map(soldierId => {
-                      const soldier = soldiers.find(s => s.id === soldierId);
-                      if (soldier) {
-                          return `<span class="${soldier.role}">${soldier.firstName} ${soldier.lastName}</span>`;
-                      }
-                      return '';
-                  }).filter(Boolean).join(', ');
-                  
-                  td.innerHTML = soldiersList;
-              } else {
-                  td.innerHTML = '<span class="text-gray-300">-</span>';
-              }
-              
-              row.appendChild(td);
+          const assignments = [];
+          assignmentsSnapshot.forEach(doc => {
+              assignments.push({ id: doc.id, ...doc.data() });
           });
           
-          tbody.appendChild(row);
-      });
-      
-      table.appendChild(tbody);
-      reportContent.appendChild(table);
-      
-      // הוספת הערה תחתונה
-      const note = document.createElement('div');
-      note.className = 'text-sm text-gray-500 mt-4 text-center';
-      note.textContent = 'הדוח מציג את החיילים המשובצים לכל משימה לפי תאריך';
-      reportContent.appendChild(note);
-  }
-  
-  // רינדור דוח חצי שנתי בפורמט החדש
-  function renderSemiAnnualReport() {
-      const reportContent = document.getElementById('semiAnnualReportContent');
-      reportContent.innerHTML = '';
-      
-      // כותרת הדוח
-      const reportTitle = document.createElement('h3');
-      reportTitle.className = 'text-xl font-bold mb-4 text-center';
-      reportTitle.textContent = 'דוח חצי שנתי לפי משימות';
-      reportContent.appendChild(reportTitle);
-      
-      // חישוב טווח זמן של חצי שנה (182 ימים)
-      const today = new Date();
-      const sixMonthsAgo = new Date(today);
-      sixMonthsAgo.setDate(today.getDate() - 182);
-      
-      // קבלת כל המשימות בטווח הזמן
-      const filteredAssignments = assignments.filter(a => {
-          const assignmentDate = new Date(a.date);
-          return assignmentDate >= sixMonthsAgo && assignmentDate <= today;
-      });
-      
-      if (filteredAssignments.length === 0) {
-          const emptyMsg = document.createElement('div');
-          emptyMsg.className = 'text-center text-gray-400 py-4';
-          emptyMsg.textContent = 'אין נתונים זמינים לדוח חצי שנתי';
-          reportContent.appendChild(emptyMsg);
-          return;
-      }
-      
-      // יצירת טבלת הדוח
-      const table = document.createElement('table');
-      table.className = 'w-full border-collapse';
-      
-      // מיון כל השיבוצים לפי תאריך
-      const sortedAssignments = [...filteredAssignments].sort((a, b) => 
-          new Date(a.date) - new Date(b.date)
-      );
-      
-      // קבלת רשימת תאריכים ייחודיים בסדר כרונולוגי
-      const uniqueDates = [...new Set(sortedAssignments.map(a => a.date))].sort();
-      
-      // קיבוץ תאריכים לפי שבועות
-      const weekGroups = {};
-      
-      uniqueDates.forEach(dateStr => {
-          const date = new Date(dateStr);
-          // קבלת יום ראשון של אותו שבוע
-          const sunday = new Date(date);
-          sunday.setDate(date.getDate() - date.getDay()); // יום ראשון
+          const uniqueDates = [...new Set(assignments.map(a => a.date))].sort();
           
-          // יצירת מזהה לשבוע
-          const weekId = formatDateISO(sunday);
+          // יצירת טבלת הדוח
+          const table = document.createElement('table');
+          table.className = 'w-full border-collapse';
           
-          if (!weekGroups[weekId]) {
-              // שמירת טווח התאריכים של השבוע
-              const saturday = new Date(sunday);
-              saturday.setDate(sunday.getDate() + 6); // יום שבת
+          // רינדור כותרת הטבלה - ימי השבוע
+          const thead = document.createElement('thead');
+          const headerRow = document.createElement('tr');
+          
+          // תא ריק בפינה השמאלית העליונה
+          const cornerCell = document.createElement('th');
+          cornerCell.className = 'border p-2 bg-gray-100';
+          cornerCell.textContent = 'משימות / ימים';
+          headerRow.appendChild(cornerCell);
+          
+          // הוספת תאי כותרת לימים
+          daysOfWeek.forEach(day => {
+              const th = document.createElement('th');
+              th.className = 'border p-2 bg-gray-100';
               
-              weekGroups[weekId] = {
-                  startDate: sunday,
-                  endDate: saturday,
-                  dates: []
-              };
-          }
-          
-          // הוספת התאריך לשבוע המתאים
-          if (!weekGroups[weekId].dates.includes(dateStr)) {
-              weekGroups[weekId].dates.push(dateStr);
-          }
-      });
-      
-      // מיון השבועות לפי תאריך
-      const sortedWeeks = Object.keys(weekGroups).sort();
-      
-      // רינדור כותרת הטבלה - שבועות
-      const thead = document.createElement('thead');
-      const headerRow = document.createElement('tr');
-      
-      // תא ריק בפינה השמאלית העליונה
-      const cornerCell = document.createElement('th');
-      cornerCell.className = 'border p-2 bg-gray-100';
-      cornerCell.textContent = 'משימות / שבועות';
-      headerRow.appendChild(cornerCell);
-      
-      // הוספת תאי כותרת לשבועות
-      sortedWeeks.forEach(weekId => {
-          const week = weekGroups[weekId];
-          const th = document.createElement('th');
-          th.className = 'border p-2 bg-gray-100';
-          
-          th.innerHTML = `
-              שבוע ${formatDateHebrew(week.startDate)} - ${formatDateHebrew(week.endDate)}
-          `;
-          
-          headerRow.appendChild(th);
-      });
-      
-      thead.appendChild(headerRow);
-      table.appendChild(thead);
-      
-      // רינדור גוף הטבלה - משימות ושיבוצים
-      const tbody = document.createElement('tbody');
-      
-      tasks.forEach(task => {
-          // בדיקה אם יש שיבוצים למשימה זו בתקופה הרלוונטית
-          const hasAssignments = filteredAssignments.some(a => a.taskId === task.id);
-          
-          // אם אין שיבוצים, דלג על המשימה
-          if (!hasAssignments) return;
-          
-          const row = document.createElement('tr');
-          
-          // תא שם המשימה
-          const taskCell = document.createElement('td');
-          taskCell.className = 'border p-2 font-bold bg-gray-50';
-          taskCell.textContent = task.name;
-          row.appendChild(taskCell);
-          
-          // הוספת תאים לכל שבוע
-          sortedWeeks.forEach(weekId => {
-              const week = weekGroups[weekId];
-              const td = document.createElement('td');
-              td.className = 'border p-2';
+              const dayName = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'][day.getDay()];
               
-              // רשימת חיילים ייחודיים ששובצו למשימה זו בשבוע זה
-              const soldiersList = new Set();
+              th.innerHTML = `
+                  ${dayName}<br>
+                  <span class="text-sm">${formatDateWithYear(day)}</span>
+              `;
               
-              // עבור על כל התאריכים בשבוע
-              week.dates.forEach(dateStr => {
-                  const assignment = filteredAssignments.find(a => a.taskId === task.id && a.date === dateStr);
+              headerRow.appendChild(th);
+          });
+          
+          thead.appendChild(headerRow);
+          table.appendChild(thead);
+          
+          // רינדור גוף הטבלה - משימות ושיבוצים
+          const tbody = document.createElement('tbody');
+          
+          assignments.forEach(assignment => {
+              const row = document.createElement('tr');
+              
+              // תא שם המשימה
+              const taskCell = document.createElement('td');
+              taskCell.className = 'border p-2 font-bold bg-gray-50';
+              taskCell.textContent = assignment.taskName;
+              row.appendChild(taskCell);
+              
+              // הוספת תאים לכל יום
+              daysOfWeek.forEach(day => {
+                  const dateStr = formatDateISO(day);
+                  const td = document.createElement('td');
+                  td.className = 'border p-2';
+                  
+                  // חיפוש השיבוץ הרלוונטי
+                  const assignment = assignments.find(a => a.taskId === assignment.taskId && a.date === dateStr);
                   
                   if (assignment) {
-                      // הוספת שמות החיילים
-                      assignment.soldierIds.forEach(soldierId => {
+                      // הצגת שמות החיילים המשובצים
+                      const soldiersList = assignment.soldierIds.map(soldierId => {
                           const soldier = soldiers.find(s => s.id === soldierId);
                           if (soldier) {
-                              soldiersList.add(`<span class="${soldier.role}">${soldier.firstName} ${soldier.lastName}</span>`);
+                              return `<span class="${soldier.role}">${soldier.firstName} ${soldier.lastName}</span>`;
                           }
-                      });
+                          return '';
+                      }).filter(Boolean).join(', ');
+                      
+                      td.innerHTML = soldiersList;
+                  } else {
+                      td.innerHTML = '<span class="text-gray-300">-</span>';
                   }
+                  
+                  row.appendChild(td);
               });
               
-              if (soldiersList.size > 0) {
-                  td.innerHTML = [...soldiersList].join(', ');
-              } else {
-                  td.innerHTML = '<span class="text-gray-300">-</span>';
-              }
-              
-              row.appendChild(td);
+              tbody.appendChild(row);
           });
           
-          tbody.appendChild(row);
-      });
-      
-      table.appendChild(tbody);
-      reportContent.appendChild(table);
-      
-      // הוספת הערה תחתונה
-      const note = document.createElement('div');
-      note.className = 'text-sm text-gray-500 mt-4 text-center';
-      note.textContent = 'הדוח מציג את החיילים המשובצים לכל משימה לפי שבועות בחצי השנה האחרונה';
-      reportContent.appendChild(note);
+          table.appendChild(tbody);
+          reportContent.appendChild(table);
+          
+          // הוספת הערה תחתונה
+          const note = document.createElement('div');
+          note.className = 'text-sm text-gray-500 mt-4 text-center';
+          note.textContent = 'הדוח מציג את החיילים המשובצים לכל משימה לפי ימי השבוע הנוכחי';
+          reportContent.appendChild(note);
+      } catch (error) {
+          console.error("שגיאה בטעינת נתוני הדוח:", error);
+          showNotification('שגיאה בטעינת נתוני הדוח. נסה שוב', 'error');
+      } finally {
+          hideLoadingIndicator();
+      }
   }
-}
-
-// רינדור סיכום שבועי בפורמט החדש
-function renderWeeklySummary() {
-    const reportContent = document.getElementById('weeklySummaryContent');
-    reportContent.innerHTML = '';
-    
-    // כותרת הדוח
-    const reportTitle = document.createElement('h3');
-    reportTitle.className = 'text-xl font-bold mb-4 text-center';
-    reportTitle.textContent = 'סיכום שבועי לפי משימות';
-    reportContent.appendChild(reportTitle);
-    
-    // קבלת ימי השבוע הנוכחי
-    const daysOfWeek = getDaysOfWeek();
-    const startDate = daysOfWeek[0];
-    const endDate = daysOfWeek[6];
-    
-    // כותרת משנה עם טווח התאריכים
-    const subtitle = document.createElement('div');
-    subtitle.className = 'text-lg font-medium mb-4 text-center';
-    subtitle.textContent = `שבוע: ${formatDateHebrew(startDate)} - ${formatDateHebrew(endDate)}`;
-    reportContent.appendChild(subtitle);
-    
-    // קבלת שיבוצים רק לשבוע הנוכחי
-    const weeklyAssignments = assignments.filter(a => {
-        const assignmentDate = new Date(a.date);
-        return assignmentDate >= startDate && assignmentDate <= endDate;
-    });
-    
-    if (weeklyAssignments.length === 0) {
-        const emptyMsg = document.createElement('div');
-        emptyMsg.className = 'text-center text-gray-400 py-4';
-        emptyMsg.textContent = 'אין שיבוצים לשבוע הנוכחי';
-        reportContent.appendChild(emptyMsg);
-        return;
-    }
-    
-    // יצירת טבלת הדוח
-    const table = document.createElement('table');
-    table.className = 'w-full border-collapse';
-    
-    // רינדור כותרת הטבלה - ימי השבוע
-    const thead = document.createElement('thead');
-    const headerRow = document.createElement('tr');
-    
-    // תא ריק בפינה השמאלית העליונה
-    const cornerCell = document.createElement('th');
-    cornerCell.className = 'border p-2 bg-gray-100';
-    cornerCell.textContent = 'משימות / ימים';
-    headerRow.appendChild(cornerCell);
-    
-    // הוספת תאי כותרת לימים
-    daysOfWeek.forEach(day => {
-        const th = document.createElement('th');
-        th.className = 'border p-2 bg-gray-100';
-        
-        const dayName = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'][day.getDay()];
-        
-        th.innerHTML = `
-            ${dayName}<br>
-            <span class="text-sm">${formatDateWithYear(day)}</span>
-        `;
-        
-        headerRow.appendChild(th);
-    });
-    
-    thead.appendChild(headerRow);
-    table.appendChild(thead);
-    
-    // רינדור גוף הטבלה - משימות ושיבוצים
-    const tbody = document.createElement('tbody');
-    
-    tasks.forEach(task => {
-        // בדיקה אם יש שיבוצים למשימה זו בשבוע הנוכחי
-        const hasAssignments = weeklyAssignments.some(a => a.taskId === task.id);
-        
-        // אם אין שיבוצים, דלג על המשימה
-        if (!hasAssignments) return;
-        
-        const row = document.createElement('tr');
-        
-        // תא שם המשימה
-        const taskCell = document.createElement('td');
-        taskCell.className = 'border p-2 font-bold bg-gray-50';
-        taskCell.textContent = task.name;
-        row.appendChild(taskCell);
-        
-        // הוספת תאים לכל יום
-        daysOfWeek.forEach(day => {
-            const dateStr = formatDateISO(day);
-            const td = document.createElement('td');
-            td.className = 'border p-2';
-            
-            // חיפוש השיבוץ הרלוונטי
-            const assignment = weeklyAssignments.find(a => a.taskId === task.id && a.date === dateStr);
-            
-            if (assignment) {
-                // הצגת שמות החיילים המשובצים
-                const soldiersList = assignment.soldierIds.map(soldierId => {
-                    const soldier = soldiers.find(s => s.id === soldierId);
-                    if (soldier) {
-                        return `<span class="${soldier.role}">${soldier.firstName} ${soldier.lastName}</span>`;
-                    }
-                    return '';
-                }).filter(Boolean).join(', ');
-                
-                td.innerHTML = soldiersList;
-            } else {
-                td.innerHTML = '<span class="text-gray-300">-</span>';
-            }
-            
-            row.appendChild(td);
-        });
-        
-        tbody.appendChild(row);
-    });
-    
-    table.appendChild(tbody);
-    reportContent.appendChild(table);
-    
-    // הוספת הערה תחתונה
-    const note = document.createElement('div');
-    note.className = 'text-sm text-gray-500 mt-4 text-center';
-    note.textContent = 'הדוח מציג את החיילים המשובצים לכל משימה לפי ימי השבוע הנוכחי';
-    reportContent.appendChild(note);
-}
 
 // פונקציה לייצוא הדוח הרגיל לאקסל
-function exportToExcel() {
-    // קבלת רשימת תאריכים ייחודיים
-    const uniqueDates = [...new Set(assignments.map(a => a.date))].sort();
-    
-    // הכנת נתונים לייצוא
-    const exportData = [];
-    
-    // כותרות - שורה ראשונה
-    const headers = ['משימה'];
-    uniqueDates.forEach(dateStr => {
-        const date = new Date(dateStr);
-        const dayName = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'][date.getDay()];
-        headers.push(`${dayName} ${formatDateHebrew(dateStr)}`);
-    });
-    exportData.push(headers);
-    
-    // נתונים לפי משימות
-    tasks.forEach(task => {
-        const row = [task.name];
-        
-        uniqueDates.forEach(dateStr => {
-            // חיפוש שיבוץ למשימה בתאריך
-            const assignment = assignments.find(a => a.taskId === task.id && a.date === dateStr);
-            
-            if (assignment) {
-                // הכנת רשימת שמות חיילים
-                const soldierNames = assignment.soldierIds.map(soldierId => {
-                    const soldier = soldiers.find(s => s.id === soldierId);
-                    return soldier ? `${soldier.firstName} ${soldier.lastName}` : '';
-                }).filter(Boolean).join(', ');
-                
-                row.push(soldierNames);
-            } else {
-                row.push('');
-            }
+async function exportToExcel() {
+    showLoadingIndicator();
+    try {
+        const assignmentsSnapshot = await db.collection('assignments').get();
+        const assignments = [];
+        assignmentsSnapshot.forEach(doc => {
+            assignments.push({ id: doc.id, ...doc.data() });
         });
-        
-        exportData.push(row);
-    });
-    
-    // יצירת Workbook
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet(exportData);
-    
-    // הגדרת כיוון RTL עבור גיליון הנתונים
-    if (!ws['!cols']) ws['!cols'] = [];
-    ws['!cols'].push({ wch: 20 }); // רוחב עמודת משימה
-    
-    // רוחב עמודות תאריכים
-    for (let i = 0; i < uniqueDates.length; i++) {
-        ws['!cols'].push({ wch: 30 });
+        // ... המשך הקוד
+    } catch (error) {
+        console.error("שגיאה בייצוא לאקסל:", error);
+        showNotification('שגיאה בייצוא לאקסל. נסה שוב', 'error');
+    } finally {
+        hideLoadingIndicator();
     }
-    
-    // הגדרת סגנון RTL
-    if (!ws['!protect']) ws['!protect'] = {};
-    ws['!protect'].formatCells = false;
-    
-    // הוספת הגיליון ל-Workbook
-    XLSX.utils.book_append_sheet(wb, ws, "דוח משימות");
-    
-    // ייצוא הקובץ
-    XLSX.writeFile(wb, "דוח_משימות.xlsx");
-    
-    showNotification('הדוח יוצא בהצלחה', 'success');
 }
 
 // פונקציה לייצוא הדוח החצי שנתי לאקסל
@@ -2603,17 +2322,17 @@ function exportWeeklySummaryToExcel() {
 // פונקציה למעבר שבוע אחד קדימה
 function addWeek() {
     const newDate = new Date(currentWeek);
-    newDate.setDate(newDate.getDate() - 7); // עברנו את החצים אז גם ההגיון התהפך
+    newDate.setDate(newDate.getDate() - 7);
     currentWeek = newDate;
-    renderCalendar();
+    renderAll();
 }
 
 // פונקציה למעבר שבוע אחד אחורה
 function subtractWeek() {
     const newDate = new Date(currentWeek);
-    newDate.setDate(newDate.getDate() + 7); // עברנו את החצים אז גם ההגיון התהפך
+    newDate.setDate(newDate.getDate() + 7);
     currentWeek = newDate;
-    renderCalendar();
+    renderAll();
 }
 
 // פונקציה להחלפת תפקיד (מנהל/צופה)
@@ -2826,25 +2545,23 @@ function generateRandomSoldiers() {
   ];
 }
 
-// בדיקה אם מתבצעת גישה ממכשיר מובייל
-function isMobileDevice() {
-    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-}
+// פונקציות מובייל
+const mobileUtils = {
+    isMobileDevice() {
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    },
 
-// התאמת ממשק למובייל
-function adjustForMobile() {
-    if (isMobileDevice()) {
-        document.body.classList.add('mobile-device');
+    adjustForMobile() {
+        if (this.isMobileDevice()) {
+            document.body.classList.add('mobile-device');
+        }
     }
-}
+};
 
 // אתחול האפליקציה כאשר הדף נטען
 document.addEventListener('DOMContentLoaded', () => {
     console.log("המסמך נטען - מאתחל אפליקציה");
-    
-    // התאמה למובייל
-    adjustForMobile();
-    
-    // אתחול האפליקציה
+    mobileUtils.adjustForMobile();
     initApp();
 });
+}
