@@ -8,9 +8,11 @@ const firebaseConfig = {
     appId: "1:313045632664:web:8b7aec36289513be1af2ed",
     measurementId: "G-JM85H6638L"
 };
-  
-// אתחול Firebase
-firebase.initializeApp(firebaseConfig);
+
+// בדיקה אם Firebase כבר מאותחל
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+}
 
 // אתחול שירותים
 const analytics = firebase.analytics();
@@ -225,15 +227,66 @@ async function initData() {
     
     try {
         // טעינת חיילים מ-Firestore
-        await loadSoldiers();
+        const soldiersSnapshot = await db.collection('soldiers').get();
+        soldiers = [];
+        soldiersSnapshot.forEach(doc => {
+            soldiers.push({ id: doc.id, ...doc.data() });
+        });
         console.log("נטענו", soldiers.length, "חיילים");
         
+        // אם אין חיילים, יצירת חיילים לדוגמא
+        if (soldiers.length === 0) {
+            console.log("אין חיילים בדאטהבייס, יוצר חיילים לדוגמא");
+            const demoSoldiers = generateRandomSoldiers();
+            
+            // שמירת החיילים לדוגמא ב-Firestore
+            for (const soldier of demoSoldiers) {
+                await db.collection('soldiers').doc(soldier.id.toString()).set({
+                    ...soldier,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            }
+            
+            soldiers = demoSoldiers;
+        }
+        
         // טעינת משימות מ-Firestore
-        await loadTasks();
+        const tasksSnapshot = await db.collection('tasks').get();
+        tasks = [];
+        tasksSnapshot.forEach(doc => {
+            tasks.push({ id: doc.id, ...doc.data() });
+        });
         console.log("נטענו", tasks.length, "משימות");
         
+        // אם אין משימות, יצירת משימות לדוגמא
+        if (tasks.length === 0) {
+            console.log("אין משימות בדאטהבייס, יוצר משימות לדוגמא");
+            const demoTasks = [
+                { id: 1, name: 'פנ"פ צפון' },
+                { id: 2, name: 'צפון דואלי' },
+                { id: 3, name: 'פלמחים' },
+                { id: 4, name: 'חצרים' },
+                { id: 5, name: '500' },
+                { id: 6, name: '600' }
+            ];
+            
+            // שמירת המשימות לדוגמא ב-Firestore
+            for (const task of demoTasks) {
+                await db.collection('tasks').doc(task.id.toString()).set({
+                    ...task,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            }
+            
+            tasks = demoTasks;
+        }
+        
         // טעינת שיבוצים מ-Firestore
-        await loadAssignments();
+        const assignmentsSnapshot = await db.collection('assignments').get();
+        assignments = [];
+        assignmentsSnapshot.forEach(doc => {
+            assignments.push({ id: doc.id, ...doc.data() });
+        });
         console.log("נטענו", assignments.length, "שיבוצים");
         
         // הגדרת השבוע הנוכחי לחמישי הקרוב
@@ -359,17 +412,19 @@ async function loadAssignments() {
 // הגדרת מאזינים לשינויים בזמן אמת
 function setupRealTimeListeners() {
     // מאזין לשינויים בחיילים
-    db.collection('soldiers').onSnapshot(snapshot => {
-        snapshot.docChanges().forEach(change => {
-            if (change.type === 'added' || change.type === 'modified') {
-                const soldierData = change.doc.data();
-                const soldierIndex = soldiers.findIndex(s => s.id === soldierData.id);
+    const unsubscribeSoldiers = db.collection('soldiers')
+        .orderBy('createdAt', 'desc')
+        .onSnapshot(snapshot => {
+            snapshot.docChanges().forEach(change => {
+                const soldierData = { id: change.doc.id, ...change.doc.data() };
                 
-                if (soldierIndex >= 0) {
-                    soldiers[soldierIndex] = soldierData;
-                } else {
-                    soldiers.push(soldierData);
-                }
+                if (change.type === 'added') {
+                    const index = soldiers.findIndex(s => s.id === soldierData.id);
+                    if (index === -1) {
+                        soldiers.push(soldierData);
+                    }
+                } else if (change.type === 'modified') {
+                    const index = soldiers.findIndex(s => s.id === soldierData.id);
             } else if (change.type === 'removed') {
                 const soldierData = change.doc.data();
                 soldiers = soldiers.filter(s => s.id !== soldierData.id);
@@ -533,6 +588,11 @@ function closeAddTaskDialog() {
   
 // פונקציה לאישור הוספת משימה
 async function confirmAddTask() {
+    if (userRole !== 'admin') {
+        showNotification('רק מנהל יכול להוסיף משימות', 'error');
+        return;
+    }
+
     const taskName = document.getElementById('newTaskName').value.trim();
     
     if (!taskName) {
@@ -540,28 +600,29 @@ async function confirmAddTask() {
         return;
     }
     
-    // בדיקה אם כבר קיימת משימה בשם זהה
-    if (tasks.some(task => task.name.toLowerCase() === taskName.toLowerCase())) {
-        showNotification('כבר קיימת משימה בשם זה', 'error');
-        return;
-    }
-    
     try {
+        // בדיקה אם כבר קיימת משימה בשם זהה
+        const existingTaskQuery = await db.collection('tasks')
+            .where('name', '==', taskName)
+            .get();
+            
+        if (!existingTaskQuery.empty) {
+            showNotification('כבר קיימת משימה בשם זה', 'error');
+            return;
+        }
+        
         // הוספת המשימה החדשה
         const newTaskId = Date.now();
         const newTask = {
             id: newTaskId,
-            name: taskName
+            name: taskName,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
         };
         
         // שמירה ב-Firestore
         await db.collection('tasks').doc(newTaskId.toString()).set(newTask);
         
-        // הוספה למערך המקומי (יתעדכן גם דרך המאזין בזמן אמת)
-        tasks.push(newTask);
-        
         showNotification('המשימה נוספה בהצלחה', 'success');
-        renderCalendar();
         
         // סגירת הדיאלוג
         closeAddTaskDialog();
@@ -1670,6 +1731,11 @@ function showQuickAddDialog(taskId, taskName, dateStr, dateObj) {
   
   // פונקציה להוספת חייל חדש
   async function handleAddSoldier() {
+      if (userRole !== 'admin') {
+          showNotification('רק מנהל יכול להוסיף חיילים', 'error');
+          return;
+      }
+
       const firstNameInput = document.getElementById('newFirstName');
       const lastNameInput = document.getElementById('newLastName');
       const roleSelect = document.getElementById('newRole');
@@ -1687,14 +1753,12 @@ function showQuickAddDialog(taskId, taskName, dateStr, dateObj) {
                   id: newSoldierId,
                   firstName,
                   lastName,
-                  role
+                  role,
+                  createdAt: firebase.firestore.FieldValue.serverTimestamp()
               };
               
               // שמירת החייל ב-Firestore
               await db.collection('soldiers').doc(newSoldierId.toString()).set(newSoldier);
-              
-              // הוספה למערך המקומי
-              soldiers.push(newSoldier);
               
               // איפוס השדות
               firstNameInput.value = '';
@@ -1702,7 +1766,6 @@ function showQuickAddDialog(taskId, taskName, dateStr, dateObj) {
               roleSelect.value = 'doctor';
               
               showNotification('החייל נוסף בהצלחה!', 'success');
-              renderSoldiers();
               
           } catch (error) {
               console.error("שגיאה בהוספת חייל:", error);
