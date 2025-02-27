@@ -45,24 +45,53 @@
                     </svg>
                     <span id="roleText">צופה</span>
                 </button>
-                <button id="toggleReport" class="button button-blue">
-                    <svg class="icon" viewBox="0 0 24 24">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                        <path d="M14 2v6h6"></path>
-                        <path d="M16 13H8"></path>
-                        <path d="M16 17H8"></path>
-                        <path d="M10 9H8"></path>
-                    </svg>
-                    <span>הצג דוח</span>
-                </button>
+                <div class="report-buttons-group">
+                    <button id="toggleReport" class="button button-blue">
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <path d="M14 2v6h6"></path>
+                            <path d="M16 13H8"></path>
+                            <path d="M16 17H8"></path>
+                            <path d="M10 9H8"></path>
+                        </svg>
+                        <span>דוח רגיל</span>
+                    </button>
+                    <button id="toggleWeeklySummary" class="button button-blue">
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <path d="M14 2v6h6"></path>
+                            <path d="M16 13H8"></path>
+                            <path d="M16 17H8"></path>
+                            <path d="M10 9H8"></path>
+                        </svg>
+                        <span>סיכום שבועי</span>
+                    </button>
+                    <button id="toggleSemiAnnualReport" class="button button-blue">
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <path d="M14 2v6h6"></path>
+                            <path d="M16 13H8"></path>
+                            <path d="M16 17H8"></path>
+                            <path d="M10 9H8"></path>
+                        </svg>
+                        <span>דוח חצי שנתי</span>
+                    </button>
+                </div>
             </div>
         </div>
         
-        <!-- תצוגת דוח (מוסתרת בהתחלה) -->
+        <!-- תצוגת דוח רגיל (מוסתרת בהתחלה) -->
         <div id="reportView" class="report-container hidden">
             <div class="report-header">
                 <h2 class="text-xl font-bold">דוח פעילות חיילים</h2>
                 <div class="report-controls">
+                    <button id="backToCalendarBtn" class="button button-gray">
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="9" y1="3" x2="9" y2="21"></line>
+                        </svg>
+                        חזרה ללוח
+                    </button>
                     <button id="exportExcel" class="button button-green">
                         <svg class="icon" viewBox="0 0 24 24">
                             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -80,6 +109,64 @@
             </div>
         </div>
         
+        <!-- תצוגת דוח חצי שנתי (מוסתרת בהתחלה) -->
+        <div id="semiAnnualReportView" class="report-container hidden">
+            <div class="report-header">
+                <h2 class="text-xl font-bold">דוח חצי שנתי לפי משימות</h2>
+                <div class="report-controls">
+                    <button id="backToCalendarFromSemiBtn" class="button button-gray">
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="9" y1="3" x2="9" y2="21"></line>
+                        </svg>
+                        חזרה ללוח
+                    </button>
+                    <button id="exportSemiAnnualExcel" class="button button-green">
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <path d="M14 2v6h6"></path>
+                            <path d="M12 18v-6"></path>
+                            <path d="M8 18v-1"></path>
+                            <path d="M16 18v-3"></path>
+                        </svg>
+                        ייצוא לאקסל
+                    </button>
+                </div>
+            </div>
+            <div id="semiAnnualReportContent" class="space-y-6">
+                <!-- תוכן הדוח החצי שנתי יוזרק כאן בג'אווהסקריפט -->
+            </div>
+        </div>
+
+        <!-- תצוגת סיכום שבועי (מוסתרת בהתחלה) -->
+        <div id="weeklySummaryView" class="report-container hidden">
+            <div class="report-header">
+                <h2 class="text-xl font-bold">סיכום שבועי לפי חיילים</h2>
+                <div class="report-controls">
+                    <button id="backToCalendarFromWeeklyBtn" class="button button-gray">
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="9" y1="3" x2="9" y2="21"></line>
+                        </svg>
+                        חזרה ללוח
+                    </button>
+                    <button id="exportWeeklySummaryExcel" class="button button-green">
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <path d="M14 2v6h6"></path>
+                            <path d="M12 18v-6"></path>
+                            <path d="M8 18v-1"></path>
+                            <path d="M16 18v-3"></path>
+                        </svg>
+                        ייצוא לאקסל
+                    </button>
+                </div>
+            </div>
+            <div id="weeklySummaryContent" class="space-y-6">
+                <!-- תוכן הסיכום השבועי יוזרק כאן בג'אווהסקריפט -->
+            </div>
+        </div>
+        
         <!-- תצוגת לוח זמנים -->
         <div id="schedulerView" class="main-content">
             <!-- לוח זמנים -->
@@ -89,16 +176,26 @@
                     <div class="calendar-container">
                         <!-- כותרת לוח -->
                         <div class="calendar-header">
-                            <button id="prevWeek" class="button button-gray">
-                                <svg class="icon" viewBox="0 0 24 24">
-                                    <path d="M5 12h14"></path>
-                                    <path d="m12 5 7 7-7 7"></path>
-                                </svg>
-                                שבוע קודם
-                            </button>
+                            <div class="flex gap-2">
+                                <button id="prevWeek" class="button button-gray">
+                                    <svg class="icon" viewBox="0 0 24 24">
+                                        <path d="M5 12h14"></path>
+                                        <path d="m12 5 7 7-7 7"></path>
+                                    </svg>
+                                    שבוע הבא
+                                </button>
+                                <button id="currentWeek" class="button button-accent">
+                                    <svg class="icon" viewBox="0 0 24 24">
+                                        <path d="M3 12h18"></path>
+                                        <path d="M4 6V2h16v4"></path>
+                                        <path d="M12 8v8"></path>
+                                    </svg>
+                                    שבוע נוכחי
+                                </button>
+                            </div>
                             <div id="dateRange" class="font-bold">טווח תאריכים</div>
                             <button id="nextWeek" class="button button-gray">
-                                שבוע הבא
+                                שבוע קודם
                                 <svg class="icon" viewBox="0 0 24 24">
                                     <path d="M19 12H5"></path>
                                     <path d="M12 19l-7-7 7-7"></path>
@@ -187,6 +284,9 @@
                     <!-- רשימת חיילים תוזרק כאן בג'אווהסקריפט -->
                 </div>
             </div>
+
+            <!-- כפתור הוספת משימה חדשה -->
+            <div id="addTaskBtn"></div>
         </div>
     </div>
 
@@ -217,6 +317,75 @@
                 <div class="flex justify-end gap-2 mt-4">
                     <button id="quickAddCancel" class="button button-gray">ביטול</button>
                     <button id="quickAddConfirm" class="button button-blue">הוסף חיילים</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- דיאלוג בחירת שיבוץ יומי או שבועי -->
+    <div id="assignmentTypeDialog" class="hidden">
+        <div class="dialog-overlay"></div>
+        <div class="quick-add-dialog">
+            <div class="dialog-header">
+                <h3 class="dialog-title">בחירת סוג שיבוץ</h3>
+                <button class="close-button" id="closeAssignmentTypeDialog">
+                    <svg class="icon" viewBox="0 0 24 24">
+                        <path d="M18 6L6 18"></path>
+                        <path d="M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div>
+                <div class="mb-4 text-center">
+                    האם לשבץ את החיילים למשימה זו ליום אחד או לכל השבוע?
+                </div>
+                <div class="flex justify-center gap-4 mt-4">
+                    <button id="assignSingleDay" class="button button-gray">
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="16" y1="2" x2="16" y2="6"></line>
+                            <line x1="8" y1="2" x2="8" y2="6"></line>
+                            <line x1="3" y1="10" x2="21" y2="10"></line>
+                        </svg>
+                        יום אחד בלבד
+                    </button>
+                    <button id="assignFullWeek" class="button button-blue">
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="16" y1="2" x2="16" y2="6"></line>
+                            <line x1="8" y1="2" x2="8" y2="6"></line>
+                            <line x1="3" y1="10" x2="21" y2="10"></line>
+                            <line x1="10" y1="14" x2="14" y2="14"></line>
+                            <line x1="12" y1="12" x2="12" y2="16"></line>
+                        </svg>
+                        כל השבוע
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- דיאלוג הוספת משימה חדשה -->
+    <div id="addTaskDialog" class="hidden">
+        <div class="dialog-overlay"></div>
+        <div class="quick-add-dialog">
+            <div class="dialog-header">
+                <h3 class="dialog-title">הוספת משימה חדשה</h3>
+                <button class="close-button" id="closeAddTaskDialog">
+                    <svg class="icon" viewBox="0 0 24 24">
+                        <path d="M18 6L6 18"></path>
+                        <path d="M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div>
+                <div class="mb-4">
+                    <label for="newTaskName" class="block mb-1">שם המשימה:</label>
+                    <input type="text" id="newTaskName" class="w-full rounded border px-2 py-1 text-sm" placeholder="הזן שם משימה">
+                </div>
+                <div class="flex justify-end gap-2 mt-4">
+                    <button id="addTaskCancel" class="button button-gray">ביטול</button>
+                    <button id="addTaskConfirm" class="button button-green">הוסף משימה</button>
                 </div>
             </div>
         </div>

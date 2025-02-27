@@ -11,7 +11,8 @@ let isAuthenticated = false;
 // אובייקט עבור המשבצת הנוכחית לשיבוץ מהיר
 let currentQuickAdd = {
     taskId: null,
-    date: null
+    date: null,
+    selectedSoldiers: []
 };
 
 // אתחול האפליקציה
@@ -97,14 +98,33 @@ function initData() {
 }
 
 // הוספת האזנה לאירועים
+// להוסיף בפונקציה setupEventListeners
+
 function setupEventListeners() {
     // לחצנים ראשיים
     document.getElementById('addSoldierBtn').addEventListener('click', handleAddSoldier);
     document.getElementById('toggleRole').addEventListener('click', toggleRole);
-    document.getElementById('toggleReport').addEventListener('click', toggleReport);
+    document.getElementById('toggleReport').addEventListener('click', () => toggleReportView('regular'));
+    document.getElementById('toggleSemiAnnualReport').addEventListener('click', () => toggleReportView('semiAnnual'));
+    document.getElementById('toggleWeeklySummary').addEventListener('click', () => toggleReportView('weekly'));
+    
+    // כפתורי חזרה ללוח מהדוחות
+    document.getElementById('backToCalendarBtn').addEventListener('click', () => toggleReportView('calendar'));
+    document.getElementById('backToCalendarFromSemiBtn').addEventListener('click', () => toggleReportView('calendar'));
+    document.getElementById('backToCalendarFromWeeklyBtn').addEventListener('click', () => toggleReportView('calendar'));
+    
     document.getElementById('prevWeek').addEventListener('click', subtractWeek);
     document.getElementById('nextWeek').addEventListener('click', addWeek);
+    document.getElementById('currentWeek').addEventListener('click', goToCurrentWeek);
     document.getElementById('exportExcel').addEventListener('click', exportToExcel);
+    document.getElementById('exportSemiAnnualExcel').addEventListener('click', exportSemiAnnualToExcel);
+    document.getElementById('exportWeeklySummaryExcel').addEventListener('click', exportWeeklySummaryToExcel);
+    
+    // הוספת משימה חדשה
+    document.getElementById('addTaskBtn').addEventListener('click', showAddTaskDialog);
+    document.getElementById('closeAddTaskDialog').addEventListener('click', closeAddTaskDialog);
+    document.getElementById('addTaskCancel').addEventListener('click', closeAddTaskDialog);
+    document.getElementById('addTaskConfirm').addEventListener('click', confirmAddTask);
     
     // חיפוש
     document.getElementById('searchInput').addEventListener('input', (e) => {
@@ -115,8 +135,105 @@ function setupEventListeners() {
     // הוספה מהירה דיאלוג
     document.getElementById('closeQuickAdd').addEventListener('click', closeQuickAddDialog);
     document.getElementById('quickAddCancel').addEventListener('click', closeQuickAddDialog);
-    document.getElementById('quickAddConfirm').addEventListener('click', confirmQuickAdd);
+    document.getElementById('quickAddConfirm').addEventListener('click', prepareQuickAdd);
     document.querySelector('.dialog-overlay').addEventListener('click', closeQuickAddDialog);
+    
+    // דיאלוג בחירת סוג שיבוץ
+    document.getElementById('closeAssignmentTypeDialog').addEventListener('click', closeAssignmentTypeDialog);
+    document.getElementById('assignSingleDay').addEventListener('click', () => confirmQuickAdd(false));
+    document.getElementById('assignFullWeek').addEventListener('click', () => confirmQuickAdd(true));
+}
+
+// עדכון פונקציית toggleReportView
+function toggleReportView(reportType) {
+    const reportView = document.getElementById('reportView');
+    const semiAnnualReportView = document.getElementById('semiAnnualReportView');
+    const weeklySummaryView = document.getElementById('weeklySummaryView');
+    const schedulerView = document.getElementById('schedulerView');
+    
+    // הסתרת כל התצוגות
+    reportView.classList.add('hidden');
+    semiAnnualReportView.classList.add('hidden');
+    weeklySummaryView.classList.add('hidden');
+    schedulerView.classList.add('hidden');
+    
+    if (reportType === 'regular') {
+        // תצוגת דוח רגיל
+        reportView.classList.remove('hidden');
+        renderReport();
+    } else if (reportType === 'semiAnnual') {
+        // תצוגת דוח חצי שנתי
+        semiAnnualReportView.classList.remove('hidden');
+        renderSemiAnnualReport();
+    } else if (reportType === 'weekly') {
+        // תצוגת סיכום שבועי
+        weeklySummaryView.classList.remove('hidden');
+        renderWeeklySummary();
+    } else {
+        // חזרה ללוח
+        schedulerView.classList.remove('hidden');
+    }
+}
+
+// פונקציה לסגירת דיאלוג סוג השיבוץ
+function closeAssignmentTypeDialog() {
+    document.getElementById('assignmentTypeDialog').classList.add('hidden');
+}
+
+// פונקציה להצגת דיאלוג הוספת משימה
+function showAddTaskDialog() {
+    if (userRole !== 'admin') {
+        showNotification('רק מנהל יכול להוסיף משימות חדשות', 'error');
+        return;
+    }
+    
+    // איפוס שדות הטופס
+    document.getElementById('newTaskName').value = '';
+    
+    // הצגת הדיאלוג
+    document.getElementById('addTaskDialog').classList.remove('hidden');
+}
+
+// פונקציה לסגירת דיאלוג הוספת משימה
+function closeAddTaskDialog() {
+    document.getElementById('addTaskDialog').classList.add('hidden');
+}
+
+// פונקציה לאישור הוספת משימה
+function confirmAddTask() {
+    const taskName = document.getElementById('newTaskName').value.trim();
+    
+    if (!taskName) {
+        showNotification('נא להזין שם משימה', 'error');
+        return;
+    }
+    
+    // בדיקה אם כבר קיימת משימה בשם זהה
+    if (tasks.some(task => task.name.toLowerCase() === taskName.toLowerCase())) {
+        showNotification('כבר קיימת משימה בשם זה', 'error');
+        return;
+    }
+    
+    // הוספת המשימה החדשה
+    const newTask = {
+        id: Date.now(),
+        name: taskName
+    };
+    
+    tasks.push(newTask);
+    
+    showNotification('המשימה נוספה בהצלחה', 'success');
+    saveData();
+    renderCalendar();
+    
+    // סגירת הדיאלוג
+    closeAddTaskDialog();
+}
+
+// פונקציה למעבר לשבוע הנוכחי
+function goToCurrentWeek() {
+    currentWeek = getNextThursday();
+    renderCalendar();
 }
 
 // הגדרת אפשרות שינוי גודל רשימת החיילים
@@ -231,17 +348,140 @@ function renderCalendarHeader() {
         
         const dayName = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'][day.getDay()];
         
+        // בדיקה אם היום הוא חג
+        const holiday = isHoliday(day);
+        let holidayText = '';
+        
+        if (holiday) {
+            holidayText = `<div class="holiday-name">${holiday}</div>`;
+            th.classList.add('holiday');
+        }
+        
         th.innerHTML = `
             ${dayName}
-            <div class="text-sm">${formatDate(day)}</div>
+            <div class="text-sm">${formatDateWithYear(day)}</div>
+            ${holidayText}
         `;
         
         daysRow.appendChild(th);
     });
     
     // עדכון טווח התאריכים
-    dateRangeElement.textContent = `${formatDate(daysOfWeek[0])} - ${formatDate(daysOfWeek[6])}`;
+    const firstDay = daysOfWeek[0];
+    const lastDay = daysOfWeek[6];
+    dateRangeElement.textContent = `${formatDateWithYear(firstDay)} - ${formatDateWithYear(lastDay)}`;
 }
+
+// פונקציה לבדיקה אם תאריך הוא חג
+function isHoliday(date) {
+    const holidays = getIsraeliHolidays(date.getFullYear());
+    
+    for (const holiday of holidays) {
+        if (isSameDay(date, holiday.date)) {
+            return holiday.name;
+        }
+    }
+    
+    return null;
+}
+
+// פונקציה להשוואת תאריכים (יום, חודש, שנה)
+function isSameDay(date1, date2) {
+    return date1.getDate() === date2.getDate() &&
+           date1.getMonth() === date2.getMonth() &&
+           date1.getFullYear() === date2.getFullYear();
+}
+
+// פונקציה לקבלת חגי ישראל
+function getIsraeliHolidays(year) {
+    // חגים בתאריכים מעודכנים לשנת 2025
+    // תאריכים אלו הם קירוב טוב יותר, אך עדיין מומלץ להשתמש בחישוב מדויק לפי הלוח העברי במערכת אמיתית
+    const holidays = [
+      // ראש השנה
+      { name: 'ערב ראש השנה', date: new Date(2025, 8, 22), type: 'ערב חג' },       // 22 בספטמבר 2025
+      { name: 'ראש השנה', date: new Date(2025, 8, 23), type: 'חג' },                // 23 בספטמבר 2025
+      { name: 'ראש השנה (יום שני)', date: new Date(2025, 8, 24), type: 'חג' },      // 24 בספטמבר 2025
+      
+      // יום כיפור
+      { name: 'ערב יום כיפור', date: new Date(2025, 9, 1), type: 'ערב חג' },        // 1 באוקטובר 2025
+      { name: 'יום כיפור', date: new Date(2025, 9, 2), type: 'חג' },                // 2 באוקטובר 2025
+      
+      // סוכות
+      { name: 'ערב סוכות', date: new Date(2025, 9, 6), type: 'ערב חג' },            // 6 באוקטובר 2025
+      { name: 'סוכות', date: new Date(2025, 9, 7), type: 'חג' },                    // 7 באוקטובר 2025
+      { name: 'חול המועד סוכות', date: new Date(2025, 9, 8), type: 'חול המועד' },    // 8 באוקטובר 2025
+      { name: 'חול המועד סוכות', date: new Date(2025, 9, 9), type: 'חול המועד' },    // 9 באוקטובר 2025
+      { name: 'חול המועד סוכות', date: new Date(2025, 9, 10), type: 'חול המועד' },   // 10 באוקטובר 2025
+      { name: 'חול המועד סוכות', date: new Date(2025, 9, 11), type: 'חול המועד' },   // 11 באוקטובר 2025
+      { name: 'חול המועד סוכות', date: new Date(2025, 9, 12), type: 'חול המועד' },   // 12 באוקטובר 2025
+      { name: 'הושענה רבה', date: new Date(2025, 9, 13), type: 'חול המועד' },        // 13 באוקטובר 2025
+      { name: 'שמיני עצרת / שמחת תורה', date: new Date(2025, 9, 14), type: 'חג' },   // 14 באוקטובר 2025
+      
+      // חנוכה
+      { name: 'ערב חנוכה', date: new Date(2025, 11, 14), type: 'ערב חג' },          // 14 בדצמבר 2025
+      { name: 'חנוכה - נר ראשון', date: new Date(2025, 11, 15), type: 'חג' },       // 15 בדצמבר 2025
+      { name: 'חנוכה - נר שמיני', date: new Date(2025, 11, 22), type: 'חג' },       // 22 בדצמבר 2025
+      
+      // טו בשבט
+      { name: 'טו בשבט', date: new Date(2025, 0, 14), type: 'חג' },                 // 14 בינואר 2025
+      
+      // פורים
+      { name: 'תענית אסתר', date: new Date(2025, 2, 13), type: 'ערב חג' },          // 13 במרץ 2025
+      { name: 'פורים', date: new Date(2025, 2, 14), type: 'חג' },                   // 14 במרץ 2025
+      { name: 'שושן פורים', date: new Date(2025, 2, 15), type: 'חג' },              // 15 במרץ 2025
+      
+      // פסח
+      { name: 'ערב פסח', date: new Date(2025, 3, 12), type: 'ערב חג' },             // 12 באפריל 2025
+      { name: 'פסח', date: new Date(2025, 3, 13), type: 'חג' },                     // 13 באפריל 2025
+      { name: 'חול המועד פסח', date: new Date(2025, 3, 14), type: 'חול המועד' },     // 14 באפריל 2025
+      { name: 'חול המועד פסח', date: new Date(2025, 3, 15), type: 'חול המועד' },     // 15 באפריל 2025
+      { name: 'חול המועד פסח', date: new Date(2025, 3, 16), type: 'חול המועד' },     // 16 באפריל 2025
+      { name: 'חול המועד פסח', date: new Date(2025, 3, 17), type: 'חול המועד' },     // 17 באפריל 2025
+      { name: 'חול המועד פסח', date: new Date(2025, 3, 18), type: 'חול המועד' },     // 18 באפריל 2025
+      { name: 'שביעי של פסח', date: new Date(2025, 3, 19), type: 'חג' },            // 19 באפריל 2025
+      
+      // יום השואה, יום הזיכרון ויום העצמאות
+      { name: 'יום השואה', date: new Date(2025, 3, 28), type: 'יום זיכרון' },        // 28 באפריל 2025
+      { name: 'יום הזיכרון', date: new Date(2025, 3, 30), type: 'יום זיכרון' },       // 30 באפריל 2025
+      { name: 'ערב יום העצמאות', date: new Date(2025, 3, 30), type: 'ערב חג' },      // 30 באפריל 2025 (בערב)
+      { name: 'יום העצמאות', date: new Date(2025, 4, 1), type: 'חג' },               // 1 במאי 2025
+      
+      // ל"ג בעומר
+      { name: 'ל"ג בעומר', date: new Date(2025, 4, 18), type: 'חג' },               // 18 במאי 2025
+      
+      // שבועות
+      { name: 'ערב שבועות', date: new Date(2025, 5, 1), type: 'ערב חג' },           // 1 ביוני 2025
+      { name: 'שבועות', date: new Date(2025, 5, 2), type: 'חג' },                   // 2 ביוני 2025
+      
+      // ימי בין המצרים
+      { name: 'שבעה עשר בתמוז', date: new Date(2025, 6, 15), type: 'צום' },         // 15 ביולי 2025
+      { name: 'תשעה באב', date: new Date(2025, 7, 10), type: 'צום' }                // 10 באוגוסט 2025
+    ];
+    
+    // אם הפונקציה צריכה לטפל בשנים מרובות, ניתן להתאים את התאריכים בהתאם לשנה שהתקבלה כפרמטר
+    
+    return holidays;
+  }
+  
+  // פונקציה עזר לבדיקה אם תאריך הוא ערב חג
+  function isErevChag(date) {
+    const holidays = getIsraeliHolidays(date.getFullYear());
+    return holidays.some(holiday => 
+      holiday.type === 'ערב חג' && 
+      holiday.date.getDate() === date.getDate() && 
+      holiday.date.getMonth() === date.getMonth()
+    );
+  }
+  
+  // פונקציה עזר לבדיקה אם תאריך הוא חול המועד
+  function isHolHamoed(date) {
+    const holidays = getIsraeliHolidays(date.getFullYear());
+    return holidays.some(holiday => 
+      holiday.type === 'חול המועד' && 
+      holiday.date.getDate() === date.getDate() && 
+      holiday.date.getMonth() === date.getMonth()
+    );
+  }
 
 // רינדור של גוף לוח השנה
 function renderCalendarBody() {
@@ -256,7 +496,39 @@ function renderCalendarBody() {
         // תא המשימה (שם המשימה מופיע בעמודה הראשונה)
         const taskCell = document.createElement('td');
         taskCell.className = 'p-2 border font-medium task-name';
-        taskCell.textContent = task.name;
+        
+        // אם המשתמש הוא מנהל, הוסף אייקון מחיקה
+        if (userRole === 'admin') {
+            const taskContainer = document.createElement('div');
+            taskContainer.className = 'flex justify-between items-center';
+            
+            const taskName = document.createElement('span');
+            taskName.textContent = task.name;
+            taskContainer.appendChild(taskName);
+            
+            // אייקון מחיקה
+            const deleteIcon = document.createElement('button');
+            deleteIcon.className = 'icon-button delete-icon';
+            deleteIcon.innerHTML = `
+                <svg class="icon-sm" viewBox="0 0 24 24">
+                    <path d="M3 6h18"></path>
+                    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                </svg>
+            `;
+            deleteIcon.dataset.taskId = task.id;
+            deleteIcon.addEventListener('click', (e) => {
+                e.stopPropagation();
+                handleDeleteTask(task.id);
+            });
+            
+            taskContainer.appendChild(deleteIcon);
+            taskCell.appendChild(taskContainer);
+        } else {
+            // צופה רגיל רואה רק את שם המשימה
+            taskCell.textContent = task.name;
+        }
+        
         tr.appendChild(taskCell);
         
         // תאים לכל יום
@@ -268,6 +540,12 @@ function renderCalendarBody() {
             
             const td = document.createElement('td');
             td.className = 'task-cell border';
+            
+            // בדיקה אם היום הוא חג
+            if (isHoliday(day)) {
+                td.classList.add('holiday-cell');
+            }
+            
             td.dataset.taskId = task.id;
             td.dataset.date = dateStr;
             
@@ -364,6 +642,55 @@ function renderCalendarBody() {
         
         calendarBodyElement.appendChild(tr);
     });
+    
+    // הוספת שורה לכפתור "הוסף משימה" (רק למנהלים)
+    if (userRole === 'admin') {
+        const addTaskRow = document.createElement('tr');
+        const addTaskCell = document.createElement('td');
+        addTaskCell.className = 'p-2 border';
+        
+        const addTaskBtn = document.createElement('button');
+        addTaskBtn.id = 'addTaskBtn';
+        addTaskBtn.className = 'button button-green w-full';
+        addTaskBtn.innerHTML = `
+            <svg class="icon" viewBox="0 0 24 24">
+                <path d="M12 5v14M5 12h14"></path>
+            </svg>
+            הוסף משימה
+        `;
+        addTaskBtn.addEventListener('click', showAddTaskDialog);
+        
+        addTaskCell.appendChild(addTaskBtn);
+        addTaskRow.appendChild(addTaskCell);
+        
+        // הוספת תאים ריקים לשאר העמודות
+        for (let i = 0; i < daysOfWeek.length; i++) {
+            const emptyCell = document.createElement('td');
+            emptyCell.className = 'border';
+            addTaskRow.appendChild(emptyCell);
+        }
+        
+        calendarBodyElement.appendChild(addTaskRow);
+    }
+}
+
+// פונקציה למחיקת משימה
+function handleDeleteTask(taskId) {
+    if (!confirm(`האם אתה בטוח שברצונך למחוק את המשימה?`)) {
+        return;
+    }
+    
+    // מחיקת המשימה מהמערך
+    tasks = tasks.filter(task => task.id !== taskId);
+    
+    // מחיקת כל השיבוצים למשימה זו
+    assignments = assignments.filter(assignment => assignment.taskId !== taskId);
+    
+    // שמירה ורינדור מחדש
+    saveData();
+    renderCalendar();
+    
+    showNotification('המשימה נמחקה בהצלחה', 'success');
 }
 
 // פונקציה לפתיחת דיאלוג הוספה מהירה
@@ -371,6 +698,7 @@ function showQuickAddDialog(taskId, taskName, dateStr, dateObj) {
     // שמירת המידע הנוכחי
     currentQuickAdd.taskId = taskId;
     currentQuickAdd.date = dateStr;
+    currentQuickAdd.selectedSoldiers = [];
     
     // עדכון כותרת הדיאלוג
     document.getElementById('quickAddTaskName').textContent = taskName;
@@ -416,8 +744,8 @@ function showQuickAddDialog(taskId, taskName, dateStr, dateObj) {
     document.getElementById('quickAddDialog').classList.remove('hidden');
 }
 
-// אישור הוספה מהירה של חיילים
-function confirmQuickAdd() {
+// פונקציה להכנת ההוספה המהירה - שלב ביניים
+function prepareQuickAdd() {
     const selectedSoldiers = Array.from(document.querySelectorAll('#availableSoldiers input[type="checkbox"]:checked'))
         .map(cb => parseInt(cb.value));
     
@@ -426,40 +754,100 @@ function confirmQuickAdd() {
         return;
     }
     
-    // חיפוש אם כבר קיים שיבוץ למשימה זו בתאריך זה
-    const existingAssignmentIndex = assignments.findIndex(
-        a => a.taskId === currentQuickAdd.taskId && a.date === currentQuickAdd.date
-    );
+    // שמירת החיילים שנבחרו
+    currentQuickAdd.selectedSoldiers = selectedSoldiers;
     
-    if (existingAssignmentIndex >= 0) {
-        // עדכון שיבוץ קיים - הוספת חיילים שלא משובצים כבר
-        const updatedAssignment = assignments[existingAssignmentIndex];
-        const newSoldiers = selectedSoldiers.filter(id => !updatedAssignment.soldierIds.includes(id));
+    // סגירת הדיאלוג הראשון
+    closeQuickAddDialog();
+    
+    // פתיחת דיאלוג בחירת סוג השיבוץ
+    document.getElementById('assignmentTypeDialog').classList.remove('hidden');
+}
+
+// אישור הוספה מהירה של חיילים
+function confirmQuickAdd(isFullWeek) {
+    // סגירת דיאלוג בחירת סוג השיבוץ
+    closeAssignmentTypeDialog();
+    
+    if (currentQuickAdd.selectedSoldiers.length === 0) {
+        showNotification('לא נבחרו חיילים', 'error');
+        return;
+    }
+    
+    if (isFullWeek) {
+        // שיבוץ לכל השבוע
+        const daysOfWeek = getDaysOfWeek();
+        let successCount = 0;
         
-        if (newSoldiers.length > 0) {
-            updatedAssignment.soldierIds = [...updatedAssignment.soldierIds, ...newSoldiers];
-            showNotification(`נוספו ${newSoldiers.length} חיילים למשימה`, 'success');
-        } else {
-            showNotification('כל החיילים שנבחרו כבר משובצים למשימה זו', 'info');
-        }
-    } else {
-        // יצירת שיבוץ חדש
-        assignments.push({
-            id: Date.now(),
-            taskId: currentQuickAdd.taskId,
-            date: currentQuickAdd.date,
-            soldierIds: selectedSoldiers
+        daysOfWeek.forEach(day => {
+            const dateStr = formatDateISO(day);
+            
+            // שיבוץ לכל יום בנפרד
+            const result = assignSoldiersToDay(currentQuickAdd.taskId, dateStr, currentQuickAdd.selectedSoldiers);
+            if (result.success) {
+                successCount += result.addedCount;
+            }
         });
         
-        showNotification(`נוספו ${selectedSoldiers.length} חיילים למשימה`, 'success');
+        if (successCount > 0) {
+            showNotification(`נוספו ${successCount} שיבוצים לאורך השבוע`, 'success');
+        } else {
+            showNotification('לא בוצעו שיבוצים חדשים', 'info');
+        }
+    } else {
+        // שיבוץ ליום אחד בלבד
+        const result = assignSoldiersToDay(currentQuickAdd.taskId, currentQuickAdd.date, currentQuickAdd.selectedSoldiers);
+        
+        if (result.success && result.addedCount > 0) {
+            showNotification(`נוספו ${result.addedCount} חיילים למשימה`, 'success');
+        } else if (result.success) {
+            showNotification('כל החיילים שנבחרו כבר משובצים למשימה זו', 'info');
+        }
     }
     
     // שמירה ורינדור מחדש
     saveData();
     renderCalendar();
+}
+
+// פונקציה לשיבוץ חיילים ליום מסוים
+function assignSoldiersToDay(taskId, dateStr, soldierIds) {
+    // חיפוש אם כבר קיים שיבוץ למשימה זו בתאריך זה
+    const existingAssignmentIndex = assignments.findIndex(
+        a => a.taskId === taskId && a.date === dateStr
+    );
     
-    // סגירת הדיאלוג
-    closeQuickAddDialog();
+    if (existingAssignmentIndex >= 0) {
+        // עדכון שיבוץ קיים - הוספת חיילים שלא משובצים כבר
+        const updatedAssignment = assignments[existingAssignmentIndex];
+        const newSoldiers = soldierIds.filter(id => 
+            !updatedAssignment.soldierIds.includes(id) && !hasConflict(id, dateStr)
+        );
+        
+        if (newSoldiers.length > 0) {
+            updatedAssignment.soldierIds = [...updatedAssignment.soldierIds, ...newSoldiers];
+            return { success: true, addedCount: newSoldiers.length };
+        } else {
+            return { success: true, addedCount: 0 };
+        }
+    } else {
+        // יצירת שיבוץ חדש
+        // סינון חיילים שיש להם התנגשות ביום זה
+        const availableSoldiers = soldierIds.filter(id => !hasConflict(id, dateStr));
+        
+        if (availableSoldiers.length > 0) {
+            assignments.push({
+                id: Date.now() + Math.floor(Math.random() * 1000), // הוספת רנדום למניעת התנגשויות
+                taskId: taskId,
+                date: dateStr,
+                soldierIds: availableSoldiers
+            });
+            
+            return { success: true, addedCount: availableSoldiers.length };
+        } else {
+            return { success: true, addedCount: 0 };
+        }
+    }
 }
 
 // סגירת דיאלוג הוספה מהירה
@@ -480,37 +868,13 @@ function handleDrop(e) {
     // אפקט ויזואלי
     this.classList.remove('bg-blue-50');
     
-    // בדיקה אם החייל כבר משובץ ליום זה
-    if (hasConflict(soldierId, dateStr)) {
-        showNotification('שים לב: החייל כבר משובץ למשימה אחרת ביום זה!', 'error');
-        return;
-    }
+    // שמירת המידע הנוכחי עבור הדיאלוג
+    currentQuickAdd.taskId = taskId;
+    currentQuickAdd.date = dateStr;
+    currentQuickAdd.selectedSoldiers = [soldierId];
     
-    // חיפוש אם כבר קיים שיבוץ למשימה זו בתאריך זה
-    const existingAssignmentIndex = assignments.findIndex(
-        a => a.taskId === taskId && a.date === dateStr
-    );
-    
-    if (existingAssignmentIndex >= 0) {
-        // עדכון שיבוץ קיים
-        if (!assignments[existingAssignmentIndex].soldierIds.includes(soldierId)) {
-            assignments[existingAssignmentIndex].soldierIds.push(soldierId);
-            showNotification('החייל שובץ בהצלחה!', 'success');
-        }
-    } else {
-        // יצירת שיבוץ חדש
-        assignments.push({
-            id: Date.now(),
-            taskId,
-            date: dateStr,
-            soldierIds: [soldierId]
-        });
-        showNotification('החייל שובץ בהצלחה!', 'success');
-    }
-    
-    // שמירה ורינדור מחדש
-    saveData();
-    renderCalendar();
+    // פתיחת דיאלוג בחירת סוג השיבוץ
+    document.getElementById('assignmentTypeDialog').classList.remove('hidden');
 }
 
 // פונקציה לתצוגת התראות
@@ -740,6 +1104,9 @@ function renderSoldiers() {
                         card.classList.remove('dragging');
                     });
 
+                    // תמיכה במגע למובייל
+                    setupMobileDragTouch(card, soldier.id);
+
                     // הוספת event listeners לעריכה ומחיקה
                     setTimeout(() => {
                         const editBtn = card.querySelector('.edit-btn');
@@ -774,6 +1141,128 @@ function renderSoldiers() {
     
     // הצגת או הסתרת טופס ההוספה לפי הרשאה
     document.getElementById('addSoldierForm').style.display = userRole === 'admin' ? 'flex' : 'none';
+    
+    // הצגת או הסתרת כפתור הוספת משימה לפי הרשאה
+    document.getElementById('addTaskBtn').style.display = userRole === 'admin' ? 'flex' : 'none';
+}
+
+// הגדרת משתנים ופונקציות לגרירה במובייל
+let mobileDraggedSoldierId = null;
+let mobileDragElement = null;
+
+// פונקציה להגדרת גרירה במגע למובייל
+function setupMobileDragTouch(element, soldierId) {
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchTimeStart = 0;
+    let isDragging = false;
+    
+    element.addEventListener('touchstart', function(e) {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        touchTimeStart = Date.now();
+        
+        // בטלפון נצטרך להמתין קצת כדי להבדיל בין גרירה וסקרול
+        setTimeout(() => {
+            if (!isDragging && Date.now() - touchTimeStart > 200) {
+                // התחלת גרירה
+                mobileDraggedSoldierId = soldierId;
+                element.classList.add('dragging');
+                
+                // יצירת אלמנט הנגרר
+                if (!mobileDragElement) {
+                    mobileDragElement = document.createElement('div');
+                    mobileDragElement.className = 'mobile-drag-indicator';
+                    mobileDragElement.textContent = 'גורר חייל...';
+                    document.body.appendChild(mobileDragElement);
+                }
+            }
+        }, 200);
+    });
+    
+    element.addEventListener('touchmove', function(e) {
+        if (mobileDraggedSoldierId !== null) {
+            isDragging = true;
+            
+            // עדכון מיקום האינדיקטור
+            if (mobileDragElement) {
+                mobileDragElement.style.top = (e.touches[0].clientY - 30) + 'px';
+                mobileDragElement.style.left = (e.touches[0].clientX - 50) + 'px';
+                mobileDragElement.classList.add('visible');
+            }
+            
+            // בדיקה אם נמצאים מעל תא בלוח
+            const taskCells = document.querySelectorAll('.task-cell');
+            let hoveredCell = null;
+            
+            taskCells.forEach(cell => {
+                const rect = cell.getBoundingClientRect();
+                if (
+                    e.touches[0].clientX >= rect.left && 
+                    e.touches[0].clientX <= rect.right && 
+                    e.touches[0].clientY >= rect.top && 
+                    e.touches[0].clientY <= rect.bottom
+                ) {
+                    hoveredCell = cell;
+                    cell.classList.add('bg-blue-50');
+                } else {
+                    cell.classList.remove('bg-blue-50');
+                }
+            });
+        }
+    });
+    
+    element.addEventListener('touchend', function(e) {
+        if (mobileDraggedSoldierId !== null && isDragging) {
+            // בדיקה אם נמצאים מעל תא בלוח
+            const taskCells = document.querySelectorAll('.task-cell');
+            let targetCell = null;
+            
+            const lastTouch = e.changedTouches[0];
+            
+            taskCells.forEach(cell => {
+                const rect = cell.getBoundingClientRect();
+                if (
+                    lastTouch.clientX >= rect.left && 
+                    lastTouch.clientX <= rect.right && 
+                    lastTouch.clientY >= rect.top && 
+                    lastTouch.clientY <= rect.bottom
+                ) {
+                    targetCell = cell;
+                }
+                cell.classList.remove('bg-blue-50');
+            });
+            
+            if (targetCell && userRole === 'admin') {
+                // שיבוץ החייל לתא
+                const taskId = parseInt(targetCell.dataset.taskId);
+                const dateStr = targetCell.dataset.date;
+                
+                // שמירת המידע הנוכחי עבור הדיאלוג
+                currentQuickAdd.taskId = taskId;
+                currentQuickAdd.date = dateStr;
+                currentQuickAdd.selectedSoldiers = [mobileDraggedSoldierId];
+                
+                // פתיחת דיאלוג בחירת סוג השיבוץ
+                document.getElementById('assignmentTypeDialog').classList.remove('hidden');
+            }
+            
+            // ניקוי
+            if (mobileDragElement) {
+                mobileDragElement.classList.remove('visible');
+                setTimeout(() => {
+                    if (mobileDragElement) {
+                        mobileDragElement.remove();
+                        mobileDragElement = null;
+                    }
+                }, 300);
+            }
+        }
+        
+        element.classList.remove('dragging');
+        mobileDraggedSoldierId = null;
+        isDragging = false;
+    });
 }
 
 // פונקציה להוספת חייל חדש
@@ -872,155 +1361,552 @@ function handleDeleteSoldier(soldierId) {
 }
 
 // פונקציה להצגת דוח
-function toggleReport() {
+// פונקציה לעדכון toggleReportView עם תמיכה בכפתורי חזרה
+
+function toggleReportView(reportType) {
     const reportView = document.getElementById('reportView');
+    const semiAnnualReportView = document.getElementById('semiAnnualReportView');
+    const weeklySummaryView = document.getElementById('weeklySummaryView');
     const schedulerView = document.getElementById('schedulerView');
-    const toggleReportBtn = document.getElementById('toggleReport');
     
-    const showingReport = reportView.classList.contains('hidden');
+    // הסתרת כל התצוגות
+    reportView.classList.add('hidden');
+    semiAnnualReportView.classList.add('hidden');
+    weeklySummaryView.classList.add('hidden');
+    schedulerView.classList.add('hidden');
     
-    if (showingReport) {
-        // הצג דוח
+    if (reportType === 'regular') {
+        // תצוגת דוח רגיל
         reportView.classList.remove('hidden');
-        schedulerView.classList.add('hidden');
-        toggleReportBtn.innerHTML = `
-            <svg class="icon" viewBox="0 0 24 24">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                <line x1="9" y1="3" x2="9" y2="21"></line>
-            </svg>
-            חזרה ללוח
-        `;
-        
         renderReport();
+    } else if (reportType === 'semiAnnual') {
+        // תצוגת דוח חצי שנתי
+        semiAnnualReportView.classList.remove('hidden');
+        renderSemiAnnualReport();
+    } else if (reportType === 'weekly') {
+        // תצוגת סיכום שבועי
+        weeklySummaryView.classList.remove('hidden');
+        renderWeeklySummary();
     } else {
-        // הצג לוח
-        reportView.classList.add('hidden');
+        // חזרה ללוח
         schedulerView.classList.remove('hidden');
-        toggleReportBtn.innerHTML = `
-            <svg class="icon" viewBox="0 0 24 24">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                <path d="M14 2v6h6"></path>
-                <path d="M16 13H8"></path>
-                <path d="M16 17H8"></path>
-                <path d="M10 9H8"></path>
-            </svg>
-            הצג דוח
-        `;
     }
+    
+    // עדכון כל הכפתורים
+    updateReportButtons(reportType);
 }
 
-// רינדור הדוח
+// פונקציה לעדכון כפתורי הדוחות
+function updateReportButtons(currentView) {
+    const toggleReportBtn = document.getElementById('toggleReport');
+    const toggleSemiAnnualBtn = document.getElementById('toggleSemiAnnualReport');
+    const toggleWeeklySummaryBtn = document.getElementById('toggleWeeklySummary');
+    
+    // איפוס כל הכפתורים לתצוגה רגילה
+    toggleReportBtn.innerHTML = `
+        <svg class="icon" viewBox="0 0 24 24">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <path d="M14 2v6h6"></path>
+            <path d="M16 13H8"></path>
+            <path d="M16 17H8"></path>
+            <path d="M10 9H8"></path>
+        </svg>
+        <span>דוח רגיל</span>
+    `;
+    
+    toggleWeeklySummaryBtn.innerHTML = `
+    <svg class="icon" viewBox="0 0 24 24">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+        <path d="M14 2v6h6"></path>
+        <path d="M16 13H8"></path>
+        <path d="M16 17H8"></path>
+        <path d="M10 9H8"></path>
+    </svg>
+    <span>סיכום שבועי</span>
+`;
+
+    toggleSemiAnnualBtn.innerHTML = `
+        <svg class="icon" viewBox="0 0 24 24">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <path d="M14 2v6h6"></path>
+            <path d="M16 13H8"></path>
+            <path d="M16 17H8"></path>
+            <path d="M10 9H8"></path>
+        </svg>
+        <span>דוח חצי שנתי</span>
+    `;
+    
+    // עדכון הכפתור הרלוונטי לחזרה ללוח, בהתאם לתצוגה הנוכחית
+   
+}
+
+// עדכון המאזינים לאירועים כדי להשתמש בפונקציה החדשה
+function updateReportListeners() {
+    // המאזינים הקיימים (לא לשכוח לנקות אותם תחילה)
+    document.getElementById('toggleReport').removeEventListener('click', () => toggleReportView('regular'));
+    document.getElementById('toggleSemiAnnualReport').removeEventListener('click', () => toggleReportView('semiAnnual'));
+    document.getElementById('toggleWeeklySummary').removeEventListener('click', () => toggleReportView('weekly'));
+    
+    // הוספת מאזינים חדשים עם התנאים המתאימים
+    document.getElementById('toggleReport').addEventListener('click', function() {
+        // אם הכפתור כבר במצב "חזרה ללוח", חזור ללוח
+        if (this.querySelector('span').textContent === 'חזרה ללוח') {
+            toggleReportView('calendar');
+        } else {
+            toggleReportView('regular');
+        }
+    });
+    
+    document.getElementById('toggleSemiAnnualReport').addEventListener('click', function() {
+        if (this.querySelector('span').textContent === 'חזרה ללוח') {
+            toggleReportView('calendar');
+        } else {
+            toggleReportView('semiAnnual');
+        }
+    });
+    
+    document.getElementById('toggleWeeklySummary').addEventListener('click', function() {
+        if (this.querySelector('span').textContent === 'חזרה ללוח') {
+            toggleReportView('calendar');
+        } else {
+            toggleReportView('weekly');
+        }
+    });
+}
+
+// רינדור הדוח הרגיל בפורמט החדש
 function renderReport() {
     const reportContent = document.getElementById('reportContent');
     reportContent.innerHTML = '';
     
-    // יצירת דוח לכל חייל
-    soldiers.forEach(soldier => {
-        const soldierAssignments = assignments.filter(a => 
-            a.soldierIds.includes(soldier.id)
-        ).map(a => {
-            const task = tasks.find(t => t.id === a.taskId);
-            return {
-                date: a.date,
-                taskName: task ? task.name : 'משימה לא ידועה'
-            };
-        });
+    // כותרת הדוח
+    const reportTitle = document.createElement('h3');
+    reportTitle.className = 'text-xl font-bold mb-4 text-center';
+    reportTitle.textContent = 'דוח פעילות חיילים';
+    reportContent.appendChild(reportTitle);
+    
+    // יצירת טבלת הדוח
+    const table = document.createElement('table');
+    table.className = 'w-full border-collapse';
+    
+    // מיון כל השיבוצים לפי תאריך
+    const sortedAssignments = [...assignments].sort((a, b) => 
+        new Date(a.date) - new Date(b.date)
+    );
+    
+    // קבלת רשימת תאריכים ייחודיים
+    const uniqueDates = [...new Set(sortedAssignments.map(a => a.date))];
+    
+    // רינדור כותרת הטבלה - תאריכים
+    const thead = document.createElement('thead');
+    const headerRow = document.createElement('tr');
+    
+    // תא ריק בפינה השמאלית העליונה
+    const cornerCell = document.createElement('th');
+    cornerCell.className = 'border p-2 bg-gray-100';
+    cornerCell.textContent = 'משימות / תאריכים';
+    headerRow.appendChild(cornerCell);
+    
+    // הוספת תאי כותרת לתאריכים
+    uniqueDates.forEach(dateStr => {
+        const th = document.createElement('th');
+        th.className = 'border p-2 bg-gray-100';
         
-        const reportItem = document.createElement('div');
-        reportItem.className = 'report-item p-4';
+        const dateObj = new Date(dateStr);
+        const dayName = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'][dateObj.getDay()];
         
-        const roleLabel = 
-            soldier.role === 'doctor' ? 'רופא' : 
-            soldier.role === 'paramedic' ? 'פראמדיק' : 
-            soldier.role === 'trainee' ? 'חניך' : 'חונך';
-        
-        reportItem.innerHTML = `
-            <div class="font-bold text-lg ${soldier.role}">
-                ${soldier.firstName} ${soldier.lastName} - ${roleLabel}
-            </div>
-            <div class="text-sm text-gray-600 mb-2">
-                סה"כ משימות: ${soldierAssignments.length}
-            </div>
+        th.innerHTML = `
+            ${dayName}<br>
+            <span class="text-sm">${formatDateWithYear(dateObj)}</span>
         `;
         
-        if (soldierAssignments.length > 0) {
-            const assignmentsList = document.createElement('ul');
-            assignmentsList.className = 'space-y-1';
-            
-            // מיון המשימות לפי תאריך
-            const sortedAssignments = [...soldierAssignments].sort((a, b) => 
-                new Date(a.date) - new Date(b.date)
-            );
-            
-            sortedAssignments.forEach(assignment => {
-                const li = document.createElement('li');
-                li.className = 'text-sm';
-                li.textContent = `${formatDateHebrew(assignment.date)}: ${assignment.taskName}`;
-                assignmentsList.appendChild(li);
-            });
-            
-            reportItem.appendChild(assignmentsList);
-        } else {
-            const emptyMsg = document.createElement('div');
-            emptyMsg.className = 'text-sm text-gray-400';
-            emptyMsg.textContent = 'אין משימות';
-            reportItem.appendChild(emptyMsg);
-        }
-        
-        reportContent.appendChild(reportItem);
+        headerRow.appendChild(th);
     });
-}
-
-// פונקציה לייצוא הדוח לאקסל
-function exportToExcel() {
-    // יצירת מערך נתונים לייצוא
-    const exportData = [];
     
-    // כותרות
-    exportData.push(['שם חייל', 'תפקיד', 'תאריך', 'משימה']);
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
     
-    // יצירת שורה עבור כל שיבוץ לכל חייל
-    soldiers.forEach(soldier => {
-        const roleLabel = 
-            soldier.role === 'doctor' ? 'רופא' : 
-            soldier.role === 'paramedic' ? 'פראמדיק' : 
-            soldier.role === 'trainee' ? 'חניך' : 'חונך';
+    // רינדור גוף הטבלה - משימות ושיבוצים
+    const tbody = document.createElement('tbody');
+    
+    tasks.forEach(task => {
+        const row = document.createElement('tr');
         
-        const soldierName = `${soldier.firstName} ${soldier.lastName}`;
+        // תא שם המשימה
+        const taskCell = document.createElement('td');
+        taskCell.className = 'border p-2 font-bold bg-gray-50';
+        taskCell.textContent = task.name;
+        row.appendChild(taskCell);
         
-        const soldierAssignments = assignments.filter(a => 
-            a.soldierIds.includes(soldier.id)
-        ).map(a => {
-            const task = tasks.find(t => t.id === a.taskId);
-            return {
-                date: a.date,
-                taskName: task ? task.name : 'משימה לא ידועה'
-            };
+        // הוספת תאים לכל תאריך
+        uniqueDates.forEach(dateStr => {
+            const td = document.createElement('td');
+            td.className = 'border p-2';
+            
+            // חיפוש השיבוץ הרלוונטי
+            const assignment = assignments.find(a => a.taskId === task.id && a.date === dateStr);
+            
+            if (assignment) {
+                // הצגת שמות החיילים המשובצים
+                const soldiersList = assignment.soldierIds.map(soldierId => {
+                    const soldier = soldiers.find(s => s.id === soldierId);
+                    if (soldier) {
+                        return `<span class="${soldier.role}">${soldier.firstName} ${soldier.lastName}</span>`;
+                    }
+                    return '';
+                }).filter(Boolean).join(', ');
+                
+                td.innerHTML = soldiersList;
+            } else {
+                td.innerHTML = '<span class="text-gray-300">-</span>';
+            }
+            
+            row.appendChild(td);
         });
         
-        if (soldierAssignments.length > 0) {
-            // מיון המשימות לפי תאריך
-            const sortedAssignments = [...soldierAssignments].sort((a, b) => 
-                new Date(a.date) - new Date(b.date)
-            );
+        tbody.appendChild(row);
+    });
+    
+    table.appendChild(tbody);
+    reportContent.appendChild(table);
+    
+    // הוספת הערה תחתונה
+    const note = document.createElement('div');
+    note.className = 'text-sm text-gray-500 mt-4 text-center';
+    note.textContent = 'הדוח מציג את החיילים המשובצים לכל משימה לפי תאריך';
+    reportContent.appendChild(note);
+}
+
+// רינדור דוח חצי שנתי בפורמט החדש
+function renderSemiAnnualReport() {
+    const reportContent = document.getElementById('semiAnnualReportContent');
+    reportContent.innerHTML = '';
+    
+    // כותרת הדוח
+    const reportTitle = document.createElement('h3');
+    reportTitle.className = 'text-xl font-bold mb-4 text-center';
+    reportTitle.textContent = 'דוח חצי שנתי לפי משימות';
+    reportContent.appendChild(reportTitle);
+    
+    // חישוב טווח זמן של חצי שנה (182 ימים)
+    const today = new Date();
+    const sixMonthsAgo = new Date(today);
+    sixMonthsAgo.setDate(today.getDate() - 182);
+    
+    // קבלת כל המשימות בטווח הזמן
+    const filteredAssignments = assignments.filter(a => {
+        const assignmentDate = new Date(a.date);
+        return assignmentDate >= sixMonthsAgo && assignmentDate <= today;
+    });
+    
+    if (filteredAssignments.length === 0) {
+        const emptyMsg = document.createElement('div');
+        emptyMsg.className = 'text-center text-gray-400 py-4';
+        emptyMsg.textContent = 'אין נתונים זמינים לדוח חצי שנתי';
+        reportContent.appendChild(emptyMsg);
+        return;
+    }
+    
+    // יצירת טבלת הדוח
+    const table = document.createElement('table');
+    table.className = 'w-full border-collapse';
+    
+    // מיון כל השיבוצים לפי תאריך
+    const sortedAssignments = [...filteredAssignments].sort((a, b) => 
+        new Date(a.date) - new Date(b.date)
+    );
+    
+    // קבלת רשימת תאריכים ייחודיים בסדר כרונולוגי
+    const uniqueDates = [...new Set(sortedAssignments.map(a => a.date))].sort();
+    
+    // קיבוץ תאריכים לפי שבועות
+    const weekGroups = {};
+    
+    uniqueDates.forEach(dateStr => {
+        const date = new Date(dateStr);
+        // קבלת יום ראשון של אותו שבוע
+        const sunday = new Date(date);
+        sunday.setDate(date.getDate() - date.getDay()); // יום ראשון
+        
+        // יצירת מזהה לשבוע
+        const weekId = formatDateISO(sunday);
+        
+        if (!weekGroups[weekId]) {
+            // שמירת טווח התאריכים של השבוע
+            const saturday = new Date(sunday);
+            saturday.setDate(sunday.getDate() + 6); // יום שבת
             
-            sortedAssignments.forEach(assignment => {
-                exportData.push([
-                    soldierName,
-                    roleLabel,
-                    formatDateHebrew(assignment.date),
-                    assignment.taskName
-                ]);
-            });
-        } else {
-            // גם חיילים ללא משימות
-            exportData.push([
-                soldierName,
-                roleLabel,
-                '',
-                'אין משימות'
-            ]);
+            weekGroups[weekId] = {
+                startDate: sunday,
+                endDate: saturday,
+                dates: []
+            };
         }
+        
+        // הוספת התאריך לשבוע המתאים
+        if (!weekGroups[weekId].dates.includes(dateStr)) {
+            weekGroups[weekId].dates.push(dateStr);
+        }
+    });
+    
+    // מיון השבועות לפי תאריך
+    const sortedWeeks = Object.keys(weekGroups).sort();
+    
+    // רינדור כותרת הטבלה - שבועות
+    const thead = document.createElement('thead');
+    const headerRow = document.createElement('tr');
+    
+    // תא ריק בפינה השמאלית העליונה
+    const cornerCell = document.createElement('th');
+    cornerCell.className = 'border p-2 bg-gray-100';
+    cornerCell.textContent = 'משימות / שבועות';
+    headerRow.appendChild(cornerCell);
+    
+    // הוספת תאי כותרת לשבועות
+    sortedWeeks.forEach(weekId => {
+        const week = weekGroups[weekId];
+        const th = document.createElement('th');
+        th.className = 'border p-2 bg-gray-100';
+        
+        th.innerHTML = `
+            שבוע ${formatDateHebrew(week.startDate)} - ${formatDateHebrew(week.endDate)}
+        `;
+        
+        headerRow.appendChild(th);
+    });
+    
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+    
+    // רינדור גוף הטבלה - משימות ושיבוצים
+    const tbody = document.createElement('tbody');
+    
+    tasks.forEach(task => {
+        // בדיקה אם יש שיבוצים למשימה זו בתקופה הרלוונטית
+        const hasAssignments = filteredAssignments.some(a => a.taskId === task.id);
+        
+        // אם אין שיבוצים, דלג על המשימה
+        if (!hasAssignments) return;
+        
+        const row = document.createElement('tr');
+        
+        // תא שם המשימה
+        const taskCell = document.createElement('td');
+        taskCell.className = 'border p-2 font-bold bg-gray-50';
+        taskCell.textContent = task.name;
+        row.appendChild(taskCell);
+        
+        // הוספת תאים לכל שבוע
+        sortedWeeks.forEach(weekId => {
+            const week = weekGroups[weekId];
+            const td = document.createElement('td');
+            td.className = 'border p-2';
+            
+            // רשימת חיילים ייחודיים ששובצו למשימה זו בשבוע זה
+            const soldiersList = new Set();
+            
+            // עבור על כל התאריכים בשבוע
+            week.dates.forEach(dateStr => {
+                const assignment = filteredAssignments.find(a => a.taskId === task.id && a.date === dateStr);
+                
+                if (assignment) {
+                    // הוספת שמות החיילים
+                    assignment.soldierIds.forEach(soldierId => {
+                        const soldier = soldiers.find(s => s.id === soldierId);
+                        if (soldier) {
+                            soldiersList.add(`<span class="${soldier.role}">${soldier.firstName} ${soldier.lastName}</span>`);
+                        }
+                    });
+                }
+            });
+            
+            if (soldiersList.size > 0) {
+                td.innerHTML = [...soldiersList].join(', ');
+            } else {
+                td.innerHTML = '<span class="text-gray-300">-</span>';
+            }
+            
+            row.appendChild(td);
+        });
+        
+        tbody.appendChild(row);
+    });
+    
+    table.appendChild(tbody);
+    reportContent.appendChild(table);
+    
+    // הוספת הערה תחתונה
+    const note = document.createElement('div');
+    note.className = 'text-sm text-gray-500 mt-4 text-center';
+    note.textContent = 'הדוח מציג את החיילים המשובצים לכל משימה לפי שבועות בחצי השנה האחרונה';
+    reportContent.appendChild(note);
+}
+
+// רינדור סיכום שבועי בפורמט החדש
+function renderWeeklySummary() {
+    const reportContent = document.getElementById('weeklySummaryContent');
+    reportContent.innerHTML = '';
+    
+    // כותרת הדוח
+    const reportTitle = document.createElement('h3');
+    reportTitle.className = 'text-xl font-bold mb-4 text-center';
+    reportTitle.textContent = 'סיכום שבועי לפי משימות';
+    reportContent.appendChild(reportTitle);
+    
+    // קבלת ימי השבוע הנוכחי
+    const daysOfWeek = getDaysOfWeek();
+    const startDate = daysOfWeek[0];
+    const endDate = daysOfWeek[6];
+    
+    // כותרת משנה עם טווח התאריכים
+    const subtitle = document.createElement('div');
+    subtitle.className = 'text-lg font-medium mb-4 text-center';
+    subtitle.textContent = `שבוע: ${formatDateHebrew(startDate)} - ${formatDateHebrew(endDate)}`;
+    reportContent.appendChild(subtitle);
+    
+    // קבלת שיבוצים רק לשבוע הנוכחי
+    const weeklyAssignments = assignments.filter(a => {
+        const assignmentDate = new Date(a.date);
+        return assignmentDate >= startDate && assignmentDate <= endDate;
+    });
+    
+    if (weeklyAssignments.length === 0) {
+        const emptyMsg = document.createElement('div');
+        emptyMsg.className = 'text-center text-gray-400 py-4';
+        emptyMsg.textContent = 'אין שיבוצים לשבוע הנוכחי';
+        reportContent.appendChild(emptyMsg);
+        return;
+    }
+    
+    // יצירת טבלת הדוח
+    const table = document.createElement('table');
+    table.className = 'w-full border-collapse';
+    
+    // רינדור כותרת הטבלה - ימי השבוע
+    const thead = document.createElement('thead');
+    const headerRow = document.createElement('tr');
+    
+    // תא ריק בפינה השמאלית העליונה
+    const cornerCell = document.createElement('th');
+    cornerCell.className = 'border p-2 bg-gray-100';
+    cornerCell.textContent = 'משימות / ימים';
+    headerRow.appendChild(cornerCell);
+    
+    // הוספת תאי כותרת לימים
+    daysOfWeek.forEach(day => {
+        const th = document.createElement('th');
+        th.className = 'border p-2 bg-gray-100';
+        
+        const dayName = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'][day.getDay()];
+        
+        th.innerHTML = `
+            ${dayName}<br>
+            <span class="text-sm">${formatDateWithYear(day)}</span>
+        `;
+        
+        headerRow.appendChild(th);
+    });
+    
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+    
+    // רינדור גוף הטבלה - משימות ושיבוצים
+    const tbody = document.createElement('tbody');
+    
+    tasks.forEach(task => {
+        // בדיקה אם יש שיבוצים למשימה זו בשבוע הנוכחי
+        const hasAssignments = weeklyAssignments.some(a => a.taskId === task.id);
+        
+        // אם אין שיבוצים, דלג על המשימה
+        if (!hasAssignments) return;
+        
+        const row = document.createElement('tr');
+        
+        // תא שם המשימה
+        const taskCell = document.createElement('td');
+        taskCell.className = 'border p-2 font-bold bg-gray-50';
+        taskCell.textContent = task.name;
+        row.appendChild(taskCell);
+        
+        // הוספת תאים לכל יום
+        daysOfWeek.forEach(day => {
+            const dateStr = formatDateISO(day);
+            const td = document.createElement('td');
+            td.className = 'border p-2';
+            
+            // חיפוש השיבוץ הרלוונטי
+            const assignment = weeklyAssignments.find(a => a.taskId === task.id && a.date === dateStr);
+            
+            if (assignment) {
+                // הצגת שמות החיילים המשובצים
+                const soldiersList = assignment.soldierIds.map(soldierId => {
+                    const soldier = soldiers.find(s => s.id === soldierId);
+                    if (soldier) {
+                        return `<span class="${soldier.role}">${soldier.firstName} ${soldier.lastName}</span>`;
+                    }
+                    return '';
+                }).filter(Boolean).join(', ');
+                
+                td.innerHTML = soldiersList;
+            } else {
+                td.innerHTML = '<span class="text-gray-300">-</span>';
+            }
+            
+            row.appendChild(td);
+        });
+        
+        tbody.appendChild(row);
+    });
+    
+    table.appendChild(tbody);
+    reportContent.appendChild(table);
+    
+    // הוספת הערה תחתונה
+    const note = document.createElement('div');
+    note.className = 'text-sm text-gray-500 mt-4 text-center';
+    note.textContent = 'הדוח מציג את החיילים המשובצים לכל משימה לפי ימי השבוע הנוכחי';
+    reportContent.appendChild(note);
+}
+
+// פונקציה לייצוא הדוח הרגיל לאקסל
+function exportToExcel() {
+    // קבלת רשימת תאריכים ייחודיים
+    const uniqueDates = [...new Set(assignments.map(a => a.date))].sort();
+    
+    // הכנת נתונים לייצוא
+    const exportData = [];
+    
+    // כותרות - שורה ראשונה
+    const headers = ['משימה'];
+    uniqueDates.forEach(dateStr => {
+        const date = new Date(dateStr);
+        const dayName = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'][date.getDay()];
+        headers.push(`${dayName} ${formatDateHebrew(dateStr)}`);
+    });
+    exportData.push(headers);
+    
+    // נתונים לפי משימות
+    tasks.forEach(task => {
+        const row = [task.name];
+        
+        uniqueDates.forEach(dateStr => {
+            // חיפוש שיבוץ למשימה בתאריך
+            const assignment = assignments.find(a => a.taskId === task.id && a.date === dateStr);
+            
+            if (assignment) {
+                // הכנת רשימת שמות חיילים
+                const soldierNames = assignment.soldierIds.map(soldierId => {
+                    const soldier = soldiers.find(s => s.id === soldierId);
+                    return soldier ? `${soldier.firstName} ${soldier.lastName}` : '';
+                }).filter(Boolean).join(', ');
+                
+                row.push(soldierNames);
+            } else {
+                row.push('');
+            }
+        });
+        
+        exportData.push(row);
     });
     
     // יצירת Workbook
@@ -1029,10 +1915,12 @@ function exportToExcel() {
     
     // הגדרת כיוון RTL עבור גיליון הנתונים
     if (!ws['!cols']) ws['!cols'] = [];
-    ws['!cols'].push({ wch: 20 }); // רוחב עמודת שם
-    ws['!cols'].push({ wch: 15 }); // רוחב עמודת תפקיד
-    ws['!cols'].push({ wch: 15 }); // רוחב עמודת תאריך
-    ws['!cols'].push({ wch: 25 }); // רוחב עמודת משימה
+    ws['!cols'].push({ wch: 20 }); // רוחב עמודת משימה
+    
+    // רוחב עמודות תאריכים
+    for (let i = 0; i < uniqueDates.length; i++) {
+        ws['!cols'].push({ wch: 30 });
+    }
     
     // הגדרת סגנון RTL
     if (!ws['!protect']) ws['!protect'] = {};
@@ -1042,7 +1930,233 @@ function exportToExcel() {
     XLSX.utils.book_append_sheet(wb, ws, "דוח משימות");
     
     // ייצוא הקובץ
-    XLSX.writeFile(wb, "דוח_משימות_חיילים.xlsx");
+    XLSX.writeFile(wb, "דוח_משימות.xlsx");
+    
+    showNotification('הדוח יוצא בהצלחה', 'success');
+}
+
+// פונקציה לייצוא הדוח החצי שנתי לאקסל
+function exportSemiAnnualToExcel() {
+    // חישוב טווח זמן של חצי שנה (182 ימים)
+    const today = new Date();
+    const sixMonthsAgo = new Date(today);
+    sixMonthsAgo.setDate(today.getDate() - 182);
+    
+    // קבלת כל המשימות בטווח הזמן
+    const filteredAssignments = assignments.filter(a => {
+        const assignmentDate = new Date(a.date);
+        return assignmentDate >= sixMonthsAgo && assignmentDate <= today;
+    });
+    
+    if (filteredAssignments.length === 0) {
+        showNotification('אין נתונים זמינים לדוח חצי שנתי', 'error');
+        return;
+    }
+    
+    // מיון כל השיבוצים לפי תאריך
+    const sortedAssignments = [...filteredAssignments].sort((a, b) => 
+        new Date(a.date) - new Date(b.date)
+    );
+    
+    // קבלת רשימת תאריכים ייחודיים
+    const uniqueDates = [...new Set(sortedAssignments.map(a => a.date))].sort();
+    
+    // קיבוץ תאריכים לפי שבועות
+    const weekGroups = {};
+    
+    uniqueDates.forEach(dateStr => {
+        const date = new Date(dateStr);
+        // קבלת יום ראשון של אותו שבוע
+        const sunday = new Date(date);
+        sunday.setDate(date.getDate() - date.getDay()); // יום ראשון
+        
+        // יצירת מזהה לשבוע
+        const weekId = formatDateISO(sunday);
+        
+        if (!weekGroups[weekId]) {
+            // שמירת טווח התאריכים של השבוע
+            const saturday = new Date(sunday);
+            saturday.setDate(sunday.getDate() + 6); // יום שבת
+            
+            weekGroups[weekId] = {
+                startDate: sunday,
+                endDate: saturday,
+                dates: []
+            };
+        }
+        
+        // הוספת התאריך לשבוע המתאים
+        if (!weekGroups[weekId].dates.includes(dateStr)) {
+            weekGroups[weekId].dates.push(dateStr);
+        }
+    });
+    
+    // מיון השבועות לפי תאריך
+    const sortedWeeks = Object.keys(weekGroups).sort();
+    
+    // הכנת נתונים לייצוא
+    const exportData = [];
+    
+    // כותרות - שורה ראשונה
+    const headers = ['משימה'];
+    sortedWeeks.forEach(weekId => {
+        const week = weekGroups[weekId];
+        headers.push(`שבוע ${formatDateHebrew(week.startDate)} - ${formatDateHebrew(week.endDate)}`);
+    });
+    exportData.push(headers);
+    
+    // נתונים לפי משימות
+    tasks.forEach(task => {
+        // בדיקה אם יש שיבוצים למשימה זו בתקופה הרלוונטית
+        const hasAssignments = filteredAssignments.some(a => a.taskId === task.id);
+        
+        // אם אין שיבוצים, דלג על המשימה
+        if (!hasAssignments) return;
+        
+        const row = [task.name];
+        
+        // הוספת תאים לכל שבוע
+        sortedWeeks.forEach(weekId => {
+            const week = weekGroups[weekId];
+            
+            // רשימת חיילים ייחודיים ששובצו למשימה זו בשבוע זה
+            const soldiersList = new Set();
+            
+            // עבור על כל התאריכים בשבוע
+            week.dates.forEach(dateStr => {
+                const assignment = filteredAssignments.find(a => a.taskId === task.id && a.date === dateStr);
+                
+                if (assignment) {
+                    // הוספת שמות החיילים
+                    assignment.soldierIds.forEach(soldierId => {
+                        const soldier = soldiers.find(s => s.id === soldierId);
+                        if (soldier) {
+                            soldiersList.add(`${soldier.firstName} ${soldier.lastName}`);
+                        }
+                    });
+                }
+            });
+            
+            if (soldiersList.size > 0) {
+                row.push([...soldiersList].join(', '));
+            } else {
+                row.push('');
+            }
+        });
+        
+        exportData.push(row);
+    });
+    
+    // יצירת Workbook
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(exportData);
+    
+    // הגדרת כיוון RTL עבור גיליון הנתונים
+    if (!ws['!cols']) ws['!cols'] = [];
+    ws['!cols'].push({ wch: 20 }); // רוחב עמודת משימה
+    
+    // רוחב עמודות שבועות
+    for (let i = 0; i < sortedWeeks.length; i++) {
+        ws['!cols'].push({ wch: 40 });
+    }
+    
+    // הגדרת סגנון RTL
+    if (!ws['!protect']) ws['!protect'] = {};
+    ws['!protect'].formatCells = false;
+    
+    // הוספת הגיליון ל-Workbook
+    XLSX.utils.book_append_sheet(wb, ws, "דוח חצי שנתי");
+    
+    // ייצוא הקובץ
+    XLSX.writeFile(wb, "דוח_חצי_שנתי.xlsx");
+    
+    showNotification('הדוח יוצא בהצלחה', 'success');
+}
+
+// פונקציה לייצוא הסיכום השבועי לאקסל
+function exportWeeklySummaryToExcel() {
+    // קבלת ימי השבוע הנוכחי
+    const daysOfWeek = getDaysOfWeek();
+    const startDate = daysOfWeek[0];
+    const endDate = daysOfWeek[6];
+    
+    // קבלת שיבוצים רק לשבוע הנוכחי
+    const weeklyAssignments = assignments.filter(a => {
+        const assignmentDate = new Date(a.date);
+        return assignmentDate >= startDate && assignmentDate <= endDate;
+    });
+    
+    if (weeklyAssignments.length === 0) {
+        showNotification('אין שיבוצים לשבוע הנוכחי', 'error');
+        return;
+    }
+    
+    // הכנת נתונים לייצוא
+    const exportData = [];
+    
+    // כותרות - שורה ראשונה
+    const headers = ['משימה'];
+    daysOfWeek.forEach(day => {
+        const dayName = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'][day.getDay()];
+        headers.push(`${dayName} ${formatDateHebrew(day)}`);
+    });
+    exportData.push(headers);
+    
+    // נתונים לפי משימות
+    tasks.forEach(task => {
+        // בדיקה אם יש שיבוצים למשימה זו בשבוע הנוכחי
+        const hasAssignments = weeklyAssignments.some(a => a.taskId === task.id);
+        
+        // אם אין שיבוצים, דלג על המשימה
+        if (!hasAssignments) return;
+        
+        const row = [task.name];
+        
+        // הוספת תאים לכל יום
+        daysOfWeek.forEach(day => {
+            const dateStr = formatDateISO(day);
+            
+            // חיפוש השיבוץ הרלוונטי
+            const assignment = weeklyAssignments.find(a => a.taskId === task.id && a.date === dateStr);
+            
+            if (assignment) {
+                // הצגת שמות החיילים המשובצים
+                const soldiersList = assignment.soldierIds.map(soldierId => {
+                    const soldier = soldiers.find(s => s.id === soldierId);
+                    return soldier ? `${soldier.firstName} ${soldier.lastName}` : '';
+                }).filter(Boolean).join(', ');
+                
+                row.push(soldiersList);
+            } else {
+                row.push('');
+            }
+        });
+        
+        exportData.push(row);
+    });
+    
+    // יצירת Workbook
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(exportData);
+    
+    // הגדרת כיוון RTL עבור גיליון הנתונים
+    if (!ws['!cols']) ws['!cols'] = [];
+    ws['!cols'].push({ wch: 20 }); // רוחב עמודת משימה
+    
+    // רוחב עמודות ימים
+    for (let i = 0; i < daysOfWeek.length; i++) {
+        ws['!cols'].push({ wch: 30 });
+    }
+    
+    // הגדרת סגנון RTL
+    if (!ws['!protect']) ws['!protect'] = {};
+    ws['!protect'].formatCells = false;
+    
+    // הוספת הגיליון ל-Workbook
+    XLSX.utils.book_append_sheet(wb, ws, "סיכום שבועי");
+    
+    // ייצוא הקובץ
+    XLSX.writeFile(wb, "סיכום_שבועי.xlsx");
     
     showNotification('הדוח יוצא בהצלחה', 'success');
 }
@@ -1109,6 +2223,11 @@ function formatDate(date) {
     return `${date.getDate()}/${date.getMonth() + 1}`;
 }
 
+// פורמט תאריך לתצוגה עם שנה: DD/MM/YYYY
+function formatDateWithYear(date) {
+    return `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
+}
+
 // פורמט תאריך ISO: YYYY-MM-DD
 function formatDateISO(date) {
     const year = date.getFullYear();
@@ -1119,6 +2238,10 @@ function formatDateISO(date) {
 
 // פורמט תאריך בעברית
 function formatDateHebrew(dateStr) {
+    if (dateStr instanceof Date) {
+        return dateStr.toLocaleDateString('he-IL');
+    }
+    
     const date = new Date(dateStr);
     return date.toLocaleDateString('he-IL');
 }
@@ -1260,7 +2383,7 @@ function generateRandomSoldiers() {
     {id: 131, firstName: "נעם", lastName: "זרובסקי", role: "trainee"},
     {id: 132, firstName: "נעם", lastName: "כהן", role: "trainee"},
     {id: 133, firstName: "שינה", lastName: "מאיה", role: "trainee"},
-    {id: 134, firstName: "שירה", lastName: "דורות", role: "trainee"},
+    {id: 134, firstName: "שירה", lastName: "דורות", role: "trainee"}
   ];
 }
 
