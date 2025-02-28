@@ -21,788 +21,782 @@ import {
     onAuthStateChanged
 } from "./firebase-config.js";
   
-  import { 
-    signInWithEmailAndPassword, 
-    signOut, 
-    onAuthStateChanged
-  } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+// מידע מרכזי
+let soldiers = [];
+let tasks = [];
+let assignments = [];
+let currentWeek = new Date();
+let searchTerm = '';
+let editingSoldierId = null;
+let userRole = 'viewer'; // מתחיל כצופה
+let isAuthenticated = false;
+let unsubscribeSoldiers = null;
+let unsubscribeTasks = null;
+let unsubscribeAssignments = null;
+let currentUser = null;
   
-  // מידע מרכזי
-  let soldiers = [];
-  let tasks = [];
-  let assignments = [];
-  let currentWeek = new Date();
-  let searchTerm = '';
-  let editingSoldierId = null;
-  let userRole = 'viewer'; // מתחיל כצופה
-  let isAuthenticated = false;
-  let unsubscribeSoldiers = null;
-  let unsubscribeTasks = null;
-  let unsubscribeAssignments = null;
-  let currentUser = null;
+// אובייקט עבור המשבצת הנוכחית לשיבוץ מהיר
+let currentQuickAdd = {
+  taskId: null,
+  date: null,
+  selectedSoldiers: []
+};
   
-  // אובייקט עבור המשבצת הנוכחית לשיבוץ מהיר
-  let currentQuickAdd = {
-    taskId: null,
-    date: null,
-    selectedSoldiers: []
-  };
+// פונקציה לאתחול האפליקציה
+async function initApp() {
+  console.log("מאתחל אפליקציה...");
   
-  // פונקציה לאתחול האפליקציה
-  async function initApp() {
-    console.log("מאתחל אפליקציה...");
+  // הגדרת מאזינים לממשק המשתמש
+  setupEventListeners();
+  setupAuthEventListeners();
+  
+  // הגדרת אפשרות שינוי גודל רשימת החיילים
+  setupResizable();
+  
+  try {
+    // הפעלת מצב עבודה לא מקוון (offline)
+    enableIndexedDbPersistence(db)
+      .catch((err) => {
+        if (err.code == 'failed-precondition') {
+          console.error("Multiple tabs open, persistence can only be enabled in one tab at a time.");
+        } else if (err.code == 'unimplemented') {
+          console.error("The current browser does not support all of the features required to enable persistence");
+        }
+      });
     
-    // הגדרת מאזינים לממשק המשתמש
-    setupEventListeners();
-    setupAuthEventListeners();
-    
-    // הגדרת אפשרות שינוי גודל רשימת החיילים
-    setupResizable();
-    
-    try {
-      // הפעלת מצב עבודה לא מקוון (offline)
-      enableIndexedDbPersistence(db)
-        .catch((err) => {
-          if (err.code == 'failed-precondition') {
-            console.error("Multiple tabs open, persistence can only be enabled in one tab at a time.");
-          } else if (err.code == 'unimplemented') {
-            console.error("The current browser does not support all of the features required to enable persistence");
-          }
-        });
-      
-      console.log("בדיקת מצב התחברות...");
-      // בדיקה אם יש משתמש מחובר
-      if (!auth.currentUser) {
-        console.log("אין משתמש מחובר, מתחבר אנונימית...");
-        // כניסה אנונימית אוטומטית למצב צפייה
-        await signInAnonymously(auth);
-        console.log("התחברות אנונימית הושלמה");
-      } else {
-        console.log("משתמש כבר מחובר:", auth.currentUser.uid);
-        // אם יש משתמש מחובר, נפעיל את הטיפול בו ישירות
-        handleAuthStateChanged(auth.currentUser);
-      }
-    } catch (error) {
-      console.error("שגיאה באתחול האפליקציה:", error);
-      showNotification('אירעה שגיאה באתחול האפליקציה', 'error');
+    console.log("בדיקת מצב התחברות...");
+    // בדיקה אם יש משתמש מחובר
+    if (!auth.currentUser) {
+      console.log("אין משתמש מחובר, מתחבר אנונימית...");
+      // כניסה אנונימית אוטומטית למצב צפייה
+      await signInAnonymously(auth);
+      console.log("התחברות אנונימית הושלמה");
+    } else {
+      console.log("משתמש כבר מחובר:", auth.currentUser.uid);
+      // אם יש משתמש מחובר, נפעיל את הטיפול בו ישירות
+      handleAuthStateChanged(auth.currentUser);
     }
-    
-    // מאזין לשינויים בסטטוס ההתחברות
-    onAuthStateChanged(auth, handleAuthStateChanged);
+  } catch (error) {
+    console.error("שגיאה באתחול האפליקציה:", error);
+    showNotification('אירעה שגיאה באתחול האפליקציה', 'error');
   }
   
-  // פונקציה לטיפול בשינוי מצב ההתחברות
-  function handleAuthStateChanged(user) {
-    console.log("שינוי מצב התחברות:", user ? `מחובר: ${user.uid}` : "לא מחובר");
+  // מאזין לשינויים בסטטוס ההתחברות
+  onAuthStateChanged(auth, handleAuthStateChanged);
+}
+  
+// פונקציה לטיפול בשינוי מצב ההתחברות
+function handleAuthStateChanged(user) {
+  console.log("שינוי מצב התחברות:", user ? `מחובר: ${user.uid}` : "לא מחובר");
+  
+  if (user) {
+    // משתמש מחובר
+    currentUser = user;
+    isAuthenticated = true;
     
-    if (user) {
-      // משתמש מחובר
-      currentUser = user;
-      isAuthenticated = true;
-      
-      if (user.isAnonymous) {
-        console.log("משתמש אנונימי - מצב צפייה בלבד");
-        // משתמש אנונימי - מצב צפייה בלבד
-        userRole = 'viewer';
-        document.getElementById('toggleRole').classList.add('hidden');
-        document.getElementById('loginBtn').classList.remove('hidden');
-        document.getElementById('logoutBtn').classList.add('hidden');
-        document.getElementById('userEmail').textContent = 'משתמש אורח';
-      } else {
-        console.log("משתמש רגיל - בודק הרשאות...");
-        // בדיקה האם המשתמש הוא מנהל
-        checkIfAdmin(user)
-          .then(isAdmin => {
-            userRole = isAdmin ? 'admin' : 'viewer';
-            console.log("תפקיד המשתמש:", userRole);
-            document.getElementById('toggleRole').classList.remove('hidden');
-            document.getElementById('roleText').textContent = userRole === 'admin' ? 'מצב עריכה' : 'מצב צפייה';
-            document.getElementById('loginBtn').classList.add('hidden');
-            document.getElementById('logoutBtn').classList.remove('hidden');
-          });
-        
-        // הסתרת מסך ההתחברות אם הוא פתוח
-        hideLoginScreen();
-      }
-      
-      // הצגת פרטי המשתמש
-      document.getElementById('userEmail').textContent = user.email || 'משתמש אורח';
-      
-      // טעינת נתונים מ-Firestore
-      console.log("טוען נתונים מ-Firestore...");
-      loadDataFromFirestore();
-    } else {
-      // משתמש לא מחובר - זה לא אמור לקרות כי יש כניסה אנונימית
-      console.log("אין משתמש מחובר - מנסה להתחבר אנונימית שוב");
-      currentUser = null;
-      isAuthenticated = false;
+    if (user.isAnonymous) {
+      console.log("משתמש אנונימי - מצב צפייה בלבד");
+      // משתמש אנונימי - מצב צפייה בלבד
       userRole = 'viewer';
+      document.getElementById('toggleRole').classList.add('hidden');
+      document.getElementById('loginBtn').classList.remove('hidden');
+      document.getElementById('logoutBtn').classList.add('hidden');
+      document.getElementById('userEmail').textContent = 'משתמש אורח';
+    } else {
+      console.log("משתמש רגיל - בודק הרשאות...");
+      // בדיקה האם המשתמש הוא מנהל
+      checkIfAdmin(user)
+        .then(isAdmin => {
+          userRole = isAdmin ? 'admin' : 'viewer';
+          console.log("תפקיד המשתמש:", userRole);
+          document.getElementById('toggleRole').classList.remove('hidden');
+          document.getElementById('roleText').textContent = userRole === 'admin' ? 'מצב עריכה' : 'מצב צפייה';
+          document.getElementById('loginBtn').classList.add('hidden');
+          document.getElementById('logoutBtn').classList.remove('hidden');
+        });
       
-      // הסרת מאזינים קיימים
+      // הסתרת מסך ההתחברות אם הוא פתוח
+      hideLoginScreen();
+    }
+    
+    // הצגת פרטי המשתמש
+    document.getElementById('userEmail').textContent = user.email || 'משתמש אורח';
+    
+    // טעינת נתונים מ-Firestore
+    console.log("טוען נתונים מ-Firestore...");
+    loadDataFromFirestore();
+  } else {
+    // משתמש לא מחובר - זה לא אמור לקרות כי יש כניסה אנונימית
+    console.log("אין משתמש מחובר - מנסה להתחבר אנונימית שוב");
+    currentUser = null;
+    isAuthenticated = false;
+    userRole = 'viewer';
+    
+    // הסרת מאזינים קיימים
+    removeFirestoreListeners();
+    
+    // ניסיון להתחבר כאנונימי שוב
+    try {
+      signInAnonymously(auth);
+    } catch (error) {
+      console.error("שגיאה בכניסה אנונימית:", error);
+      // במקרה של כשלון, נציג את מסך ההתחברות
+      showLoginScreen();
+    }
+  }
+}
+  
+// פונקציה לבדיקה אם המשתמש הוא מנהל
+async function checkIfAdmin(user) {
+  const userDocRef = doc(db, "users", user.uid);
+  const userDoc = await getDoc(userDocRef);
+  
+  if (userDoc.exists() && userDoc.data().role === 'admin') {
+    return true;
+  }
+  
+  // אם אין מסמך למשתמש, יצירת אחד עם תפקיד ברירת מחדל
+  if (!userDoc.exists()) {
+    await setDoc(userDocRef, {
+      email: user.email,
+      role: 'viewer',
+      createdAt: serverTimestamp()
+    });
+  }
+  
+  return false;
+}
+  
+// פונקציה לטעינת נתונים מ-Firestore
+async function loadDataFromFirestore() {
+  console.log("מתחיל טעינת נתונים מ-Firestore...");
+  
+  try {
+      // הסרת מאזינים קודמים אם קיימים
       removeFirestoreListeners();
       
-      // ניסיון להתחבר כאנונימי שוב
-      try {
-        signInAnonymously(auth);
-      } catch (error) {
-        console.error("שגיאה בכניסה אנונימית:", error);
-        // במקרה של כשלון, נציג את מסך ההתחברות
-        showLoginScreen();
+      // טעינת חיילים
+      console.log("מגדיר מאזין לאוסף חיילים...");
+      unsubscribeSoldiers = onSnapshot(
+          collection(db, "soldiers"), 
+          (snapshot) => {
+              console.log(`התקבלו ${snapshot.docs.length} חיילים מהמסד`);
+              soldiers = snapshot.docs.map(doc => ({
+                  id: doc.id,
+                  ...doc.data()
+              }));
+              renderSoldiers();
+              
+              // טעינת משימות רק לאחר טעינת החיילים
+              loadTasks();
+          },
+          (error) => {
+              console.error("שגיאה בטעינת חיילים:", error);
+              showNotification('אירעה שגיאה בטעינת נתוני החיילים', 'error');
+          }
+      );
+  } catch (error) {
+      console.error("שגיאה בטעינת נתונים:", error);
+      showNotification('אירעה שגיאה בטעינת הנתונים', 'error');
+  }
+}
+  
+// פונקציה לטעינת משימות
+function loadTasks() {
+  console.log("מגדיר מאזין לאוסף משימות...");
+  unsubscribeTasks = onSnapshot(
+      collection(db, "tasks"), 
+      (snapshot) => {
+          console.log(`התקבלו ${snapshot.docs.length} משימות מהמסד`);
+          tasks = snapshot.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data()
+          }));
+          
+          // טעינת שיבוצים רק לאחר טעינת המשימות
+          loadAssignments();
+      },
+      (error) => {
+          console.error("שגיאה בטעינת משימות:", error);
+          showNotification('אירעה שגיאה בטעינת נתוני המשימות', 'error');
       }
-    }
+  );
+}
+  
+// פונקציה לטעינת שיבוצים
+function loadAssignments() {
+  console.log("מגדיר מאזין לאוסף שיבוצים...");
+  unsubscribeAssignments = onSnapshot(
+      collection(db, "assignments"), 
+      (snapshot) => {
+          console.log(`התקבלו ${snapshot.docs.length} שיבוצים מהמסד`);
+          assignments = snapshot.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data()
+          }));
+          
+          // רינדור לוח השנה רק לאחר טעינת כל הנתונים
+          renderCalendar();
+      },
+      (error) => {
+          console.error("שגיאה בטעינת שיבוצים:", error);
+          showNotification('אירעה שגיאה בטעינת נתוני השיבוצים', 'error');
+      }
+  );
+}
+  
+// פונקציה להסרת מאזינים של Firestore
+function removeFirestoreListeners() {
+  if (unsubscribeSoldiers) {
+    unsubscribeSoldiers();
+    unsubscribeSoldiers = null;
   }
   
-  // פונקציה לבדיקה אם המשתמש הוא מנהל
-  async function checkIfAdmin(user) {
-    const userDocRef = doc(db, "users", user.uid);
-    const userDoc = await getDoc(userDocRef);
-    
-    if (userDoc.exists() && userDoc.data().role === 'admin') {
-      return true;
-    }
-    
-    // אם אין מסמך למשתמש, יצירת אחד עם תפקיד ברירת מחדל
-    if (!userDoc.exists()) {
-      await setDoc(userDocRef, {
-        email: user.email,
-        role: 'viewer',
-        createdAt: serverTimestamp()
-      });
-    }
-    
-    return false;
+  if (unsubscribeTasks) {
+    unsubscribeTasks();
+    unsubscribeTasks = null;
   }
   
-  // פונקציה לטעינת נתונים מ-Firestore
-  async function loadDataFromFirestore() {
-    console.log("מתחיל טעינת נתונים מ-Firestore...");
-    
-    try {
-        // הסרת מאזינים קודמים אם קיימים
-        removeFirestoreListeners();
-        
-        // טעינת חיילים
-        console.log("מגדיר מאזין לאוסף חיילים...");
-        unsubscribeSoldiers = onSnapshot(
-            collection(db, "soldiers"), 
-            (snapshot) => {
-                console.log(`התקבלו ${snapshot.docs.length} חיילים מהמסד`);
-                soldiers = snapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data()
-                }));
-                renderSoldiers();
-                
-                // טעינת משימות רק לאחר טעינת החיילים
-                loadTasks();
-            },
-            (error) => {
-                console.error("שגיאה בטעינת חיילים:", error);
-                showNotification('אירעה שגיאה בטעינת נתוני החיילים', 'error');
-            }
-        );
-    } catch (error) {
-        console.error("שגיאה בטעינת נתונים:", error);
-        showNotification('אירעה שגיאה בטעינת הנתונים', 'error');
-    }
+  if (unsubscribeAssignments) {
+    unsubscribeAssignments();
+    unsubscribeAssignments = null;
   }
+}
   
-  // פונקציה לטעינת משימות
-  function loadTasks() {
-    console.log("מגדיר מאזין לאוסף משימות...");
-    unsubscribeTasks = onSnapshot(
-        collection(db, "tasks"), 
-        (snapshot) => {
-            console.log(`התקבלו ${snapshot.docs.length} משימות מהמסד`);
-            tasks = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
-            
-            // טעינת שיבוצים רק לאחר טעינת המשימות
-            loadAssignments();
-        },
-        (error) => {
-            console.error("שגיאה בטעינת משימות:", error);
-            showNotification('אירעה שגיאה בטעינת נתוני המשימות', 'error');
-        }
-    );
-  }
+// פונקציה לטיפול בהתחברות
+async function handleLogin(e) {
+  e.preventDefault();
   
-  // פונקציה לטעינת שיבוצים
-  function loadAssignments() {
-    console.log("מגדיר מאזין לאוסף שיבוצים...");
-    unsubscribeAssignments = onSnapshot(
-        collection(db, "assignments"), 
-        (snapshot) => {
-            console.log(`התקבלו ${snapshot.docs.length} שיבוצים מהמסד`);
-            assignments = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
-            
-            // רינדור לוח השנה רק לאחר טעינת כל הנתונים
-            renderCalendar();
-        },
-        (error) => {
-            console.error("שגיאה בטעינת שיבוצים:", error);
-            showNotification('אירעה שגיאה בטעינת נתוני השיבוצים', 'error');
-        }
-    );
-  }
+  const username = document.getElementById('username').value;
+  const password = document.getElementById('password').value;
+  const errorDiv = document.getElementById('loginError');
   
-  // פונקציה להסרת מאזינים של Firestore
-  function removeFirestoreListeners() {
-    if (unsubscribeSoldiers) {
-      unsubscribeSoldiers();
-      unsubscribeSoldiers = null;
-    }
+  try {
+    await signInWithEmailAndPassword(auth, username, password);
+    errorDiv.classList.add('hidden');
     
-    if (unsubscribeTasks) {
-      unsubscribeTasks();
-      unsubscribeTasks = null;
-    }
-    
-    if (unsubscribeAssignments) {
-      unsubscribeAssignments();
-      unsubscribeAssignments = null;
-    }
+    // הועבר לתוך onAuthStateChanged
+  } catch (error) {
+    console.error("שגיאת התחברות:", error);
+    errorDiv.textContent = getFirebaseErrorMessage(error.code);
+    errorDiv.classList.remove('hidden');
   }
+}
   
-  // פונקציה לטיפול בהתחברות
-  async function handleLogin(e) {
-    e.preventDefault();
-    
-    const username = document.getElementById('username').value;
-    const password = document.getElementById('password').value;
+// פונקציה לכניסה כאורח (מצב צפייה בלבד)
+async function handleGuestLogin() {
+  try {
+    await signInAnonymously(auth);
+    document.getElementById('loginError').classList.add('hidden');
+  } catch (error) {
+    console.error("שגיאת התחברות כאורח:", error);
     const errorDiv = document.getElementById('loginError');
+    errorDiv.textContent = getFirebaseErrorMessage(error.code);
+    errorDiv.classList.remove('hidden');
+  }
+}
+  
+// פונקציה להתנתקות
+async function handleLogout() {
+  try {
+    await signOut(auth);
     
-    try {
-      await signInWithEmailAndPassword(auth, username, password);
-      errorDiv.classList.add('hidden');
-      
-      // הועבר לתוך onAuthStateChanged
-    } catch (error) {
-      console.error("שגיאת התחברות:", error);
-      errorDiv.textContent = getFirebaseErrorMessage(error.code);
-      errorDiv.classList.remove('hidden');
-    }
+    soldiers = [];
+    tasks = [];
+    assignments = [];
+    
+    showNotification('התנתקת בהצלחה', 'info');
+  } catch (error) {
+    console.error("שגיאת התנתקות:", error);
+    showNotification('אירעה שגיאה בהתנתקות', 'error');
   }
+}
   
-  // פונקציה לכניסה כאורח (מצב צפייה בלבד)
-  async function handleGuestLogin() {
-    try {
-      await signInAnonymously(auth);
-      document.getElementById('loginError').classList.add('hidden');
-    } catch (error) {
-      console.error("שגיאת התחברות כאורח:", error);
-      const errorDiv = document.getElementById('loginError');
-      errorDiv.textContent = getFirebaseErrorMessage(error.code);
-      errorDiv.classList.remove('hidden');
-    }
+// פונקציה לקבלת הודעת שגיאה של Firebase בעברית
+function getFirebaseErrorMessage(errorCode) {
+  switch (errorCode) {
+    case 'auth/invalid-email':
+      return 'כתובת האימייל אינה תקינה';
+    case 'auth/user-disabled':
+      return 'חשבון זה הושבת';
+    case 'auth/user-not-found':
+      return 'לא נמצא חשבון המשויך לאימייל זה';
+    case 'auth/wrong-password':
+      return 'סיסמה שגויה';
+    case 'auth/too-many-requests':
+      return 'יותר מדי ניסיונות כניסה. נסה שוב מאוחר יותר';
+    default:
+      return 'אירעה שגיאה בהתחברות';
   }
+}
   
-  // פונקציה להתנתקות
-  async function handleLogout() {
-    try {
-      await signOut(auth);
-      
-      soldiers = [];
-      tasks = [];
-      assignments = [];
-      
-      showNotification('התנתקת בהצלחה', 'info');
-    } catch (error) {
-      console.error("שגיאת התנתקות:", error);
-      showNotification('אירעה שגיאה בהתנתקות', 'error');
-    }
-  }
-  
-  // פונקציה לקבלת הודעת שגיאה של Firebase בעברית
-  function getFirebaseErrorMessage(errorCode) {
-    switch (errorCode) {
-      case 'auth/invalid-email':
-        return 'כתובת האימייל אינה תקינה';
-      case 'auth/user-disabled':
-        return 'חשבון זה הושבת';
-      case 'auth/user-not-found':
-        return 'לא נמצא חשבון המשויך לאימייל זה';
-      case 'auth/wrong-password':
-        return 'סיסמה שגויה';
-      case 'auth/too-many-requests':
-        return 'יותר מדי ניסיונות כניסה. נסה שוב מאוחר יותר';
-      default:
-        return 'אירעה שגיאה בהתחברות';
-    }
-  }
-  
-  // הוספת האזנה לאירועים
-  function setupEventListeners() {
-    console.log("מגדיר מאזיני אירועים...");
-    try {
-      // טופס התחברות
-      const loginForm = document.getElementById('loginForm');
-      if (loginForm) {
-        loginForm.addEventListener('submit', handleLogin);
-      } else {
-        console.warn("לא נמצא אלמנט loginForm");
-      }
-      
-      const guestLoginBtn = document.getElementById('guestLogin');
-      if (guestLoginBtn) {
-        guestLoginBtn.addEventListener('click', handleGuestLogin);
-      } else {
-        console.warn("לא נמצא אלמנט guestLogin");
-      }
-      
-      const logoutBtn = document.getElementById('logoutBtn');
-      if (logoutBtn) {
-        logoutBtn.addEventListener('click', handleLogout);
-      } else {
-        console.warn("לא נמצא אלמנט logoutBtn");
-      }
-      
-      // לחצנים ראשיים
-      const addSoldierBtn = document.getElementById('addSoldierBtn');
-      if (addSoldierBtn) {
-        addSoldierBtn.addEventListener('click', handleAddSoldier);
-      } else {
-        console.warn("לא נמצא אלמנט addSoldierBtn");
-      }
-      
-      const toggleRoleBtn = document.getElementById('toggleRole');
-      if (toggleRoleBtn) {
-        toggleRoleBtn.addEventListener('click', toggleRole);
-      } else {
-        console.warn("לא נמצא אלמנט toggleRole");
-      }
-      
-      const toggleReportBtn = document.getElementById('toggleReport');
-      if (toggleReportBtn) {
-        toggleReportBtn.addEventListener('click', () => toggleReportView('regular'));
-      } else {
-        console.warn("לא נמצא אלמנט toggleReport");
-      }
-      
-      const toggleSemiAnnualReportBtn = document.getElementById('toggleSemiAnnualReport');
-      if (toggleSemiAnnualReportBtn) {
-        toggleSemiAnnualReportBtn.addEventListener('click', () => toggleReportView('semiAnnual'));
-      } else {
-        console.warn("לא נמצא אלמנט toggleSemiAnnualReport");
-      }
-      
-      const toggleWeeklySummaryBtn = document.getElementById('toggleWeeklySummary');
-      if (toggleWeeklySummaryBtn) {
-        toggleWeeklySummaryBtn.addEventListener('click', () => toggleReportView('weekly'));
-      } else {
-        console.warn("לא נמצא אלמנט toggleWeeklySummary");
-      }
-      
-      // כפתורי חזרה ללוח מהדוחות
-      const backToCalendarBtn = document.getElementById('backToCalendarBtn');
-      if (backToCalendarBtn) {
-        backToCalendarBtn.addEventListener('click', () => toggleReportView('calendar'));
-      } else {
-        console.warn("לא נמצא אלמנט backToCalendarBtn");
-      }
-      
-      const backToCalendarFromSemiBtn = document.getElementById('backToCalendarFromSemiBtn');
-      if (backToCalendarFromSemiBtn) {
-        backToCalendarFromSemiBtn.addEventListener('click', () => toggleReportView('calendar'));
-      } else {
-        console.warn("לא נמצא אלמנט backToCalendarFromSemiBtn");
-      }
-      
-      const backToCalendarFromWeeklyBtn = document.getElementById('backToCalendarFromWeeklyBtn');
-      if (backToCalendarFromWeeklyBtn) {
-        backToCalendarFromWeeklyBtn.addEventListener('click', () => toggleReportView('calendar'));
-      } else {
-        console.warn("לא נמצא אלמנט backToCalendarFromWeeklyBtn");
-      }
-      
-      // כפתורי ניווט בלוח
-      const prevWeekBtn = document.getElementById('prevWeek');
-      if (prevWeekBtn) {
-        prevWeekBtn.addEventListener('click', subtractWeek);
-      } else {
-        console.warn("לא נמצא אלמנט prevWeek");
-      }
-      
-      const nextWeekBtn = document.getElementById('nextWeek');
-      if (nextWeekBtn) {
-        nextWeekBtn.addEventListener('click', addWeek);
-      } else {
-        console.warn("לא נמצא אלמנט nextWeek");
-      }
-      
-      const currentWeekBtn = document.getElementById('currentWeek');
-      if (currentWeekBtn) {
-        currentWeekBtn.addEventListener('click', goToCurrentWeek);
-      } else {
-        console.warn("לא נמצא אלמנט currentWeek");
-      }
-      
-      // כפתורי ייצוא
-      const exportExcelBtn = document.getElementById('exportExcel');
-      if (exportExcelBtn) {
-        exportExcelBtn.addEventListener('click', exportToExcel);
-      } else {
-        console.warn("לא נמצא אלמנט exportExcel");
-      }
-      
-      const exportSemiAnnualExcelBtn = document.getElementById('exportSemiAnnualExcel');
-      if (exportSemiAnnualExcelBtn) {
-        exportSemiAnnualExcelBtn.addEventListener('click', exportSemiAnnualToExcel);
-      } else {
-        console.warn("לא נמצא אלמנט exportSemiAnnualExcel");
-      }
-      
-      const exportWeeklySummaryExcelBtn = document.getElementById('exportWeeklySummaryExcel');
-      if (exportWeeklySummaryExcelBtn) {
-        exportWeeklySummaryExcelBtn.addEventListener('click', exportWeeklySummaryToExcel);
-      } else {
-        console.warn("לא נמצא אלמנט exportWeeklySummaryExcel");
-      }
-      
-      // הוספת משימה חדשה
-      const addTaskBtnMain = document.getElementById('addTaskBtn');
-      if (addTaskBtnMain) {
-        addTaskBtnMain.addEventListener('click', showAddTaskDialog);
-      } else {
-        console.warn("לא נמצא אלמנט addTaskBtn");
-      }
-      
-      const closeAddTaskDialogBtn = document.getElementById('closeAddTaskDialog');
-      if (closeAddTaskDialogBtn) {
-        closeAddTaskDialogBtn.addEventListener('click', closeAddTaskDialog);
-      } else {
-        console.warn("לא נמצא אלמנט closeAddTaskDialog");
-      }
-      
-      const addTaskCancelBtn = document.getElementById('addTaskCancel');
-      if (addTaskCancelBtn) {
-        addTaskCancelBtn.addEventListener('click', closeAddTaskDialog);
-      } else {
-        console.warn("לא נמצא אלמנט addTaskCancel");
-      }
-      
-      const addTaskConfirmBtn = document.getElementById('addTaskConfirm');
-      if (addTaskConfirmBtn) {
-        addTaskConfirmBtn.addEventListener('click', confirmAddTask);
-      } else {
-        console.warn("לא נמצא אלמנט addTaskConfirm");
-      }
-      
-      // חיפוש
-      const searchInput = document.getElementById('searchInput');
-      if (searchInput) {
-        searchInput.addEventListener('input', (e) => {
-          searchTerm = e.target.value;
-          renderSoldiers();
-        });
-      } else {
-        console.warn("לא נמצא אלמנט searchInput");
-      }
-      
-      // הוספה מהירה דיאלוג
-      const closeQuickAddBtn = document.getElementById('closeQuickAdd');
-      if (closeQuickAddBtn) {
-        closeQuickAddBtn.addEventListener('click', closeQuickAddDialog);
-      } else {
-        console.warn("לא נמצא אלמנט closeQuickAdd");
-      }
-      
-      const quickAddCancelBtn = document.getElementById('quickAddCancel');
-      if (quickAddCancelBtn) {
-        quickAddCancelBtn.addEventListener('click', closeQuickAddDialog);
-      } else {
-        console.warn("לא נמצא אלמנט quickAddCancel");
-      }
-      
-      const quickAddConfirmBtn = document.getElementById('quickAddConfirm');
-      if (quickAddConfirmBtn) {
-        quickAddConfirmBtn.addEventListener('click', prepareQuickAdd);
-      } else {
-        console.warn("לא נמצא אלמנט quickAddConfirm");
-      }
-      
-      // דיאלוג בחירת סוג שיבוץ
-      const closeAssignmentTypeDialogBtn = document.getElementById('closeAssignmentTypeDialog');
-      if (closeAssignmentTypeDialogBtn) {
-        closeAssignmentTypeDialogBtn.addEventListener('click', closeAssignmentTypeDialog);
-      } else {
-        console.warn("לא נמצא אלמנט closeAssignmentTypeDialog");
-      }
-      
-      const assignSingleDayBtn = document.getElementById('assignSingleDay');
-      if (assignSingleDayBtn) {
-        assignSingleDayBtn.addEventListener('click', () => confirmQuickAdd(false));
-      } else {
-        console.warn("לא נמצא אלמנט assignSingleDay");
-      }
-      
-      const assignFullWeekBtn = document.getElementById('assignFullWeek');
-      if (assignFullWeekBtn) {
-        assignFullWeekBtn.addEventListener('click', () => confirmQuickAdd(true));
-      } else {
-        console.warn("לא נמצא אלמנט assignFullWeek");
-      }
-      
-      console.log("הגדרת מאזיני אירועים הושלמה");
-    } catch (error) {
-      console.error("שגיאה בהגדרת מאזיני אירועים:", error);
-      showNotification('אירעה שגיאה בהגדרת מאזיני האירועים', 'error');
-    }
-  }
-  
-  // פונקציה לפתיחת דיאלוג הוספת משימה
-  function showAddTaskDialog() {
-    if (userRole !== 'admin') {
-      showNotification('רק מנהל יכול להוסיף משימות חדשות', 'error');
-      return;
+// הוספת האזנה לאירועים
+function setupEventListeners() {
+  console.log("מגדיר מאזיני אירועים...");
+  try {
+    // טופס התחברות
+    const loginForm = document.getElementById('loginForm');
+    if (loginForm) {
+      loginForm.addEventListener('submit', handleLogin);
+    } else {
+      console.warn("לא נמצא אלמנט loginForm");
     }
     
-    // איפוס שדות הטופס
-    document.getElementById('newTaskName').value = '';
-    
-    // הצגת הדיאלוג
-    document.getElementById('addTaskDialog').classList.remove('hidden');
-  }
-  
-  // פונקציה לסגירת דיאלוג הוספת משימה
-  function closeAddTaskDialog() {
-    document.getElementById('addTaskDialog').classList.add('hidden');
-  }
-  
-  // פונקציה לאישור הוספת משימה חדשה
-  async function confirmAddTask() {
-    if (userRole !== 'admin') {
-      showNotification('רק מנהל יכול להוסיף משימות', 'error');
-      return;
+    const guestLoginBtn = document.getElementById('guestLogin');
+    if (guestLoginBtn) {
+      guestLoginBtn.addEventListener('click', handleGuestLogin);
+    } else {
+      console.warn("לא נמצא אלמנט guestLogin");
     }
     
-    const taskName = document.getElementById('newTaskName').value.trim();
-    
-    if (!taskName) {
-      showNotification('נא להזין שם משימה', 'error');
-      return;
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', handleLogout);
+    } else {
+      console.warn("לא נמצא אלמנט logoutBtn");
     }
     
-    // בדיקה אם כבר קיימת משימה בשם זהה
-    if (tasks.some(task => task.name.toLowerCase() === taskName.toLowerCase())) {
-      showNotification('כבר קיימת משימה בשם זה', 'error');
-      return;
+    // לחצנים ראשיים
+    const addSoldierBtn = document.getElementById('addSoldierBtn');
+    if (addSoldierBtn) {
+      addSoldierBtn.addEventListener('click', handleAddSoldier);
+    } else {
+      console.warn("לא נמצא אלמנט addSoldierBtn");
     }
     
-    try {
-      // הוספת המשימה החדשה
-      await addDoc(collection(db, "tasks"), {
-        name: taskName,
-        createdAt: serverTimestamp(),
-        createdBy: currentUser.uid
+    const toggleRoleBtn = document.getElementById('toggleRole');
+    if (toggleRoleBtn) {
+      toggleRoleBtn.addEventListener('click', toggleRole);
+    } else {
+      console.warn("לא נמצא אלמנט toggleRole");
+    }
+    
+    const toggleReportBtn = document.getElementById('toggleReport');
+    if (toggleReportBtn) {
+      toggleReportBtn.addEventListener('click', () => toggleReportView('regular'));
+    } else {
+      console.warn("לא נמצא אלמנט toggleReport");
+    }
+    
+    const toggleSemiAnnualReportBtn = document.getElementById('toggleSemiAnnualReport');
+    if (toggleSemiAnnualReportBtn) {
+      toggleSemiAnnualReportBtn.addEventListener('click', () => toggleReportView('semiAnnual'));
+    } else {
+      console.warn("לא נמצא אלמנט toggleSemiAnnualReport");
+    }
+    
+    const toggleWeeklySummaryBtn = document.getElementById('toggleWeeklySummary');
+    if (toggleWeeklySummaryBtn) {
+      toggleWeeklySummaryBtn.addEventListener('click', () => toggleReportView('weekly'));
+    } else {
+      console.warn("לא נמצא אלמנט toggleWeeklySummary");
+    }
+    
+    // כפתורי חזרה ללוח מהדוחות
+    const backToCalendarBtn = document.getElementById('backToCalendarBtn');
+    if (backToCalendarBtn) {
+      backToCalendarBtn.addEventListener('click', () => toggleReportView('calendar'));
+    } else {
+      console.warn("לא נמצא אלמנט backToCalendarBtn");
+    }
+    
+    const backToCalendarFromSemiBtn = document.getElementById('backToCalendarFromSemiBtn');
+    if (backToCalendarFromSemiBtn) {
+      backToCalendarFromSemiBtn.addEventListener('click', () => toggleReportView('calendar'));
+    } else {
+      console.warn("לא נמצא אלמנט backToCalendarFromSemiBtn");
+    }
+    
+    const backToCalendarFromWeeklyBtn = document.getElementById('backToCalendarFromWeeklyBtn');
+    if (backToCalendarFromWeeklyBtn) {
+      backToCalendarFromWeeklyBtn.addEventListener('click', () => toggleReportView('calendar'));
+    } else {
+      console.warn("לא נמצא אלמנט backToCalendarFromWeeklyBtn");
+    }
+    
+    // כפתורי ניווט בלוח
+    const prevWeekBtn = document.getElementById('prevWeek');
+    if (prevWeekBtn) {
+      prevWeekBtn.addEventListener('click', subtractWeek);
+    } else {
+      console.warn("לא נמצא אלמנט prevWeek");
+    }
+    
+    const nextWeekBtn = document.getElementById('nextWeek');
+    if (nextWeekBtn) {
+      nextWeekBtn.addEventListener('click', addWeek);
+    } else {
+      console.warn("לא נמצא אלמנט nextWeek");
+    }
+    
+    const currentWeekBtn = document.getElementById('currentWeek');
+    if (currentWeekBtn) {
+      currentWeekBtn.addEventListener('click', goToCurrentWeek);
+    } else {
+      console.warn("לא נמצא אלמנט currentWeek");
+    }
+    
+    // כפתורי ייצוא
+    const exportExcelBtn = document.getElementById('exportExcel');
+    if (exportExcelBtn) {
+      exportExcelBtn.addEventListener('click', exportToExcel);
+    } else {
+      console.warn("לא נמצא אלמנט exportExcel");
+    }
+    
+    const exportSemiAnnualExcelBtn = document.getElementById('exportSemiAnnualExcel');
+    if (exportSemiAnnualExcelBtn) {
+      exportSemiAnnualExcelBtn.addEventListener('click', exportSemiAnnualToExcel);
+    } else {
+      console.warn("לא נמצא אלמנט exportSemiAnnualExcel");
+    }
+    
+    const exportWeeklySummaryExcelBtn = document.getElementById('exportWeeklySummaryExcel');
+    if (exportWeeklySummaryExcelBtn) {
+      exportWeeklySummaryExcelBtn.addEventListener('click', exportWeeklySummaryToExcel);
+    } else {
+      console.warn("לא נמצא אלמנט exportWeeklySummaryExcel");
+    }
+    
+    // הוספת משימה חדשה
+    const addTaskBtnMain = document.getElementById('addTaskBtn');
+    if (addTaskBtnMain) {
+      addTaskBtnMain.addEventListener('click', showAddTaskDialog);
+    } else {
+      console.warn("לא נמצא אלמנט addTaskBtn");
+    }
+    
+    const closeAddTaskDialogBtn = document.getElementById('closeAddTaskDialog');
+    if (closeAddTaskDialogBtn) {
+      closeAddTaskDialogBtn.addEventListener('click', closeAddTaskDialog);
+    } else {
+      console.warn("לא נמצא אלמנט closeAddTaskDialog");
+    }
+    
+    const addTaskCancelBtn = document.getElementById('addTaskCancel');
+    if (addTaskCancelBtn) {
+      addTaskCancelBtn.addEventListener('click', closeAddTaskDialog);
+    } else {
+      console.warn("לא נמצא אלמנט addTaskCancel");
+    }
+    
+    const addTaskConfirmBtn = document.getElementById('addTaskConfirm');
+    if (addTaskConfirmBtn) {
+      addTaskConfirmBtn.addEventListener('click', confirmAddTask);
+    } else {
+      console.warn("לא נמצא אלמנט addTaskConfirm");
+    }
+    
+    // חיפוש
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => {
+        searchTerm = e.target.value;
+        renderSoldiers();
       });
-      
-      showNotification('המשימה נוספה בהצלחה', 'success');
-      
-      // סגירת הדיאלוג
-      closeAddTaskDialog();
-    } catch (error) {
-      console.error("שגיאה בהוספת משימה:", error);
-      showNotification('אירעה שגיאה בהוספת המשימה', 'error');
+    } else {
+      console.warn("לא נמצא אלמנט searchInput");
     }
+    
+    // הוספה מהירה דיאלוג
+    const closeQuickAddBtn = document.getElementById('closeQuickAdd');
+    if (closeQuickAddBtn) {
+      closeQuickAddBtn.addEventListener('click', closeQuickAddDialog);
+    } else {
+      console.warn("לא נמצא אלמנט closeQuickAdd");
+    }
+    
+    const quickAddCancelBtn = document.getElementById('quickAddCancel');
+    if (quickAddCancelBtn) {
+      quickAddCancelBtn.addEventListener('click', closeQuickAddDialog);
+    } else {
+      console.warn("לא נמצא אלמנט quickAddCancel");
+    }
+    
+    const quickAddConfirmBtn = document.getElementById('quickAddConfirm');
+    if (quickAddConfirmBtn) {
+      quickAddConfirmBtn.addEventListener('click', prepareQuickAdd);
+    } else {
+      console.warn("לא נמצא אלמנט quickAddConfirm");
+    }
+    
+    // דיאלוג בחירת סוג שיבוץ
+    const closeAssignmentTypeDialogBtn = document.getElementById('closeAssignmentTypeDialog');
+    if (closeAssignmentTypeDialogBtn) {
+      closeAssignmentTypeDialogBtn.addEventListener('click', closeAssignmentTypeDialog);
+    } else {
+      console.warn("לא נמצא אלמנט closeAssignmentTypeDialog");
+    }
+    
+    const assignSingleDayBtn = document.getElementById('assignSingleDay');
+    if (assignSingleDayBtn) {
+      assignSingleDayBtn.addEventListener('click', () => confirmQuickAdd(false));
+    } else {
+      console.warn("לא נמצא אלמנט assignSingleDay");
+    }
+    
+    const assignFullWeekBtn = document.getElementById('assignFullWeek');
+    if (assignFullWeekBtn) {
+      assignFullWeekBtn.addEventListener('click', () => confirmQuickAdd(true));
+    } else {
+      console.warn("לא נמצא אלמנט assignFullWeek");
+    }
+    
+    console.log("הגדרת מאזיני אירועים הושלמה");
+  } catch (error) {
+    console.error("שגיאה בהגדרת מאזיני אירועים:", error);
+    showNotification('אירעה שגיאה בהגדרת מאזיני האירועים', 'error');
+  }
+}
+  
+// פונקציה לפתיחת דיאלוג הוספת משימה
+function showAddTaskDialog() {
+  if (userRole !== 'admin') {
+    showNotification('רק מנהל יכול להוסיף משימות חדשות', 'error');
+    return;
   }
   
-  // פונקציה למעבר לשבוע הנוכחי
-  function goToCurrentWeek() {
-    currentWeek = getNextThursday();
-    renderCalendar();
+  // איפוס שדות הטופס
+  document.getElementById('newTaskName').value = '';
+  
+  // הצגת הדיאלוג
+  document.getElementById('addTaskDialog').classList.remove('hidden');
+}
+  
+// פונקציה לסגירת דיאלוג הוספת משימה
+function closeAddTaskDialog() {
+  document.getElementById('addTaskDialog').classList.add('hidden');
+}
+  
+// פונקציה לאישור הוספת משימה חדשה
+async function confirmAddTask() {
+  if (userRole !== 'admin') {
+    showNotification('רק מנהל יכול להוסיף משימות', 'error');
+    return;
   }
   
-  // פונקציה לסגירת דיאלוג סוג השיבוץ
-  function closeAssignmentTypeDialog() {
-    document.getElementById('assignmentTypeDialog').classList.add('hidden');
+  const taskName = document.getElementById('newTaskName').value.trim();
+  
+  if (!taskName) {
+    showNotification('נא להזין שם משימה', 'error');
+    return;
   }
   
-  // פונקציה להגדרת אפשרות שינוי גודל רשימת החיילים
-  function setupResizable() {
-    const resizeHandle = document.getElementById('resizeHandle');
-    const soldiersPanel = document.querySelector('.soldiers-panel');
-    
-    let startY;
-    let startHeight;
-    
-    function onMouseDown(e) {
-      startY = e.clientY;
-      startHeight = parseInt(document.defaultView.getComputedStyle(soldiersPanel).height, 10);
-      
-      document.addEventListener('mousemove', onMouseMove);
-      document.addEventListener('mouseup', onMouseUp);
-      
-      document.body.style.cursor = 'ns-resize';
-      e.preventDefault();
-    }
-    
-    function onMouseMove(e) {
-      // החלפת הגודל לפי כיוון הגרירה (לגרירה מעלה - הגדלת האזור)
-      const newHeight = startHeight - (e.clientY - startY);
-      
-      // הגבלת גודל מינימלי ומקסימלי
-      if (newHeight >= 120 && newHeight <= window.innerHeight * 0.7) {
-        soldiersPanel.style.height = `${newHeight}px`;
-      }
-    }
-    
-    function onMouseUp() {
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
-      document.body.style.cursor = '';
-    }
-    
-    resizeHandle.addEventListener('mousedown', onMouseDown);
-    
-    // תמיכה בהתקני מגע
-    resizeHandle.addEventListener('touchstart', function(e) {
-      const touch = e.touches[0];
-      startY = touch.clientY;
-      startHeight = parseInt(document.defaultView.getComputedStyle(soldiersPanel).height, 10);
-      
-      resizeHandle.addEventListener('touchmove', onTouchMove);
-      resizeHandle.addEventListener('touchend', onTouchEnd);
-      
-      e.preventDefault();
+  // בדיקה אם כבר קיימת משימה בשם זהה
+  if (tasks.some(task => task.name.toLowerCase() === taskName.toLowerCase())) {
+    showNotification('כבר קיימת משימה בשם זה', 'error');
+    return;
+  }
+  
+  try {
+    // הוספת המשימה החדשה
+    await addDoc(collection(db, "tasks"), {
+      name: taskName,
+      createdAt: serverTimestamp(),
+      createdBy: currentUser.uid
     });
     
-    function onTouchMove(e) {
-      const touch = e.touches[0];
-      const newHeight = startHeight - (touch.clientY - startY);
-      
-      if (newHeight >= 120 && newHeight <= window.innerHeight * 0.7) {
-        soldiersPanel.style.height = `${newHeight}px`;
+    showNotification('המשימה נוספה בהצלחה', 'success');
+    
+    // סגירת הדיאלוג
+    closeAddTaskDialog();
+  } catch (error) {
+    console.error("שגיאה בהוספת משימה:", error);
+    showNotification('אירעה שגיאה בהוספת המשימה', 'error');
+  }
+}
+  
+// פונקציה למעבר לשבוע הנוכחי
+function goToCurrentWeek() {
+  currentWeek = getNextThursday();
+  renderCalendar();
+}
+  
+// פונקציה לסגירת דיאלוג סוג השיבוץ
+function closeAssignmentTypeDialog() {
+  document.getElementById('assignmentTypeDialog').classList.add('hidden');
+}
+  
+// פונקציה להגדרת אפשרות שינוי גודל רשימת החיילים
+function setupResizable() {
+  const resizeHandle = document.getElementById('resizeHandle');
+  const soldiersPanel = document.querySelector('.soldiers-panel');
+  
+  let startY;
+  let startHeight;
+  
+  function onMouseDown(e) {
+    startY = e.clientY;
+    startHeight = parseInt(document.defaultView.getComputedStyle(soldiersPanel).height, 10);
+    
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    
+    document.body.style.cursor = 'ns-resize';
+    e.preventDefault();
+  }
+  
+  function onMouseMove(e) {
+    // החלפת הגודל לפי כיוון הגרירה (לגרירה מעלה - הגדלת האזור)
+    const newHeight = startHeight - (e.clientY - startY);
+    
+    // הגבלת גודל מינימלי ומקסימלי
+    if (newHeight >= 120 && newHeight <= window.innerHeight * 0.7) {
+      soldiersPanel.style.height = `${newHeight}px`;
+    }
+  }
+  
+  function onMouseUp() {
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+    document.body.style.cursor = '';
+  }
+  
+  resizeHandle.addEventListener('mousedown', onMouseDown);
+  
+  // תמיכה בהתקני מגע
+  resizeHandle.addEventListener('touchstart', function(e) {
+    const touch = e.touches[0];
+    startY = touch.clientY;
+    startHeight = parseInt(document.defaultView.getComputedStyle(soldiersPanel).height, 10);
+    
+    resizeHandle.addEventListener('touchmove', onTouchMove);
+    resizeHandle.addEventListener('touchend', onTouchEnd);
+    
+    e.preventDefault();
+  });
+  
+  function onTouchMove(e) {
+    const touch = e.touches[0];
+    const newHeight = startHeight - (touch.clientY - startY);
+    
+    if (newHeight >= 120 && newHeight <= window.innerHeight * 0.7) {
+      soldiersPanel.style.height = `${newHeight}px`;
+    }
+  }
+  
+  function onTouchEnd() {
+    resizeHandle.removeEventListener('touchmove', onTouchMove);
+    resizeHandle.removeEventListener('touchend', onTouchEnd);
+  }
+}
+  
+// פונקציה לחישוב תאריך יום חמישי הקרוב
+function getNextThursday() {
+  const today = new Date();
+  const dayOfWeek = today.getDay(); // 0 = ראשון, 4 = חמישי
+  const daysToThursday = (dayOfWeek <= 4) ? 4 - dayOfWeek : 11 - dayOfWeek;
+  const thursday = new Date(today);
+  thursday.setDate(today.getDate() + daysToThursday);
+  thursday.setHours(0, 0, 0, 0);
+  return thursday;
+}
+  
+// רינדור של לוח השנה
+function renderCalendar() {
+  console.log("מתחיל רינדור לוח השנה...");
+  
+  try {
+      // בדיקה שכל הנתונים הנדרשים קיימים
+      if (!Array.isArray(soldiers) || !Array.isArray(tasks) || !Array.isArray(assignments)) {
+          console.error("חסרים נתונים נדרשים לרינדור לוח השנה");
+          showNotification('חסרים נתונים נדרשים להצגת לוח השנה', 'error');
+          return;
       }
-    }
-    
-    function onTouchEnd() {
-      resizeHandle.removeEventListener('touchmove', onTouchMove);
-      resizeHandle.removeEventListener('touchend', onTouchEnd);
-    }
+
+      // בדיקה שהאלמנטים הנדרשים קיימים ב-DOM
+      const calendarElement = document.getElementById('calendar');
+      const calendarBodyElement = document.getElementById('calendarBody');
+      if (!calendarElement || !calendarBodyElement) {
+          console.error("לא נמצאו אלמנטים נדרשים ללוח השנה");
+          return;
+      }
+
+      // רינדור כותרות
+      renderCalendarHeader();
+
+      // רינדור גוף הלוח
+      renderCalendarBody();
+
+      // הוספת מאזינים לאירועי גרירה
+      setupDragAndDrop();
+
+      console.log("רינדור לוח השנה הושלם");
+  } catch (error) {
+      console.error("שגיאה ברינדור לוח השנה:", error);
+      showNotification('אירעה שגיאה בהצגת לוח השנה', 'error');
   }
-  
-  // פונקציה לחישוב תאריך יום חמישי הקרוב
-  function getNextThursday() {
-    const today = new Date();
-    const dayOfWeek = today.getDay(); // 0 = ראשון, 4 = חמישי
-    const daysToThursday = (dayOfWeek <= 4) ? 4 - dayOfWeek : 11 - dayOfWeek;
-    const thursday = new Date(today);
-    thursday.setDate(today.getDate() + daysToThursday);
-    thursday.setHours(0, 0, 0, 0);
-    return thursday;
-  }
-  
-  // רינדור של לוח השנה
-  function renderCalendar() {
-    console.log("מתחיל רינדור לוח השנה...");
-    
-    try {
-        // בדיקה שכל הנתונים הנדרשים קיימים
-        if (!Array.isArray(soldiers) || !Array.isArray(tasks) || !Array.isArray(assignments)) {
-            console.error("חסרים נתונים נדרשים לרינדור לוח השנה");
-            showNotification('חסרים נתונים נדרשים להצגת לוח השנה', 'error');
-            return;
-        }
-
-        // בדיקה שהאלמנטים הנדרשים קיימים ב-DOM
-        const calendarElement = document.getElementById('calendar');
-        const calendarBodyElement = document.getElementById('calendarBody');
-        if (!calendarElement || !calendarBodyElement) {
-            console.error("לא נמצאו אלמנטים נדרשים ללוח השנה");
-            return;
-        }
-
-        // רינדור כותרות
-        renderCalendarHeader();
-
-        // רינדור גוף הלוח
-        renderCalendarBody();
-
-        // הוספת מאזינים לאירועי גרירה
-        setupDragAndDrop();
-
-        console.log("רינדור לוח השנה הושלם");
-    } catch (error) {
-        console.error("שגיאה ברינדור לוח השנה:", error);
-        showNotification('אירעה שגיאה בהצגת לוח השנה', 'error');
-    }
 }
 
 // רינדור של כותרות לוח השנה
 function renderCalendarHeader() {
-    console.log("מרנדר כותרות לוח השנה...");
-    try {
-        const daysRow = document.getElementById('daysHeaderRow');
-        if (!daysRow) {
-            console.error("לא נמצא אלמנט daysHeaderRow");
-            return;
-        }
-        
-        const dateRangeElement = document.getElementById('dateRange');
-        if (!dateRangeElement) {
-            console.error("לא נמצא אלמנט dateRange");
-            return;
-        }
-        
-        const daysOfWeek = getDaysOfWeek();
-        
-        // ניקוי השורה למעט התא הראשון
-        while (daysRow.children.length > 1) {
-            daysRow.removeChild(daysRow.lastChild);
-        }
-        
-        // הוספת תאי כותרת עבור כל יום
-        daysOfWeek.forEach(day => {
-            const th = document.createElement('th');
-            th.className = 'p-2 border min-w-24';
-            
-            const dayName = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'][day.getDay()];
-            const dateStr = formatDateWithYear(day);
-            
-            // בדיקה אם היום הוא חג
-            const holiday = isHoliday(day);
-            let holidayClass = '';
-            let holidayText = '';
-            
-            if (holiday) {
-                holidayText = `<div class="holiday-name text-red-600">${holiday}</div>`;
-                holidayClass = 'bg-red-50';
-                th.classList.add('holiday');
-            }
-            
-            // בדיקה אם היום הוא היום הנוכחי
-            const isToday = isSameDay(day, new Date());
-            if (isToday) {
-                th.classList.add('bg-blue-50', 'font-bold');
-            }
-            
-            th.innerHTML = `
-                <div class="day-header ${holidayClass}">
-                    <div class="day-name font-bold">${dayName}</div>
-                    <div class="text-sm">${dateStr}</div>
-                    ${holidayText}
-                </div>
-            `;
-            
-            daysRow.appendChild(th);
-        });
-        
-        // עדכון טווח התאריכים
-        const firstDay = daysOfWeek[0];
-        const lastDay = daysOfWeek[6];
-        dateRangeElement.textContent = `${formatDateWithYear(firstDay)} - ${formatDateWithYear(lastDay)}`;
-        
-        console.log("רינדור כותרות לוח השנה הושלם");
-    } catch (error) {
-        console.error("שגיאה ברינדור כותרות לוח השנה:", error);
-        showNotification('אירעה שגיאה בהצגת כותרות לוח השנה', 'error');
-    }
+  console.log("מרנדר כותרות לוח השנה...");
+  try {
+      const daysRow = document.getElementById('daysHeaderRow');
+      if (!daysRow) {
+          console.error("לא נמצא אלמנט daysHeaderRow");
+          return;
+      }
+      
+      const dateRangeElement = document.getElementById('dateRange');
+      if (!dateRangeElement) {
+          console.error("לא נמצא אלמנט dateRange");
+          return;
+      }
+      
+      const daysOfWeek = getDaysOfWeek();
+      
+      // ניקוי השורה למעט התא הראשון
+      while (daysRow.children.length > 1) {
+          daysRow.removeChild(daysRow.lastChild);
+      }
+      
+      // הוספת תאי כותרת עבור כל יום
+      daysOfWeek.forEach(day => {
+          const th = document.createElement('th');
+          th.className = 'p-2 border min-w-24';
+          
+          const dayName = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'][day.getDay()];
+          const dateStr = formatDateWithYear(day);
+          
+          // בדיקה אם היום הוא חג
+          const holiday = isHoliday(day);
+          let holidayClass = '';
+          let holidayText = '';
+          
+          if (holiday) {
+              holidayText = `<div class="holiday-name text-red-600">${holiday}</div>`;
+              holidayClass = 'bg-red-50';
+              th.classList.add('holiday');
+          }
+          
+          // בדיקה אם היום הוא היום הנוכחי
+          const isToday = isSameDay(day, new Date());
+          if (isToday) {
+              th.classList.add('bg-blue-50', 'font-bold');
+          }
+          
+          th.innerHTML = `
+              <div class="day-header ${holidayClass}">
+                  <div class="day-name font-bold">${dayName}</div>
+                  <div class="text-sm">${dateStr}</div>
+                  ${holidayText}
+              </div>
+          `;
+          
+          daysRow.appendChild(th);
+      });
+      
+      // עדכון טווח התאריכים
+      const firstDay = daysOfWeek[0];
+      const lastDay = daysOfWeek[6];
+      dateRangeElement.textContent = `${formatDateWithYear(firstDay)} - ${formatDateWithYear(lastDay)}`;
+      
+      console.log("רינדור כותרות לוח השנה הושלם");
+  } catch (error) {
+      console.error("שגיאה ברינדור כותרות לוח השנה:", error);
+      showNotification('אירעה שגיאה בהצגת כותרות לוח השנה', 'error');
+  }
 }
   
   // רינדור של גוף לוח השנה
@@ -3303,4 +3297,41 @@ function renderAddTaskRow(container) {
         date1.getMonth() === date2.getMonth() &&
         date1.getDate() === date2.getDate()
     );
+  }
+
+  // פונקציה להגדרת אירועי גרירה ושחרור
+  function setupDragAndDrop() {
+    console.log("מגדיר אירועי גרירה ושחרור...");
+    
+    try {
+        // הגדרת אירועי גרירה לכרטיסי חיילים
+        const soldierCards = document.querySelectorAll('.soldier-card');
+        
+        soldierCards.forEach(card => {
+            if (userRole === 'admin') {
+                card.draggable = true;
+                
+                card.addEventListener('dragstart', (e) => {
+                    const soldierId = card.id.replace('soldier-', '');
+                    e.dataTransfer.setData('soldierId', soldierId);
+                    
+                    // אפקט ויזואלי
+                    setTimeout(() => {
+                        card.classList.add('dragging');
+                    }, 0);
+                });
+                
+                card.addEventListener('dragend', () => {
+                    card.classList.remove('dragging');
+                });
+                
+                // תמיכה במגע למובייל
+                setupMobileDragTouch(card, card.id.replace('soldier-', ''));
+            }
+        });
+        
+        console.log("הגדרת אירועי גרירה ושחרור הושלמה");
+    } catch (error) {
+        console.error("שגיאה בהגדרת אירועי גרירה ושחרור:", error);
+    }
   }

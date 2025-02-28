@@ -11,49 +11,70 @@ const firebaseConfig = {
   
 // אתחול Firebase
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, query, where, onSnapshot, enableIndexedDbPersistence, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { 
+    getFirestore, 
+    collection, 
+    doc, 
+    setDoc, 
+    getDoc, 
+    getDocs, 
+    updateDoc, 
+    deleteDoc, 
+    query, 
+    where, 
+    onSnapshot, 
+    enableIndexedDbPersistence, 
+    addDoc, 
+    serverTimestamp 
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { 
+    getAuth, 
+    signInWithEmailAndPassword, 
+    signOut, 
+    onAuthStateChanged, 
+    signInAnonymously 
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
   
 // אתחול Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
-  
-// הפעלת מצב עבודה לא מקוון (offline)
-enableIndexedDbPersistence(db)
-  .catch((err) => {
-    if (err.code == 'failed-precondition') {
-      console.error("Multiple tabs open, persistence can only be enabled in one tab at a time.");
-    } else if (err.code == 'unimplemented') {
-      console.error("The current browser does not support all of the features required to enable persistence");
-    }
-  });
 
-// חשיפת האובייקטים לחלון הגלובלי
-window.db = db;
-window.auth = auth;
-window.app = app;
-  
+// ניסיון להפעיל מצב עבודה לא מקוון (offline)
+try {
+    enableIndexedDbPersistence(db)
+        .catch((err) => {
+            if (err.code == 'failed-precondition') {
+                console.error("Multiple tabs open, persistence can only be enabled in one tab at a time.");
+            } else if (err.code == 'unimplemented') {
+                console.error("The current browser does not support all of the features required to enable persistence");
+            }
+        });
+    console.log("מצב עבודה לא מקוון הופעל בהצלחה");
+} catch (error) {
+    console.error("שגיאה בהפעלת מצב עבודה לא מקוון:", error);
+}
+
 // ייצוא המודולים לשימוש
 export { 
-  app, 
-  db, 
-  auth, 
-  collection, 
-  doc, 
-  setDoc, 
-  getDoc, 
-  getDocs, 
-  updateDoc, 
-  deleteDoc, 
-  query, 
-  where, 
-  onSnapshot,
-  signInWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
-  enableIndexedDbPersistence,
-  addDoc,
-  serverTimestamp,
-  signInAnonymously
+    app, 
+    db, 
+    auth, 
+    collection, 
+    doc, 
+    setDoc, 
+    getDoc, 
+    getDocs, 
+    updateDoc, 
+    deleteDoc, 
+    query, 
+    where, 
+    onSnapshot,
+    signInWithEmailAndPassword,
+    signOut,
+    onAuthStateChanged,
+    enableIndexedDbPersistence,
+    addDoc,
+    serverTimestamp,
+    signInAnonymously
 };
