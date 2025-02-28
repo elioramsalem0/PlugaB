@@ -2241,61 +2241,239 @@ renderCalendar();
 }
 
 // פונקציה להחלפת תפקיד (מנהל/צופה)
+// עדכון פונקציית toggleRole בקובץ app.js
 async function toggleRole() {
-if (!isAuthenticated || currentUser.isAnonymous) {
-  showNotification('עליך להתחבר עם חשבון מנהל כדי לשנות הרשאות', 'error');
-  return;
-}
+  if (!isAuthenticated || currentUser.isAnonymous) {
+    showNotification('עליך להתחבר עם חשבון מנהל כדי לשנות הרשאות', 'error');
+    return;
+  }
 
-try {
-  const db = getFirestore();
-  const userRef = doc(db, "users", currentUser.uid);
-  const userDoc = await getDoc(userRef);
-  
-  if (userDoc.exists()) {
-    if (userRole === 'admin') {
-      // עבור ממנהל לצופה
-      userRole = 'viewer';
-      await updateDoc(userRef, { role: 'viewer' });
-      showNotification('עברת למצב צפייה', 'info');
-    } else {
-      // בדיקה אם יש הרשאת מנהל
+  try {
+    const db = getFirestore();
+    const userRef = doc(db, "users", currentUser.uid);
+    const userDoc = await getDoc(userRef);
+    
+    if (userDoc.exists()) {
       if (userDoc.data().role === 'admin') {
-        userRole = 'admin';
-        showNotification('עברת למצב מנהל', 'success');
-      } else {
-        // אין הרשאת מנהל - בקשת סיסמה
-        const loginPrompt = prompt("הכנס סיסמה למצב מנהל:");
-        if (loginPrompt === 'gilidadmin') {
+        // החלפה בין מצב צפייה למצב עריכה עבור מנהל
+        if (userRole === 'admin') {
+          // מעבר למצב צפייה (לא משנה את ההרשאה בדאטה-בייס)
+          userRole = 'viewer';
+          showNotification('עברת למצב צפייה', 'info');
+        } else {
+          // מעבר למצב עריכה (המשתמש עדיין מנהל בדאטה-בייס)
           userRole = 'admin';
-          await updateDoc(userRef, { role: 'admin' });
-          showNotification('עברת למצב מנהל', 'success');
-        } else if (loginPrompt !== null) { // רק אם המשתמש לחץ על OK ולא על Cancel
-          showNotification('סיסמה שגויה', 'error');
+          showNotification('עברת למצב עריכה', 'success');
         }
+      } else {
+        showNotification('אין לך הרשאות מנהל', 'error');
       }
     }
-  } else {
-    // יצירת תיעוד משתמש חדש
-    await setDoc(userRef, {
-      email: currentUser.email,
-      role: 'viewer',
-      createdAt: serverTimestamp()
+    
+    // עדכון הכפתור
+    const roleText = document.getElementById('roleText');
+    roleText.textContent = userRole === 'admin' ? 'מצב עריכה' : 'מצב צפייה';
+    
+    // אם הכפתור לא קיים או לא מוסתר/מוצג כראוי
+    const toggleRoleBtn = document.getElementById('toggleRole');
+    if (toggleRoleBtn) {
+      toggleRoleBtn.className = userRole === 'admin' ? 
+        'button button-accent' : 'button button-gray';
+      toggleRoleBtn.style.display = userDoc.data().role === 'admin' ? 'flex' : 'none';
+    }
+    
+    // רינדור מחדש
+    renderSoldiers();
+    renderCalendar();
+  } catch (error) {
+    console.error("שגיאה בהחלפת מצב:", error);
+    showNotification('אירעה שגיאה בהחלפת המצב', 'error');
+  }
+}
+
+// פונקציות לניהול התחברות מעודכנות (להוסיף/לעדכן בקובץ app.js)
+
+// מאזינים לאירועים נוספים
+function setupAuthEventListeners() {
+  document.getElementById('loginBtn').addEventListener('click', showLoginScreen);
+  document.getElementById('cancelLogin').addEventListener('click', hideLoginScreen);
+}
+
+// הצגת מסך התחברות
+function showLoginScreen() {
+  document.getElementById('loginScreen').classList.remove('hidden');
+}
+
+// הסתרת מסך התחברות
+function hideLoginScreen() {
+  document.getElementById('loginScreen').classList.add('hidden');
+}
+
+// פונקציה מעודכנת לאתחול האפליקציה
+async function initApp() {
+  console.log("מאתחל אפליקציה...");
+  
+  // הפעלת מצב עבודה לא מקוון (offline)
+  const db = getFirestore();
+  enableIndexedDbPersistence(db)
+    .catch((err) => {
+      if (err.code == 'failed-precondition') {
+        console.error("Multiple tabs open, persistence can only be enabled in one tab at a time.");
+      } else if (err.code == 'unimplemented') {
+        console.error("The current browser does not support all of the features required to enable persistence");
+      }
     });
-    userRole = 'viewer';
+
+  // הגדרת מאזינים לממשק המשתמש
+  setupEventListeners();
+  setupAuthEventListeners();
+  
+  // הגדרת אפשרות שינוי גודל רשימת החיילים
+  setupResizable();
+  
+  // כניסה אנונימית אוטומטית למצב צפייה
+  try {
+    const auth = getAuth();
+    // אם אין משתמש מחובר, התחבר אנונימית
+    if (!auth.currentUser) {
+      await signInAnonymously(auth);
+    }
+  } catch (error) {
+    console.error("שגיאה בכניסה אנונימית:", error);
   }
   
-  // עדכון הכפתור
-  const roleText = document.getElementById('roleText');
-  roleText.textContent = userRole === 'admin' ? 'מנהל' : 'צופה';
-  
-  // רינדור מחדש
-  renderSoldiers();
-  renderCalendar();
-} catch (error) {
-  console.error("שגיאה בהחלפת תפקיד:", error);
-  showNotification('אירעה שגיאה בהחלפת התפקיד', 'error');
+  // מאזין לשינויים בסטטוס ההתחברות
+  const auth = getAuth();
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      // משתמש מחובר
+      currentUser = user;
+      isAuthenticated = true;
+      
+      if (user.isAnonymous) {
+        // משתמש אנונימי - מצב צפייה בלבד
+        userRole = 'viewer';
+        document.getElementById('toggleRole').classList.add('hidden');
+        document.getElementById('loginBtn').classList.remove('hidden');
+        document.getElementById('logoutBtn').classList.add('hidden');
+        document.getElementById('userEmail').textContent = 'משתמש אורח';
+      } else {
+        // בדיקה האם המשתמש הוא מנהל
+        checkIfAdmin(user)
+          .then(isAdmin => {
+            userRole = isAdmin ? 'admin' : 'viewer';
+            document.getElementById('toggleRole').classList.remove('hidden');
+            document.getElementById('roleText').textContent = userRole === 'admin' ? 'מצב עריכה' : 'מצב צפייה';
+            document.getElementById('loginBtn').classList.add('hidden');
+            document.getElementById('logoutBtn').classList.remove('hidden');
+          });
+        
+        // הסתרת מסך ההתחברות אם הוא פתוח
+        hideLoginScreen();
+      }
+      
+      // הצגת פרטי המשתמש
+      document.getElementById('userEmail').textContent = user.email || 'משתמש אורח';
+      
+      // טעינת נתונים מ-Firestore
+      loadDataFromFirestore();
+    } else {
+      // משתמש לא מחובר - זה לא אמור לקרות כי יש כניסה אנונימית
+      currentUser = null;
+      isAuthenticated = false;
+      userRole = 'viewer';
+      
+      // הסרת מאזינים קיימים
+      removeFirestoreListeners();
+      
+      // ניסיון להתחבר כאנונימי שוב
+      try {
+        signInAnonymously(auth);
+      } catch (error) {
+        console.error("שגיאה בכניסה אנונימית:", error);
+        // במקרה של כשלון, נציג את מסך ההתחברות
+        showLoginScreen();
+      }
+    }
+  });
 }
+
+// פונקציה לטיפול בהתחברות
+async function handleLogin(e) {
+  e.preventDefault();
+  
+  const username = document.getElementById('username').value;
+  const password = document.getElementById('password').value;
+  const errorDiv = document.getElementById('loginError');
+  
+  try {
+    const auth = getAuth();
+    await signInWithEmailAndPassword(auth, username, password);
+    errorDiv.classList.add('hidden');
+  } catch (error) {
+    console.error("שגיאת התחברות:", error);
+    errorDiv.textContent = getFirebaseErrorMessage(error.code);
+    errorDiv.classList.remove('hidden');
+  }
+}
+
+// פונקציה להתנתקות
+async function handleLogout() {
+  try {
+    const auth = getAuth();
+    await signOut(auth);
+    
+    // אחרי התנתקות, ניכנס שוב כאנונימי אוטומטית
+    await signInAnonymously(auth);
+    
+    showNotification('התנתקת בהצלחה', 'info');
+  } catch (error) {
+    console.error("שגיאת התנתקות:", error);
+    showNotification('אירעה שגיאה בהתנתקות', 'error');
+  }
+}
+
+// עדכון בפונקציה טעינת נתונים מ-Firestore
+function loadDataFromFirestore() {
+  const db = getFirestore();
+  
+  // טעינת חיילים עם מאזין לשינויים
+  if (unsubscribeSoldiers) unsubscribeSoldiers();
+  
+  unsubscribeSoldiers = onSnapshot(collection(db, "soldiers"), (snapshot) => {
+    soldiers = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    renderSoldiers();
+  });
+  
+  // טעינת משימות עם מאזין לשינויים
+  if (unsubscribeTasks) unsubscribeTasks();
+  
+  unsubscribeTasks = onSnapshot(collection(db, "tasks"), (snapshot) => {
+    tasks = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    renderCalendar();
+  });
+  
+  // טעינת שיבוצים עם מאזין לשינויים
+  if (unsubscribeAssignments) unsubscribeAssignments();
+  
+  unsubscribeAssignments = onSnapshot(collection(db, "assignments"), (snapshot) => {
+    assignments = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    renderCalendar();
+  });
+  
+  // עדכון ממשק למנהלים
+  if (userRole === 'admin') {
+    updateInterfaceForAdmin();
+  }
 }
 
 // פונקציות עזר
@@ -2432,6 +2610,195 @@ const holidays = [
 
 return holidays;
 }
+
+// פונקציה להפיכת משתמש למנהל (להוסיף לקובץ app.js)
+async function promoteToAdmin(email) {
+  try {
+    const db = getFirestore();
+    
+    // חיפוש המשתמש לפי אימייל
+    const usersRef = collection(db, "users");
+    const q = query(usersRef, where("email", "==", email));
+    const querySnapshot = await getDocs(q);
+    
+    if (querySnapshot.empty) {
+      showNotification('לא נמצא משתמש עם האימייל הזה', 'error');
+      return false;
+    }
+    
+    // עדכון תפקיד המשתמש למנהל
+    const userDoc = querySnapshot.docs[0];
+    await updateDoc(doc(db, "users", userDoc.id), {
+      role: 'admin',
+      updatedAt: serverTimestamp(),
+      updatedBy: currentUser ? currentUser.uid : 'system'
+    });
+    
+    showNotification(`המשתמש ${email} הוגדר כמנהל בהצלחה`, 'success');
+    return true;
+  } catch (error) {
+    console.error("שגיאה בהגדרת מנהל:", error);
+    showNotification('אירעה שגיאה בהגדרת המנהל', 'error');
+    return false;
+  }
+}
+
+// פונקציה לפתיחת דיאלוג ניהול משתמשים (להוסיף לקובץ app.js)
+function showAdminManagementDialog() {
+  // בדיקה שהמשתמש הוא מנהל
+  if (userRole !== 'admin') {
+    showNotification('רק מנהל יכול לנהל משתמשים', 'error');
+    return;
+  }
+  
+  // יצירת הדיאלוג
+  const adminDialog = document.createElement('div');
+  adminDialog.className = 'admin-dialog';
+  adminDialog.innerHTML = `
+    <div class="dialog-overlay"></div>
+    <div class="quick-add-dialog admin-management-dialog">
+      <div class="dialog-header">
+        <h3 class="dialog-title">ניהול משתמשים</h3>
+        <button class="close-button" id="closeAdminDialog">
+          <svg class="icon" viewBox="0 0 24 24">
+            <path d="M18 6L6 18"></path>
+            <path d="M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+      <div>
+        <div class="mb-4">
+          <h4 class="font-bold mb-2">הגדרת מנהל חדש</h4>
+          <div class="flex gap-2">
+            <input type="email" id="newAdminEmail" class="w-full rounded border px-2 py-1 text-sm" placeholder="הזן אימייל של משתמש">
+            <button id="promoteBtn" class="button button-blue">הגדר כמנהל</button>
+          </div>
+        </div>
+        
+        <div class="mb-4">
+          <h4 class="font-bold mb-2">משתמשים קיימים</h4>
+          <div id="usersList" class="border rounded p-2 max-h-48 overflow-y-auto">
+            טוען משתמשים...
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(adminDialog);
+  
+  // הוספת אירועים לכפתורים
+  document.getElementById('closeAdminDialog').addEventListener('click', () => {
+    document.body.removeChild(adminDialog);
+  });
+  
+  document.getElementById('promoteBtn').addEventListener('click', async () => {
+    const email = document.getElementById('newAdminEmail').value.trim();
+    if (!email) {
+      showNotification('נא להזין אימייל', 'error');
+      return;
+    }
+    
+    await promoteToAdmin(email);
+    loadUsersList(); // טעינה מחדש של רשימת המשתמשים
+  });
+  
+  // טעינת רשימת המשתמשים
+  async function loadUsersList() {
+    try {
+      const db = getFirestore();
+      const usersRef = collection(db, "users");
+      const querySnapshot = await getDocs(usersRef);
+      
+      const usersListElement = document.getElementById('usersList');
+      
+      if (querySnapshot.empty) {
+        usersListElement.innerHTML = '<p class="text-center text-gray-400 py-2">לא נמצאו משתמשים</p>';
+        return;
+      }
+      
+      let usersHTML = '';
+      querySnapshot.forEach((doc) => {
+        const userData = doc.data();
+        usersHTML += `
+          <div class="user-item p-2 border-b flex justify-between items-center">
+            <div>
+              <span class="font-medium">${userData.email || 'אין אימייל'}</span>
+              <span class="text-sm text-gray-500 mr-2">${userData.role === 'admin' ? 'מנהל' : 'צופה'}</span>
+            </div>
+            <div>
+              ${userData.role !== 'admin' ? 
+                `<button class="icon-button promote-user" data-email="${userData.email}">
+                  <svg class="icon-sm" viewBox="0 0 24 24">
+                    <path d="M20 6L9 17l-5-5"></path>
+                  </svg>
+                  הגדר כמנהל
+                </button>` : 
+                '<span class="text-green-600 text-sm">מנהל מערכת</span>'
+              }
+            </div>
+          </div>
+        `;
+      });
+      
+      usersListElement.innerHTML = usersHTML;
+      
+      // הוספת אירועים לכפתורי קידום
+      document.querySelectorAll('.promote-user').forEach(button => {
+        button.addEventListener('click', async () => {
+          const email = button.getAttribute('data-email');
+          await promoteToAdmin(email);
+          loadUsersList(); // טעינה מחדש של הרשימה
+        });
+      });
+      
+    } catch (error) {
+      console.error("שגיאה בטעינת רשימת המשתמשים:", error);
+      document.getElementById('usersList').innerHTML = '<p class="text-center text-red-500 py-2">שגיאה בטעינת המשתמשים</p>';
+    }
+  }
+  
+  // טעינת רשימת המשתמשים בפעם הראשונה
+  loadUsersList();
+}
+
+// הוספת כפתור ניהול משתמשים לתפריט
+function addAdminButton() {
+  const userInfo = document.getElementById('userInfo');
+  
+  if (userInfo && userRole === 'admin') {
+    // בדיקה אם הכפתור כבר קיים
+    if (!document.getElementById('adminMgmtBtn')) {
+      const adminButton = document.createElement('button');
+      adminButton.id = 'adminMgmtBtn';
+      adminButton.className = 'button button-accent';
+      adminButton.innerHTML = `
+        <svg class="icon" viewBox="0 0 24 24">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+          <circle cx="9" cy="7" r="4"></circle>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+        </svg>
+        ניהול משתמשים
+      `;
+      
+      adminButton.addEventListener('click', showAdminManagementDialog);
+      userInfo.insertBefore(adminButton, userInfo.firstChild);
+    }
+  }
+}
+
+// הוספת קריאה לפונקציה זו בסוף פונקציית טעינת נתונים מ-Firestore
+function updateInterfaceForAdmin() {
+  // הוספה רק אם המשתמש הוא מנהל
+  if (userRole === 'admin') {
+    addAdminButton();
+  }
+}
+
+// עדכון פונקציית loadDataFromFirestore כדי להוסיף את הכפתור
+// (צריך להוסיף שורה זו בסוף הפונקציה loadDataFromFirestore)
+// updateInterfaceForAdmin();
 
 // בדיקה אם מתבצעת גישה ממכשיר מובייל
 function isMobileDevice() {
