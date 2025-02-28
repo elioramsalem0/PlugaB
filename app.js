@@ -15,8 +15,11 @@ import {
     auth,
     addDoc,
     serverTimestamp,
-    signInAnonymously
-  } from "./firebase-config.js";
+    signInAnonymously,
+    signInWithEmailAndPassword, 
+    signOut, 
+    onAuthStateChanged
+} from "./firebase-config.js";
   
   import { 
     signInWithEmailAndPassword, 
@@ -171,90 +174,81 @@ import {
   }
   
   // פונקציה לטעינת נתונים מ-Firestore
-  function loadDataFromFirestore() {
+  async function loadDataFromFirestore() {
     console.log("מתחיל טעינת נתונים מ-Firestore...");
     
     try {
-      // טעינת חיילים עם מאזין לשינויים
-      if (unsubscribeSoldiers) {
-        unsubscribeSoldiers();
-        console.log("הוסר מאזין קודם לחיילים");
-      }
-      
-      console.log("מגדיר מאזין לאוסף חיילים...");
-      unsubscribeSoldiers = onSnapshot(
-        collection(db, "soldiers"), 
-        (snapshot) => {
-          console.log(`התקבלו ${snapshot.docs.length} חיילים מהמסד`);
-          soldiers = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          }));
-          renderSoldiers();
-        },
-        (error) => {
-          console.error("שגיאה בטעינת חיילים:", error);
-          showNotification('אירעה שגיאה בטעינת נתוני החיילים', 'error');
-        }
-      );
-      
-      // טעינת משימות עם מאזין לשינויים
-      if (unsubscribeTasks) {
-        unsubscribeTasks();
-        console.log("הוסר מאזין קודם למשימות");
-      }
-      
-      console.log("מגדיר מאזין לאוסף משימות...");
-      unsubscribeTasks = onSnapshot(
+        // הסרת מאזינים קודמים אם קיימים
+        removeFirestoreListeners();
+        
+        // טעינת חיילים
+        console.log("מגדיר מאזין לאוסף חיילים...");
+        unsubscribeSoldiers = onSnapshot(
+            collection(db, "soldiers"), 
+            (snapshot) => {
+                console.log(`התקבלו ${snapshot.docs.length} חיילים מהמסד`);
+                soldiers = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+                renderSoldiers();
+                
+                // טעינת משימות רק לאחר טעינת החיילים
+                loadTasks();
+            },
+            (error) => {
+                console.error("שגיאה בטעינת חיילים:", error);
+                showNotification('אירעה שגיאה בטעינת נתוני החיילים', 'error');
+            }
+        );
+    } catch (error) {
+        console.error("שגיאה בטעינת נתונים:", error);
+        showNotification('אירעה שגיאה בטעינת הנתונים', 'error');
+    }
+  }
+  
+  // פונקציה לטעינת משימות
+  function loadTasks() {
+    console.log("מגדיר מאזין לאוסף משימות...");
+    unsubscribeTasks = onSnapshot(
         collection(db, "tasks"), 
         (snapshot) => {
-          console.log(`התקבלו ${snapshot.docs.length} משימות מהמסד`);
-          tasks = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          }));
-          renderCalendar();
+            console.log(`התקבלו ${snapshot.docs.length} משימות מהמסד`);
+            tasks = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            
+            // טעינת שיבוצים רק לאחר טעינת המשימות
+            loadAssignments();
         },
         (error) => {
-          console.error("שגיאה בטעינת משימות:", error);
-          showNotification('אירעה שגיאה בטעינת נתוני המשימות', 'error');
+            console.error("שגיאה בטעינת משימות:", error);
+            showNotification('אירעה שגיאה בטעינת נתוני המשימות', 'error');
         }
-      );
-      
-      // טעינת שיבוצים עם מאזין לשינויים
-      if (unsubscribeAssignments) {
-        unsubscribeAssignments();
-        console.log("הוסר מאזין קודם לשיבוצים");
-      }
-      
-      console.log("מגדיר מאזין לאוסף שיבוצים...");
-      unsubscribeAssignments = onSnapshot(
+    );
+  }
+  
+  // פונקציה לטעינת שיבוצים
+  function loadAssignments() {
+    console.log("מגדיר מאזין לאוסף שיבוצים...");
+    unsubscribeAssignments = onSnapshot(
         collection(db, "assignments"), 
         (snapshot) => {
-          console.log(`התקבלו ${snapshot.docs.length} שיבוצים מהמסד`);
-          assignments = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          }));
-          renderCalendar();
+            console.log(`התקבלו ${snapshot.docs.length} שיבוצים מהמסד`);
+            assignments = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            
+            // רינדור לוח השנה רק לאחר טעינת כל הנתונים
+            renderCalendar();
         },
         (error) => {
-          console.error("שגיאה בטעינת שיבוצים:", error);
-          showNotification('אירעה שגיאה בטעינת נתוני השיבוצים', 'error');
+            console.error("שגיאה בטעינת שיבוצים:", error);
+            showNotification('אירעה שגיאה בטעינת נתוני השיבוצים', 'error');
         }
-      );
-      
-      // עדכון ממשק למנהלים
-      if (userRole === 'admin') {
-        console.log("מעדכן ממשק למנהל");
-        updateInterfaceForAdmin();
-      }
-      
-      console.log("סיום הגדרת מאזינים לנתונים");
-    } catch (error) {
-      console.error("שגיאה כללית בטעינת נתונים:", error);
-      showNotification('אירעה שגיאה בטעינת הנתונים', 'error');
-    }
+    );
   }
   
   // פונקציה להסרת מאזינים של Firestore
@@ -706,281 +700,382 @@ import {
   
   // רינדור של לוח השנה
   function renderCalendar() {
-    console.log("מתחיל רינדור של לוח השנה...");
+    console.log("מתחיל רינדור לוח השנה...");
+    
     try {
-      renderCalendarHeader();
-      renderCalendarBody();
-      console.log("רינדור לוח השנה הושלם בהצלחה");
+        // בדיקה שכל הנתונים הנדרשים קיימים
+        if (!Array.isArray(soldiers) || !Array.isArray(tasks) || !Array.isArray(assignments)) {
+            console.error("חסרים נתונים נדרשים לרינדור לוח השנה");
+            showNotification('חסרים נתונים נדרשים להצגת לוח השנה', 'error');
+            return;
+        }
+
+        // בדיקה שהאלמנטים הנדרשים קיימים ב-DOM
+        const calendarElement = document.getElementById('calendar');
+        const calendarBodyElement = document.getElementById('calendarBody');
+        if (!calendarElement || !calendarBodyElement) {
+            console.error("לא נמצאו אלמנטים נדרשים ללוח השנה");
+            return;
+        }
+
+        // רינדור כותרות
+        renderCalendarHeader();
+
+        // רינדור גוף הלוח
+        renderCalendarBody();
+
+        // הוספת מאזינים לאירועי גרירה
+        setupDragAndDrop();
+
+        console.log("רינדור לוח השנה הושלם");
     } catch (error) {
-      console.error("שגיאה ברינדור לוח השנה:", error);
-      showNotification('אירעה שגיאה בהצגת לוח השנה', 'error');
+        console.error("שגיאה ברינדור לוח השנה:", error);
+        showNotification('אירעה שגיאה בהצגת לוח השנה', 'error');
     }
-  }
-  
-  // רינדור של כותרות לוח השנה
-  function renderCalendarHeader() {
+}
+
+// רינדור של כותרות לוח השנה
+function renderCalendarHeader() {
     console.log("מרנדר כותרות לוח השנה...");
     try {
-      const daysRow = document.getElementById('daysHeaderRow');
-      if (!daysRow) {
-        console.error("לא נמצא אלמנט daysHeaderRow");
-        return;
-      }
-      
-      const dateRangeElement = document.getElementById('dateRange');
-      if (!dateRangeElement) {
-        console.error("לא נמצא אלמנט dateRange");
-        return;
-      }
-      
-      const daysOfWeek = getDaysOfWeek();
-      
-      // ניקוי השורה למעט התא הראשון
-      while (daysRow.children.length > 1) {
-        daysRow.removeChild(daysRow.lastChild);
-      }
-      
-      // הוספת תאי כותרת עבור כל יום
-      daysOfWeek.forEach(day => {
-        const th = document.createElement('th');
-        th.className = 'p-2 border min-w-24';
-        
-        const dayName = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'][day.getDay()];
-        
-        // בדיקה אם היום הוא חג
-        const holiday = isHoliday(day);
-        let holidayText = '';
-        
-        if (holiday) {
-          holidayText = `<div class="holiday-name">${holiday}</div>`;
-          th.classList.add('holiday');
+        const daysRow = document.getElementById('daysHeaderRow');
+        if (!daysRow) {
+            console.error("לא נמצא אלמנט daysHeaderRow");
+            return;
         }
         
-        th.innerHTML = `
-          ${dayName}
-          <div class="text-sm">${formatDateWithYear(day)}</div>
-          ${holidayText}
-        `;
+        const dateRangeElement = document.getElementById('dateRange');
+        if (!dateRangeElement) {
+            console.error("לא נמצא אלמנט dateRange");
+            return;
+        }
         
-        daysRow.appendChild(th);
-      });
-      
-      // עדכון טווח התאריכים
-      const firstDay = daysOfWeek[0];
-      const lastDay = daysOfWeek[6];
-      dateRangeElement.textContent = `${formatDateWithYear(firstDay)} - ${formatDateWithYear(lastDay)}`;
-      
-      console.log("רינדור כותרות לוח השנה הושלם");
+        const daysOfWeek = getDaysOfWeek();
+        
+        // ניקוי השורה למעט התא הראשון
+        while (daysRow.children.length > 1) {
+            daysRow.removeChild(daysRow.lastChild);
+        }
+        
+        // הוספת תאי כותרת עבור כל יום
+        daysOfWeek.forEach(day => {
+            const th = document.createElement('th');
+            th.className = 'p-2 border min-w-24';
+            
+            const dayName = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'][day.getDay()];
+            const dateStr = formatDateWithYear(day);
+            
+            // בדיקה אם היום הוא חג
+            const holiday = isHoliday(day);
+            let holidayClass = '';
+            let holidayText = '';
+            
+            if (holiday) {
+                holidayText = `<div class="holiday-name text-red-600">${holiday}</div>`;
+                holidayClass = 'bg-red-50';
+                th.classList.add('holiday');
+            }
+            
+            // בדיקה אם היום הוא היום הנוכחי
+            const isToday = isSameDay(day, new Date());
+            if (isToday) {
+                th.classList.add('bg-blue-50', 'font-bold');
+            }
+            
+            th.innerHTML = `
+                <div class="day-header ${holidayClass}">
+                    <div class="day-name font-bold">${dayName}</div>
+                    <div class="text-sm">${dateStr}</div>
+                    ${holidayText}
+                </div>
+            `;
+            
+            daysRow.appendChild(th);
+        });
+        
+        // עדכון טווח התאריכים
+        const firstDay = daysOfWeek[0];
+        const lastDay = daysOfWeek[6];
+        dateRangeElement.textContent = `${formatDateWithYear(firstDay)} - ${formatDateWithYear(lastDay)}`;
+        
+        console.log("רינדור כותרות לוח השנה הושלם");
     } catch (error) {
-      console.error("שגיאה ברינדור כותרות לוח השנה:", error);
+        console.error("שגיאה ברינדור כותרות לוח השנה:", error);
+        showNotification('אירעה שגיאה בהצגת כותרות לוח השנה', 'error');
     }
-  }
+}
   
   // רינדור של גוף לוח השנה
   function renderCalendarBody() {
     console.log("מרנדר גוף לוח השנה...");
     try {
-      const calendarBodyElement = document.getElementById('calendarBody');
-      if (!calendarBodyElement) {
-        console.error("לא נמצא אלמנט calendarBody");
-        return;
-      }
-      
-      const daysOfWeek = getDaysOfWeek();
-      
-      calendarBodyElement.innerHTML = '';
-      
-      console.log(`מרנדר ${tasks.length} משימות בלוח`);
-      
-      tasks.forEach(task => {
-        const tr = document.createElement('tr');
-        
-        // תא המשימה (שם המשימה מופיע בעמודה הראשונה)
-        const taskCell = document.createElement('td');
-        taskCell.className = 'p-2 border font-medium task-name';
-        
-        // אם המשתמש הוא מנהל, הוסף אייקון מחיקה
-        if (userRole === 'admin') {
-          const taskContainer = document.createElement('div');
-          taskContainer.className = 'flex justify-between items-center';
-          
-          const taskName = document.createElement('span');
-          taskName.textContent = task.name;
-          taskContainer.appendChild(taskName);
-          
-          // אייקון מחיקה
-          const deleteIcon = document.createElement('button');
-          deleteIcon.className = 'icon-button delete-icon';
-          deleteIcon.innerHTML = `
-            <svg class="icon-sm" viewBox="0 0 24 24">
-              <path d="M3 6h18"></path>
-              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
-              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
-            </svg>
-          `;
-          deleteIcon.dataset.taskId = task.id;
-          deleteIcon.addEventListener('click', (e) => {
-            e.stopPropagation();
-            handleDeleteTask(task.id);
-          });
-          
-          taskContainer.appendChild(deleteIcon);
-          taskCell.appendChild(taskContainer);
-        } else {
-          // צופה רגיל רואה רק את שם המשימה
-          taskCell.textContent = task.name;
+        const calendarBodyElement = document.getElementById('calendarBody');
+        if (!calendarBodyElement) {
+            console.error("לא נמצא אלמנט calendarBody");
+            return;
         }
         
-        tr.appendChild(taskCell);
+        const daysOfWeek = getDaysOfWeek();
         
-        // תאים לכל יום
-        daysOfWeek.forEach(day => {
-          const dateStr = formatDateISO(day);
-          const assignment = assignments.find(
-            a => a.taskId === task.id && a.date === dateStr
-          );
-          
-          const td = document.createElement('td');
-          td.className = 'task-cell border';
-          
-          // בדיקה אם היום הוא חג
-          if (isHoliday(day)) {
-            td.classList.add('holiday-cell');
-          }
-          
-          td.dataset.taskId = task.id;
-          td.dataset.date = dateStr;
-          
-          // הוספת event listeners לגרירה
-          td.addEventListener('dragover', handleDragOver);
-          td.addEventListener('dragleave', handleDragLeave);
-          td.addEventListener('drop', handleDrop);
-          
-          // הוספת event listener ללחיצה על התא להוספה מהירה
-          td.addEventListener('click', () => {
-            if (userRole === 'admin') {
-              showQuickAddDialog(task.id, task.name, dateStr, day);
-            }
-          });
-          
-          // אם אין משימה, הוסף אייקון פלוס במצב מנהל
-          if (!assignment && userRole === 'admin') {
-            const emptyCell = document.createElement('div');
-            emptyCell.className = 'h-full w-full flex items-center justify-center opacity-20';
-            emptyCell.innerHTML = `
-              <svg class="icon" viewBox="0 0 24 24">
-                <path d="M12 5v14M5 12h14"></path>
-              </svg>
-            `;
-            td.appendChild(emptyCell);
-          }
-          
-          // אם יש שיבוץ, הצג אותו
-          if (assignment) {
-            const assignmentContainer = document.createElement('div');
-            assignmentContainer.className = 'flex flex-wrap gap-1';
-            
-            assignment.soldierIds.forEach(soldierId => {
-              const soldier = soldiers.find(s => s.id === soldierId);
-              if (soldier) {
-                const soldierTag = document.createElement('div');
-                soldierTag.className = `soldier-tag ${soldier.role}`;
-                
-                // הוספת אייקון פח למחיקה
-                const trashIcon = `
-                  <svg class="trash-icon" viewBox="0 0 24 24">
-                    <path d="M3 6h18"></path>
-                    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
-                    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
-                  </svg>
-                `;
-                
-                soldierTag.innerHTML = `
-                  ${userRole === 'admin' ? trashIcon : ''}
-                  ${soldier.firstName} ${soldier.lastName}
-                `;
-                
-                assignmentContainer.appendChild(soldierTag);
-                
-                // הוספת event listener להסרת חייל
-                if (userRole === 'admin') {
-                  setTimeout(() => {
-                    const removeBtn = soldierTag.querySelector('.trash-icon');
-                    if (removeBtn) {
-                      removeBtn.addEventListener('click', (e) => {
-                        e.stopPropagation(); // מניעת הפעלת הלחיצה על התא
-                        handleRemoveSoldierFromTask(assignment.id, soldierId);
-                      });
-                    }
-                  }, 0);
-                }
-              }
-            });
-            
-            td.appendChild(assignmentContainer);
-            
-            // התאמת הגובה לפי כמות החיילים המשובצים
-            const numSoldiers = assignment.soldierIds.length;
-            if (numSoldiers > 1) {
-              // קביעת גובה דינמי לפי כמות החיילים
-              const baseHeight = 40; // גובה בסיסי
-              const heightPerSoldier = 30; // גובה נוסף לכל חייל
-              const totalHeight = baseHeight + (numSoldiers - 1) * heightPerSoldier;
-              
-              // הגבלת גובה מקסימלי
-              const maxHeight = 200;
-              td.style.height = `${Math.min(totalHeight, maxHeight)}px`;
-            } else {
-              // גובה ברירת מחדל לתא עם חייל אחד
-              td.style.height = '40px';
-            }
-          } else {
-            // גובה ברירת מחדל לתא ריק
-            td.style.height = '40px';
-          }
-          
-          tr.appendChild(td);
+        // מיון המשימות לפי סדר הא"ב
+        const sortedTasks = [...tasks].sort((a, b) => a.name.localeCompare(b.name));
+        
+        // יצירת מפה של שיבוצים לפי תאריך ומשימה לשיפור ביצועים
+        const assignmentMap = new Map();
+        assignments.forEach(assignment => {
+            const key = `${assignment.taskId}_${assignment.date}`;
+            assignmentMap.set(key, assignment);
         });
         
-        calendarBodyElement.appendChild(tr);
-      });
-      
-      // הוספת שורה לכפתור "הוסף משימה" (רק למנהלים)
-      if (userRole === 'admin') {
-        const addTaskRow = document.createElement('tr');
-        const addTaskCell = document.createElement('td');
-        addTaskCell.className = 'p-2 border';
+        // יצירת מפה של חיילים לפי ID לשיפור ביצועים
+        const soldiersMap = new Map(soldiers.map(soldier => [soldier.id, soldier]));
         
-        const addTaskBtn = document.createElement('button');
-        addTaskBtn.id = 'addTaskBtn';
-        addTaskBtn.className = 'button button-green w-full';
-        addTaskBtn.innerHTML = `
-          <svg class="icon" viewBox="0 0 24 24">
-            <path d="M12 5v14M5 12h14"></path>
-          </svg>
-          הוסף משימה
-        `;
-        addTaskBtn.addEventListener('click', showAddTaskDialog);
+        calendarBodyElement.innerHTML = '';
         
-        addTaskCell.appendChild(addTaskBtn);
-        addTaskRow.appendChild(addTaskCell);
+        console.log(`מרנדר ${sortedTasks.length} משימות בלוח`);
         
-        // הוספת תאים ריקים לשאר העמודות
-        for (let i = 0; i < daysOfWeek.length; i++) {
-          const emptyCell = document.createElement('td');
-          emptyCell.className = 'border';
-          addTaskRow.appendChild(emptyCell);
+        sortedTasks.forEach(task => {
+            const tr = document.createElement('tr');
+            tr.dataset.taskId = task.id;
+            
+            // תא המשימה
+            const taskCell = document.createElement('td');
+            taskCell.className = 'p-2 border font-medium task-name';
+            
+            // הוספת תוכן תא המשימה
+            renderTaskCell(taskCell, task);
+            tr.appendChild(taskCell);
+            
+            // תאים לכל יום
+            daysOfWeek.forEach(day => {
+                const dateStr = formatDateISO(day);
+                const td = document.createElement('td');
+                
+                // בדיקת תקינות התאריך
+                if (!isValidDate(day)) {
+                    console.error(`תאריך לא תקין: ${dateStr}`);
+                    td.className = 'task-cell border bg-red-50';
+                    tr.appendChild(td);
+                    return;
+                }
+                
+                td.className = 'task-cell border';
+                
+                // בדיקה אם היום הוא חג
+                if (isHoliday(day)) {
+                    td.classList.add('holiday-cell', 'bg-red-50');
+                }
+                
+                // בדיקה אם היום הוא היום הנוכחי
+                if (isSameDay(day, new Date())) {
+                    td.classList.add('today-cell', 'bg-blue-50');
+                }
+                
+                td.dataset.taskId = task.id;
+                td.dataset.date = dateStr;
+                
+                // הוספת מאזיני אירועים
+                setupCellEventListeners(td, task, dateStr, day);
+                
+                // בדיקת שיבוץ לתא הנוכחי
+                const assignment = assignmentMap.get(`${task.id}_${dateStr}`);
+                
+                if (!assignment && userRole === 'admin') {
+                    // תא ריק במצב מנהל
+                    renderEmptyCell(td);
+                } else if (assignment) {
+                    // תא עם שיבוץ
+                    renderAssignmentCell(td, assignment, soldiersMap);
+                }
+                
+                tr.appendChild(td);
+            });
+            
+            calendarBodyElement.appendChild(tr);
+        });
+        
+        // הוספת שורת "הוסף משימה" למנהלים
+        if (userRole === 'admin') {
+            renderAddTaskRow(calendarBodyElement);
         }
         
-        calendarBodyElement.appendChild(addTaskRow);
-      }
-      
-      console.log("רינדור גוף לוח השנה הושלם");
+        console.log("רינדור גוף לוח השנה הושלם");
     } catch (error) {
-      console.error("שגיאה ברינדור גוף לוח השנה:", error);
-      showNotification('אירעה שגיאה בהצגת גוף לוח השנה', 'error');
+        console.error("שגיאה ברינדור גוף לוח השנה:", error);
+        showNotification('אירעה שגיאה בהצגת גוף לוח השנה', 'error');
     }
-  }
+}
+
+// פונקציית עזר לרינדור תא משימה
+function renderTaskCell(cell, task) {
+    if (userRole === 'admin') {
+        const taskContainer = document.createElement('div');
+        taskContainer.className = 'flex justify-between items-center';
+        
+        const taskName = document.createElement('span');
+        taskName.textContent = task.name;
+        taskContainer.appendChild(taskName);
+        
+        const deleteIcon = document.createElement('button');
+        deleteIcon.className = 'icon-button delete-icon';
+        deleteIcon.innerHTML = `
+            <svg class="icon-sm" viewBox="0 0 24 24">
+                <path d="M3 6h18"></path>
+                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+            </svg>
+        `;
+        deleteIcon.dataset.taskId = task.id;
+        deleteIcon.addEventListener('click', (e) => {
+            e.stopPropagation();
+            handleDeleteTask(task.id);
+        });
+        
+        taskContainer.appendChild(deleteIcon);
+        cell.appendChild(taskContainer);
+    } else {
+        cell.textContent = task.name;
+    }
+}
+
+// פונקציית עזר לרינדור תא ריק
+function renderEmptyCell(cell) {
+    const emptyCell = document.createElement('div');
+    emptyCell.className = 'h-full w-full flex items-center justify-center opacity-20 hover:opacity-50 transition-opacity';
+    emptyCell.innerHTML = `
+        <svg class="icon" viewBox="0 0 24 24">
+            <path d="M12 5v14M5 12h14"></path>
+        </svg>
+    `;
+    cell.appendChild(emptyCell);
+}
+
+// פונקציית עזר לרינדור תא עם שיבוץ
+function renderAssignmentCell(cell, assignment, soldiersMap) {
+    const assignmentContainer = document.createElement('div');
+    assignmentContainer.className = 'flex flex-wrap gap-1 p-1';
+    
+    // בדיקת חפיפות
+    const conflicts = checkAssignmentConflicts(assignment);
+    if (conflicts.length > 0) {
+        cell.classList.add('conflict-cell', 'bg-yellow-50');
+        // הוספת טולטיפ עם פירוט החפיפות
+        cell.title = `חפיפות: ${conflicts.join(', ')}`;
+    }
+    
+    assignment.soldierIds.forEach(soldierId => {
+        const soldier = soldiersMap.get(soldierId);
+        if (soldier) {
+            const soldierTag = createSoldierTag(soldier, assignment.id);
+            assignmentContainer.appendChild(soldierTag);
+        }
+    });
+    
+    cell.appendChild(assignmentContainer);
+    
+    // התאמת גובה דינמי
+    adjustCellHeight(cell, assignment.soldierIds.length);
+}
+
+// פונקציית עזר ליצירת תג חייל
+function createSoldierTag(soldier, assignmentId) {
+    const soldierTag = document.createElement('div');
+    soldierTag.className = `soldier-tag ${soldier.role} ${soldier.status === 'unavailable' ? 'unavailable' : ''}`;
+    
+    const content = userRole === 'admin' 
+        ? `<svg class="trash-icon" viewBox="0 0 24 24">
+             <path d="M3 6h18"></path>
+             <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+             <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+           </svg>
+           ${soldier.firstName} ${soldier.lastName}`
+        : `${soldier.firstName} ${soldier.lastName}`;
+    
+    soldierTag.innerHTML = content;
+    
+    if (userRole === 'admin') {
+        const removeBtn = soldierTag.querySelector('.trash-icon');
+        if (removeBtn) {
+            removeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                handleRemoveSoldierFromTask(assignmentId, soldier.id);
+            });
+        }
+    }
+    
+    return soldierTag;
+}
+
+// פונקציית עזר לבדיקת חפיפות
+function checkAssignmentConflicts(assignment) {
+    const conflicts = [];
+    const dateAssignments = assignments.filter(a => 
+        a.date === assignment.date && 
+        a.id !== assignment.id
+    );
+    
+    assignment.soldierIds.forEach(soldierId => {
+        dateAssignments.forEach(otherAssignment => {
+            if (otherAssignment.soldierIds.includes(soldierId)) {
+                const task = tasks.find(t => t.id === otherAssignment.taskId);
+                if (task) {
+                    conflicts.push(task.name);
+                }
+            }
+        });
+    });
+    
+    return [...new Set(conflicts)]; // הסרת כפילויות
+}
+
+// פונקציית עזר להתאמת גובה תא
+function adjustCellHeight(cell, numSoldiers) {
+    if (numSoldiers > 1) {
+        const baseHeight = 40;
+        const heightPerSoldier = 30;
+        const totalHeight = baseHeight + (numSoldiers - 1) * heightPerSoldier;
+        const maxHeight = 200;
+        cell.style.height = `${Math.min(totalHeight, maxHeight)}px`;
+    } else {
+        cell.style.height = '40px';
+    }
+}
+
+// פונקציית עזר להגדרת מאזיני אירועים לתא
+function setupCellEventListeners(cell, task, dateStr, day) {
+    cell.addEventListener('dragover', handleDragOver);
+    cell.addEventListener('dragleave', handleDragLeave);
+    cell.addEventListener('drop', handleDrop);
+    
+    if (userRole === 'admin') {
+        cell.addEventListener('click', () => {
+            showQuickAddDialog(task.id, task.name, dateStr, day);
+        });
+    }
+}
+
+// פונקציית עזר לרינדור שורת הוספת משימה
+function renderAddTaskRow(container) {
+    const addTaskRow = document.createElement('tr');
+    const addTaskCell = document.createElement('td');
+    addTaskCell.className = 'p-2 border';
+    addTaskCell.colSpan = 8;
+    
+    const addTaskBtn = document.createElement('button');
+    addTaskBtn.id = 'addTaskBtn';
+    addTaskBtn.className = 'button button-green w-full';
+    addTaskBtn.innerHTML = `
+        <svg class="icon-sm mr-2" viewBox="0 0 24 24">
+            <path d="M12 5v14M5 12h14"></path>
+        </svg>
+        הוסף משימה חדשה
+    `;
+    addTaskBtn.addEventListener('click', showAddTaskDialog);
+    
+    addTaskCell.appendChild(addTaskBtn);
+    addTaskRow.appendChild(addTaskCell);
+    container.appendChild(addTaskRow);
+}
   
   // פונקציה למחיקת משימה
   async function handleDeleteTask(taskId) {
@@ -2806,10 +2901,16 @@ import {
     const days = [];
     const startDate = new Date(currentWeek);
     
+    // וידוא שמתחילים מיום ראשון
+    while (startDate.getDay() !== 0) {
+        startDate.setDate(startDate.getDate() - 1);
+    }
+    
+    // יצירת מערך של 7 ימים החל מיום ראשון
     for (let i = 0; i < 7; i++) {
-      const date = new Date(startDate);
-      date.setDate(startDate.getDate() + i);
-      days.push(date);
+        const date = new Date(startDate);
+        date.setDate(startDate.getDate() + i);
+        days.push(date);
     }
     
     return days;
@@ -2817,121 +2918,155 @@ import {
   
   // פורמט תאריך לתצוגה: DD/MM
   function formatDate(date) {
-    return `${date.getDate()}/${date.getMonth() + 1}`;
+    if (!isValidDate(date)) {
+        console.error('תאריך לא תקין:', date);
+        return 'תאריך שגוי';
+    }
+    
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    return `${day}/${month}`;
   }
   
   // פורמט תאריך לתצוגה עם שנה: DD/MM/YYYY
   function formatDateWithYear(date) {
-    return `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
+    if (!isValidDate(date)) {
+        console.error('תאריך לא תקין:', date);
+        return 'תאריך שגוי';
+    }
+    
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
   }
   
-  // פורמט תאריך ISO: YYYY-MM-DD
+  // פורמט תאריך ל-ISO: YYYY-MM-DD
   function formatDateISO(date) {
+    if (!isValidDate(date)) {
+        console.error('תאריך לא תקין:', date);
+        return '';
+    }
+    
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   }
   
-  // פורמט תאריך בעברית
+  // המרת תאריך ISO למחרוזת בעברית
   function formatDateHebrew(dateStr) {
-    if (dateStr instanceof Date) {
-      return dateStr.toLocaleDateString('he-IL');
-    }
+    if (!dateStr) return '';
     
     const date = new Date(dateStr);
-    return date.toLocaleDateString('he-IL');
+    if (!isValidDate(date)) {
+        console.error('תאריך לא תקין:', dateStr);
+        return 'תאריך שגוי';
+    }
+    
+    const days = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+    const months = [
+        'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
+        'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'
+    ];
+    
+    const dayName = days[date.getDay()];
+    const day = date.getDate();
+    const monthName = months[date.getMonth()];
+    const year = date.getFullYear();
+    
+    return `יום ${dayName}, ${day} ב${monthName} ${year}`;
   }
   
   // פונקציה לבדיקה אם תאריך הוא חג
   function isHoliday(date) {
-    const holidays = getIsraeliHolidays(date.getFullYear());
-    
-    for (const holiday of holidays) {
-      if (isSameDay(date, holiday.date)) {
-        return holiday.name;
-      }
+    if (!isValidDate(date)) {
+        console.error('תאריך לא תקין:', date);
+        return null;
     }
     
-    return null;
-  }
-  
-  // פונקציה להשוואת תאריכים (יום, חודש, שנה)
-  function isSameDay(date1, date2) {
-    return date1.getDate() === date2.getDate() &&
-           date1.getMonth() === date2.getMonth() &&
-           date1.getFullYear() === date2.getFullYear();
-  }
-  
-  // פונקציה לקבלת חגי ישראל
-  function getIsraeliHolidays(year) {
-    // חגים בתאריכים מעודכנים לשנת 2025
-    // תאריכים אלו הם קירוב טוב יותר, אך עדיין מומלץ להשתמש בחישוב מדויק לפי הלוח העברי במערכת אמיתית
-    const holidays = [
-      // ראש השנה
-      { name: 'ערב ראש השנה', date: new Date(2025, 8, 22), type: 'ערב חג' },       // 22 בספטמבר 2025
-      { name: 'ראש השנה', date: new Date(2025, 8, 23), type: 'חג' },                // 23 בספטמבר 2025
-      { name: 'ראש השנה (יום שני)', date: new Date(2025, 8, 24), type: 'חג' },      // 24 בספטמבר 2025
-      
-      // יום כיפור
-      { name: 'ערב יום כיפור', date: new Date(2025, 9, 1), type: 'ערב חג' },        // 1 באוקטובר 2025
-      { name: 'יום כיפור', date: new Date(2025, 9, 2), type: 'חג' },                // 2 באוקטובר 2025
-      
-      // סוכות
-      { name: 'ערב סוכות', date: new Date(2025, 9, 6), type: 'ערב חג' },            // 6 באוקטובר 2025
-      { name: 'סוכות', date: new Date(2025, 9, 7), type: 'חג' },                    // 7 באוקטובר 2025
-      { name: 'חול המועד סוכות', date: new Date(2025, 9, 8), type: 'חול המועד' },    // 8 באוקטובר 2025
-      { name: 'חול המועד סוכות', date: new Date(2025, 9, 9), type: 'חול המועד' },    // 9 באוקטובר 2025
-      { name: 'חול המועד סוכות', date: new Date(2025, 9, 10), type: 'חול המועד' },   // 10 באוקטובר 2025
-      { name: 'חול המועד סוכות', date: new Date(2025, 9, 11), type: 'חול המועד' },   // 11 באוקטובר 2025
-      { name: 'חול המועד סוכות', date: new Date(2025, 9, 12), type: 'חול המועד' },   // 12 באוקטובר 2025
-      { name: 'הושענה רבה', date: new Date(2025, 9, 13), type: 'חול המועד' },        // 13 באוקטובר 2025
-      { name: 'שמיני עצרת / שמחת תורה', date: new Date(2025, 9, 14), type: 'חג' },   // 14 באוקטובר 2025
-      
-      // חנוכה
-      { name: 'ערב חנוכה', date: new Date(2025, 11, 14), type: 'ערב חג' },          // 14 בדצמבר 2025
-      { name: 'חנוכה - נר ראשון', date: new Date(2025, 11, 15), type: 'חג' },       // 15 בדצמבר 2025
-      { name: 'חנוכה - נר שמיני', date: new Date(2025, 11, 22), type: 'חג' },       // 22 בדצמבר 2025
-      
-      // טו בשבט
-      { name: 'טו בשבט', date: new Date(2025, 0, 14), type: 'חג' },                 // 14 בינואר 2025
-      
-      // פורים
-      { name: 'תענית אסתר', date: new Date(2025, 2, 13), type: 'ערב חג' },          // 13 במרץ 2025
-      { name: 'פורים', date: new Date(2025, 2, 14), type: 'חג' },                   // 14 במרץ 2025
-      { name: 'שושן פורים', date: new Date(2025, 2, 15), type: 'חג' },              // 15 במרץ 2025
-      
-      // פסח
-      { name: 'ערב פסח', date: new Date(2025, 3, 12), type: 'ערב חג' },             // 12 באפריל 2025
-      { name: 'פסח', date: new Date(2025, 3, 13), type: 'חג' },                     // 13 באפריל 2025
-      { name: 'חול המועד פסח', date: new Date(2025, 3, 14), type: 'חול המועד' },     // 14 באפריל 2025
-      { name: 'חול המועד פסח', date: new Date(2025, 3, 15), type: 'חול המועד' },     // 15 באפריל 2025
-      { name: 'חול המועד פסח', date: new Date(2025, 3, 16), type: 'חול המועד' },     // 16 באפריל 2025
-      { name: 'חול המועד פסח', date: new Date(2025, 3, 17), type: 'חול המועד' },     // 17 באפריל 2025
-      { name: 'חול המועד פסח', date: new Date(2025, 3, 18), type: 'חול המועד' },     // 18 באפריל 2025
-      { name: 'שביעי של פסח', date: new Date(2025, 3, 19), type: 'חג' },            // 19 באפריל 2025
-      
-      // יום השואה, יום הזיכרון ויום העצמאות
-      { name: 'יום השואה', date: new Date(2025, 3, 28), type: 'יום זיכרון' },        // 28 באפריל 2025
-      { name: 'יום הזיכרון', date: new Date(2025, 3, 30), type: 'יום זיכרון' },       // 30 באפריל 2025
-      { name: 'ערב יום העצמאות', date: new Date(2025, 3, 30), type: 'ערב חג' },      // 30 באפריל 2025 (בערב)
-      { name: 'יום העצמאות', date: new Date(2025, 4, 1), type: 'חג' },               // 1 במאי 2025
-      
-      // ל"ג בעומר
-      { name: 'ל"ג בעומר', date: new Date(2025, 4, 18), type: 'חג' },               // 18 במאי 2025
-      
-      // שבועות
-      { name: 'ערב שבועות', date: new Date(2025, 5, 1), type: 'ערב חג' },           // 1 ביוני 2025
-      { name: 'שבועות', date: new Date(2025, 5, 2), type: 'חג' },                   // 2 ביוני 2025
-      
-      // ימי בין המצרים
-      { name: 'שבעה עשר בתמוז', date: new Date(2025, 6, 15), type: 'צום' },         // 15 ביולי 2025
-      { name: 'תשעה באב', date: new Date(2025, 7, 10), type: 'צום' }                // 10 באוגוסט 2025
-    ];
+    // בדיקה אם התאריך הוא שבת
+    if (date.getDay() === 6) {
+        return 'שבת';
+    }
     
-    // אם הפונקציה צריכה לטפל בשנים מרובות, ניתן להתאים את התאריכים בהתאם לשנה שהתקבלה כפרמטר
+    // בדיקת חגים
+    const holidays = getIsraeliHolidays(date.getFullYear());
+    const holiday = holidays.find(h => isSameDay(date, h.date));
+    
+    return holiday ? holiday.name : null;
+  }
+  
+  // פונקציה לקבלת רשימת חגי ישראל לשנה מסוימת
+  function getIsraeliHolidays(year) {
+    const holidays = [];
+    
+    // ראש השנה (א' ו-ב' בתשרי)
+    const roshHashana = hebrewToGregorian(year, 7, 1);
+    holidays.push(
+        { name: 'ראש השנה', date: roshHashana },
+        { name: 'ראש השנה', date: addDays(roshHashana, 1) }
+    );
+    
+    // יום כיפור (י' בתשרי)
+    const yomKippur = hebrewToGregorian(year, 7, 10);
+    holidays.push({ name: 'יום כיפור', date: yomKippur });
+    
+    // סוכות (ט"ו-כ"א בתשרי)
+    const sukkot = hebrewToGregorian(year, 7, 15);
+    holidays.push(
+        { name: 'סוכות', date: sukkot },
+        { name: 'שמחת תורה', date: addDays(sukkot, 7) }
+    );
+    
+    // חנוכה (כ"ה בכסלו - ב' בטבת)
+    const chanukah = hebrewToGregorian(year, 9, 25);
+    for (let i = 0; i < 8; i++) {
+        holidays.push({ name: 'חנוכה', date: addDays(chanukah, i) });
+    }
+    
+    // פורים (י"ד באדר)
+    const purim = hebrewToGregorian(year, 12, 14);
+    holidays.push({ name: 'פורים', date: purim });
+    
+    // פסח (ט"ו-כ"א בניסן)
+    const pesach = hebrewToGregorian(year, 1, 15);
+    holidays.push(
+        { name: 'פסח', date: pesach },
+        { name: 'שביעי של פסח', date: addDays(pesach, 6) }
+    );
+    
+    // יום העצמאות (ה' באייר)
+    const independence = hebrewToGregorian(year, 2, 5);
+    holidays.push({ name: 'יום העצמאות', date: independence });
+    
+    // ל"ג בעומר (י"ח באייר)
+    const lagBaomer = hebrewToGregorian(year, 2, 18);
+    holidays.push({ name: 'ל"ג בעומר', date: lagBaomer });
+    
+    // שבועות (ו' בסיון)
+    const shavuot = hebrewToGregorian(year, 3, 6);
+    holidays.push({ name: 'שבועות', date: shavuot });
+    
+    // ט' באב (ט' באב)
+    const tishaBAv = hebrewToGregorian(year, 5, 9);
+    holidays.push({ name: 'תשעה באב', date: tishaBAv });
     
     return holidays;
+  }
+  
+  // פונקציית עזר להמרת תאריך עברי לגרגוריאני
+  function hebrewToGregorian(year, month, day) {
+    // המרה פשוטה - יש להחליף בספריה מתאימה
+    const date = new Date(year, month - 1, day);
+    return date;
+  }
+  
+  // פונקציית עזר להוספת ימים לתאריך
+  function addDays(date, days) {
+    const result = new Date(date);
+    result.setDate(result.getDate() + days);
+    return result;
   }
   
   // פונקציה להפיכת משתמש למנהל (להוסיף לקובץ app.js)
@@ -3142,3 +3277,30 @@ import {
     // אתחול האפליקציה
     initApp();
   });
+
+  // פונקציה לבדיקת תקינות תאריך
+  function isValidDate(date) {
+    // בדיקה שהערך הוא אובייקט תאריך תקין
+    if (!(date instanceof Date) || isNaN(date)) {
+        return false;
+    }
+    
+    // בדיקה שהתאריך הוא בטווח סביר
+    const now = new Date();
+    const minDate = new Date(now.getFullYear() - 1, 0, 1); // שנה אחורה
+    const maxDate = new Date(now.getFullYear() + 1, 11, 31); // שנה קדימה
+    
+    return date >= minDate && date <= maxDate;
+  }
+
+  // פונקציה לבדיקה אם שני תאריכים הם אותו יום
+  function isSameDay(date1, date2) {
+    if (!isValidDate(date1) || !isValidDate(date2)) {
+        return false;
+    }
+    return (
+        date1.getFullYear() === date2.getFullYear() &&
+        date1.getMonth() === date2.getMonth() &&
+        date1.getDate() === date2.getDate()
+    );
+  }
