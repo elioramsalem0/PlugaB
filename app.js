@@ -2876,11 +2876,6 @@ function renderAddTaskRow(container) {
   function hideLoginScreen() {
     document.getElementById('loginScreen').classList.add('hidden');
   }
-  
-  // פונקציה מעודכנת לאתחול האפליקציה
-  async function initAppLegacy() {
-    console.log("מאתחל אפליקציה...");
-    
     // הפעלת מצב עבודה לא מקוון (offline)
     enableIndexedDbPersistence(db)
       .catch((err) => {
@@ -2961,53 +2956,12 @@ function renderAddTaskRow(container) {
         }
       }
     });
-  }
   
   // פונקציה לטיפול בהתחברות
-  async function handleLogin(e) {
-    e.preventDefault();
-    
-    const username = document.getElementById('username').value;
-    const password = document.getElementById('password').value;
-    const errorDiv = document.getElementById('loginError');
-    
-    try {
-      await signInWithEmailAndPassword(auth, username, password);
-      errorDiv.classList.add('hidden');
-    } catch (error) {
-      console.error("שגיאת התחברות:", error);
-      errorDiv.textContent = getFirebaseErrorMessage(error.code);
-      errorDiv.classList.remove('hidden');
-    }
-  }
-  
-  // פונקציה להתנתקות
-  async function handleLogout() {
-    try {
-      await signOut(auth);
-      
-      // אחרי התנתקות, ניכנס שוב כאנונימי אוטומטית
-      await signInAnonymously(auth);
-      
-      showNotification('התנתקת בהצלחה', 'info');
-    } catch (error) {
-      console.error("שגיאת התנתקות:", error);
-      showNotification('אירעה שגיאה בהתנתקות', 'error');
-    }
-  }
+ 
   
   // עדכון בפונקציה טעינת נתונים מ-Firestore
-  function loadDataFromFirestore() {
-    // טעינת חיילים עם מאזין לשינויים
-    if (unsubscribeSoldiers) unsubscribeSoldiers();
-    
-    unsubscribeSoldiers = onSnapshot(collection(db, "soldiers"), (snapshot) => {
-      soldiers = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      renderSoldiers();
-    });
+
     
     // טעינת משימות עם מאזין לשינויים
     if (unsubscribeTasks) unsubscribeTasks();
@@ -3035,7 +2989,7 @@ function renderAddTaskRow(container) {
     if (userRole === 'admin') {
       updateInterfaceForAdmin();
     }
-  }
+
   
   // פונקציות עזר
   
