@@ -9,42 +9,50 @@ const firebaseConfig = {
     measurementId: "G-JM85H6638L"
 };
   
-  // אתחול Firebase
-  import { initializeApp } from "firebase/app";
-  import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, query, where, onSnapshot, enableIndexedDbPersistence } from "firebase/firestore";
-  import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
+// אתחול Firebase
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, query, where, onSnapshot, enableIndexedDbPersistence, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
   
-  // אתחול Firebase
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
-  const auth = getAuth(app);
+// אתחול Firebase
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
   
-  // הפעלת מצב עבודה לא מקוון (offline)
-  enableIndexedDbPersistence(db)
-    .catch((err) => {
-      if (err.code == 'failed-precondition') {
-        console.error("Multiple tabs open, persistence can only be enabled in one tab at a time.");
-      } else if (err.code == 'unimplemented') {
-        console.error("The current browser does not support all of the features required to enable persistence");
-      }
-    });
+// הפעלת מצב עבודה לא מקוון (offline)
+enableIndexedDbPersistence(db)
+  .catch((err) => {
+    if (err.code == 'failed-precondition') {
+      console.error("Multiple tabs open, persistence can only be enabled in one tab at a time.");
+    } else if (err.code == 'unimplemented') {
+      console.error("The current browser does not support all of the features required to enable persistence");
+    }
+  });
+
+// חשיפת האובייקטים לחלון הגלובלי
+window.db = db;
+window.auth = auth;
+window.app = app;
   
-  // ייצוא המודולים לשימוש
-  export { 
-    app, 
-    db, 
-    auth, 
-    collection, 
-    doc, 
-    setDoc, 
-    getDoc, 
-    getDocs, 
-    updateDoc, 
-    deleteDoc, 
-    query, 
-    where, 
-    onSnapshot,
-    signInWithEmailAndPassword,
-    signOut,
-    onAuthStateChanged
-  };
+// ייצוא המודולים לשימוש
+export { 
+  app, 
+  db, 
+  auth, 
+  collection, 
+  doc, 
+  setDoc, 
+  getDoc, 
+  getDocs, 
+  updateDoc, 
+  deleteDoc, 
+  query, 
+  where, 
+  onSnapshot,
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  enableIndexedDbPersistence,
+  addDoc,
+  serverTimestamp
+};

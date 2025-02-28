@@ -1,6 +1,5 @@
 // יבוא ספריות Firebase
 import { 
-    getFirestore, 
     collection, 
     doc, 
     setDoc, 
@@ -11,13 +10,14 @@ import {
     query, 
     where, 
     onSnapshot,
+    enableIndexedDbPersistence,
+    db,
+    auth,
     addDoc,
-    serverTimestamp,
-    enableIndexedDbPersistence
-  } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    serverTimestamp
+  } from "./firebase-config.js";
   
   import { 
-    getAuth, 
     signInWithEmailAndPassword, 
     signOut, 
     onAuthStateChanged, 
@@ -50,7 +50,6 @@ import {
     console.log("מאתחל אפליקציה...");
     
     // הפעלת מצב עבודה לא מקוון (offline)
-    const db = getFirestore();
     enableIndexedDbPersistence(db)
       .catch((err) => {
         if (err.code == 'failed-precondition') {
@@ -67,7 +66,6 @@ import {
     setupResizable();
     
     // מאזין לשינויים בסטטוס ההתחברות
-    const auth = getAuth();
     onAuthStateChanged(auth, (user) => {
       if (user) {
         // משתמש מחובר
@@ -115,7 +113,6 @@ import {
   
   // פונקציה לבדיקה אם המשתמש הוא מנהל
   async function checkIfAdmin(user) {
-    const db = getFirestore();
     const userDocRef = doc(db, "users", user.uid);
     const userDoc = await getDoc(userDocRef);
     
@@ -137,8 +134,6 @@ import {
   
   // פונקציה לטעינת נתונים מ-Firestore
   function loadDataFromFirestore() {
-    const db = getFirestore();
-    
     // טעינת חיילים עם מאזין לשינויים
     if (unsubscribeSoldiers) unsubscribeSoldiers();
     
@@ -200,7 +195,6 @@ import {
     const errorDiv = document.getElementById('loginError');
     
     try {
-      const auth = getAuth();
       await signInWithEmailAndPassword(auth, username, password);
       errorDiv.classList.add('hidden');
       
@@ -215,7 +209,6 @@ import {
   // פונקציה לכניסה כאורח (מצב צפייה בלבד)
   async function handleGuestLogin() {
     try {
-      const auth = getAuth();
       await signInAnonymously(auth);
       document.getElementById('loginError').classList.add('hidden');
     } catch (error) {
@@ -229,7 +222,6 @@ import {
   // פונקציה להתנתקות
   async function handleLogout() {
     try {
-      const auth = getAuth();
       await signOut(auth);
       
       soldiers = [];
@@ -351,8 +343,6 @@ import {
     }
     
     try {
-      const db = getFirestore();
-      
       // הוספת המשימה החדשה
       await addDoc(collection(db, "tasks"), {
         name: taskName,
@@ -707,8 +697,6 @@ import {
     }
     
     try {
-      const db = getFirestore();
-      
       // מחיקת המשימה
       await deleteDoc(doc(db, "tasks", taskId));
       
@@ -861,8 +849,6 @@ import {
   
   // פונקציה לשיבוץ חיילים ליום מסוים
   async function assignSoldiersToDay(taskId, dateStr, soldierIds) {
-    const db = getFirestore();
-    
     // חיפוש אם כבר קיים שיבוץ למשימה זו בתאריך זה
     const existingAssignment = assignments.find(
       a => a.taskId === taskId && a.date === dateStr
@@ -998,7 +984,6 @@ import {
     }
     
     try {
-      const db = getFirestore();
       const assignmentRef = doc(db, "assignments", assignmentId);
       
       // קבלת השיבוץ העדכני
@@ -1056,8 +1041,6 @@ import {
     
     if (firstName) {
       try {
-        const db = getFirestore();
-        
         // הוספת החייל החדש
         await addDoc(collection(db, "soldiers"), {
           firstName,
@@ -1115,7 +1098,6 @@ import {
     
     if (firstName) {
       try {
-        const db = getFirestore();
         const soldierRef = doc(db, "soldiers", soldierId);
         
         await updateDoc(soldierRef, {
@@ -1146,8 +1128,6 @@ import {
     
     if (confirm('האם אתה בטוח שברצונך למחוק חייל זה?')) {
       try {
-        const db = getFirestore();
-        
         // מחיקת החייל
         await deleteDoc(doc(db, "soldiers", soldierId));
         
@@ -2056,769 +2036,758 @@ import {
         };
       }
       
-// הוספת התאריך לשבוע המתאים
-if (!weekGroups[weekId].dates.includes(dateStr)) {
-    weekGroups[weekId].dates.push(dateStr);
-  }
-});
-
-// מיון השבועות לפי תאריך
-const sortedWeeks = Object.keys(weekGroups).sort();
-
-// הכנת נתונים לייצוא
-const exportData = [];
-
-// כותרות - שורה ראשונה
-const headers = ['משימה'];
-sortedWeeks.forEach(weekId => {
-  const week = weekGroups[weekId];
-  headers.push(`שבוע ${formatDateHebrew(week.startDate)} - ${formatDateHebrew(week.endDate)}`);
-});
-exportData.push(headers);
-
-// נתונים לפי משימות
-tasks.forEach(task => {
-  // בדיקה אם יש שיבוצים למשימה זו בתקופה הרלוונטית
-  const hasAssignments = filteredAssignments.some(a => a.taskId === task.id);
-  
-  // אם אין שיבוצים, דלג על המשימה
-  if (!hasAssignments) return;
-  
-  const row = [task.name];
-  
-  // הוספת תאים לכל שבוע
-  sortedWeeks.forEach(weekId => {
-    const week = weekGroups[weekId];
+      // הוספת התאריך לשבוע המתאים
+      if (!weekGroups[weekId].dates.includes(dateStr)) {
+        weekGroups[weekId].dates.push(dateStr);
+      }
+    });
     
-    // רשימת חיילים ייחודיים ששובצו למשימה זו בשבוע זה
-    const soldiersList = new Set();
+    // מיון השבועות לפי תאריך
+    const sortedWeeks = Object.keys(weekGroups).sort();
     
-    // עבור על כל התאריכים בשבוע
-    week.dates.forEach(dateStr => {
-      const assignment = filteredAssignments.find(a => a.taskId === task.id && a.date === dateStr);
+    // הכנת נתונים לייצוא
+    const exportData = [];
+    
+    // כותרות - שורה ראשונה
+    const headers = ['משימה'];
+    sortedWeeks.forEach(weekId => {
+      const week = weekGroups[weekId];
+      headers.push(`שבוע ${formatDateHebrew(week.startDate)} - ${formatDateHebrew(week.endDate)}`);
+    });
+    exportData.push(headers);
+    
+    // נתונים לפי משימות
+    tasks.forEach(task => {
+      // בדיקה אם יש שיבוצים למשימה זו בתקופה הרלוונטית
+      const hasAssignments = filteredAssignments.some(a => a.taskId === task.id);
       
-      if (assignment) {
-        // הוספת שמות החיילים
-        assignment.soldierIds.forEach(soldierId => {
-          const soldier = soldiers.find(s => s.id === soldierId);
-          if (soldier) {
-            soldiersList.add(`${soldier.firstName} ${soldier.lastName}`);
+      // אם אין שיבוצים, דלג על המשימה
+      if (!hasAssignments) return;
+      
+      const row = [task.name];
+      
+      // הוספת תאים לכל שבוע
+      sortedWeeks.forEach(weekId => {
+        const week = weekGroups[weekId];
+        
+        // רשימת חיילים ייחודיים ששובצו למשימה זו בשבוע זה
+        const soldiersList = new Set();
+        
+        // עבור על כל התאריכים בשבוע
+        week.dates.forEach(dateStr => {
+          const assignment = filteredAssignments.find(a => a.taskId === task.id && a.date === dateStr);
+          
+          if (assignment) {
+            // הוספת שמות החיילים
+            assignment.soldierIds.forEach(soldierId => {
+              const soldier = soldiers.find(s => s.id === soldierId);
+              if (soldier) {
+                soldiersList.add(`${soldier.firstName} ${soldier.lastName}`);
+              }
+            });
           }
         });
-      }
-    });
-    
-    if (soldiersList.size > 0) {
-      row.push([...soldiersList].join(', '));
-    } else {
-      row.push('');
-    }
-  });
-  
-  exportData.push(row);
-});
-
-// יצירת Workbook
-const wb = XLSX.utils.book_new();
-const ws = XLSX.utils.aoa_to_sheet(exportData);
-
-// הגדרת כיוון RTL עבור גיליון הנתונים
-if (!ws['!cols']) ws['!cols'] = [];
-ws['!cols'].push({ wch: 20 }); // רוחב עמודת משימה
-
-// רוחב עמודות שבועות
-for (let i = 0; i < sortedWeeks.length; i++) {
-  ws['!cols'].push({ wch: 40 });
-}
-
-// הוספת הגיליון ל-Workbook
-XLSX.utils.book_append_sheet(wb, ws, "דוח חצי שנתי");
-
-// ייצוא הקובץ
-XLSX.writeFile(wb, "דוח_חצי_שנתי.xlsx");
-
-showNotification('הדוח יוצא בהצלחה', 'success');
-}
-
-// פונקציה לייצוא הסיכום השבועי לאקסל
-function exportWeeklySummaryToExcel() {
-// קבלת ימי השבוע הנוכחי
-const daysOfWeek = getDaysOfWeek();
-const startDate = daysOfWeek[0];
-const endDate = daysOfWeek[6];
-
-// קבלת שיבוצים רק לשבוע הנוכחי
-const weeklyAssignments = assignments.filter(a => {
-  const assignmentDate = new Date(a.date);
-  return assignmentDate >= startDate && assignmentDate <= endDate;
-});
-
-if (weeklyAssignments.length === 0) {
-  showNotification('אין שיבוצים לשבוע הנוכחי', 'error');
-  return;
-}
-
-// הכנת נתונים לייצוא
-const exportData = [];
-
-// כותרות - שורה ראשונה
-const headers = ['משימה'];
-daysOfWeek.forEach(day => {
-  const dayName = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'][day.getDay()];
-  headers.push(`${dayName} ${formatDateHebrew(day)}`);
-});
-exportData.push(headers);
-
-// נתונים לפי משימות
-tasks.forEach(task => {
-  // בדיקה אם יש שיבוצים למשימה זו בשבוע הנוכחי
-  const hasAssignments = weeklyAssignments.some(a => a.taskId === task.id);
-  
-  // אם אין שיבוצים, דלג על המשימה
-  if (!hasAssignments) return;
-  
-  const row = [task.name];
-  
-  // הוספת תאים לכל יום
-  daysOfWeek.forEach(day => {
-    const dateStr = formatDateISO(day);
-    
-    // חיפוש השיבוץ הרלוונטי
-    const assignment = weeklyAssignments.find(a => a.taskId === task.id && a.date === dateStr);
-    
-    if (assignment) {
-      // הצגת שמות החיילים המשובצים
-      const soldiersList = assignment.soldierIds.map(soldierId => {
-        const soldier = soldiers.find(s => s.id === soldierId);
-        return soldier ? `${soldier.firstName} ${soldier.lastName}` : '';
-      }).filter(Boolean).join(', ');
-      
-      row.push(soldiersList);
-    } else {
-      row.push('');
-    }
-  });
-  
-  exportData.push(row);
-});
-
-// יצירת Workbook
-const wb = XLSX.utils.book_new();
-const ws = XLSX.utils.aoa_to_sheet(exportData);
-
-// הגדרת כיוון RTL עבור גיליון הנתונים
-if (!ws['!cols']) ws['!cols'] = [];
-ws['!cols'].push({ wch: 20 }); // רוחב עמודת משימה
-
-// רוחב עמודות ימים
-for (let i = 0; i < daysOfWeek.length; i++) {
-  ws['!cols'].push({ wch: 30 });
-}
-
-// הוספת הגיליון ל-Workbook
-XLSX.utils.book_append_sheet(wb, ws, "סיכום שבועי");
-
-// ייצוא הקובץ
-XLSX.writeFile(wb, "סיכום_שבועי.xlsx");
-
-showNotification('הדוח יוצא בהצלחה', 'success');
-}
-
-// פונקציה למעבר שבוע אחד קדימה
-function addWeek() {
-const newDate = new Date(currentWeek);
-newDate.setDate(newDate.getDate() - 7); // עברנו את החצים אז גם ההגיון התהפך
-currentWeek = newDate;
-renderCalendar();
-}
-
-// פונקציה למעבר שבוע אחד אחורה
-function subtractWeek() {
-const newDate = new Date(currentWeek);
-newDate.setDate(newDate.getDate() + 7); // עברנו את החצים אז גם ההגיון התהפך
-currentWeek = newDate;
-renderCalendar();
-}
-
-// פונקציה להחלפת תפקיד (מנהל/צופה)
-// עדכון פונקציית toggleRole בקובץ app.js
-async function toggleRole() {
-  if (!isAuthenticated || currentUser.isAnonymous) {
-    showNotification('עליך להתחבר עם חשבון מנהל כדי לשנות הרשאות', 'error');
-    return;
-  }
-
-  try {
-    const db = getFirestore();
-    const userRef = doc(db, "users", currentUser.uid);
-    const userDoc = await getDoc(userRef);
-    
-    if (userDoc.exists()) {
-      if (userDoc.data().role === 'admin') {
-        // החלפה בין מצב צפייה למצב עריכה עבור מנהל
-        if (userRole === 'admin') {
-          // מעבר למצב צפייה (לא משנה את ההרשאה בדאטה-בייס)
-          userRole = 'viewer';
-          showNotification('עברת למצב צפייה', 'info');
+        
+        if (soldiersList.size > 0) {
+          row.push([...soldiersList].join(', '));
         } else {
-          // מעבר למצב עריכה (המשתמש עדיין מנהל בדאטה-בייס)
-          userRole = 'admin';
-          showNotification('עברת למצב עריכה', 'success');
+          row.push('');
         }
-      } else {
-        showNotification('אין לך הרשאות מנהל', 'error');
-      }
-    }
-    
-    // עדכון הכפתור
-    const roleText = document.getElementById('roleText');
-    roleText.textContent = userRole === 'admin' ? 'מצב עריכה' : 'מצב צפייה';
-    
-    // אם הכפתור לא קיים או לא מוסתר/מוצג כראוי
-    const toggleRoleBtn = document.getElementById('toggleRole');
-    if (toggleRoleBtn) {
-      toggleRoleBtn.className = userRole === 'admin' ? 
-        'button button-accent' : 'button button-gray';
-      toggleRoleBtn.style.display = userDoc.data().role === 'admin' ? 'flex' : 'none';
-    }
-    
-    // רינדור מחדש
-    renderSoldiers();
-    renderCalendar();
-  } catch (error) {
-    console.error("שגיאה בהחלפת מצב:", error);
-    showNotification('אירעה שגיאה בהחלפת המצב', 'error');
-  }
-}
-
-// פונקציות לניהול התחברות מעודכנות (להוסיף/לעדכן בקובץ app.js)
-
-// מאזינים לאירועים נוספים
-function setupAuthEventListeners() {
-  document.getElementById('loginBtn').addEventListener('click', showLoginScreen);
-  document.getElementById('cancelLogin').addEventListener('click', hideLoginScreen);
-}
-
-// הצגת מסך התחברות
-function showLoginScreen() {
-  document.getElementById('loginScreen').classList.remove('hidden');
-}
-
-// הסתרת מסך התחברות
-function hideLoginScreen() {
-  document.getElementById('loginScreen').classList.add('hidden');
-}
-
-// פונקציה מעודכנת לאתחול האפליקציה
-async function initApp() {
-  console.log("מאתחל אפליקציה...");
-  
-  // הפעלת מצב עבודה לא מקוון (offline)
-  const db = getFirestore();
-  enableIndexedDbPersistence(db)
-    .catch((err) => {
-      if (err.code == 'failed-precondition') {
-        console.error("Multiple tabs open, persistence can only be enabled in one tab at a time.");
-      } else if (err.code == 'unimplemented') {
-        console.error("The current browser does not support all of the features required to enable persistence");
-      }
-    });
-
-  // הגדרת מאזינים לממשק המשתמש
-  setupEventListeners();
-  setupAuthEventListeners();
-  
-  // הגדרת אפשרות שינוי גודל רשימת החיילים
-  setupResizable();
-  
-  // כניסה אנונימית אוטומטית למצב צפייה
-  try {
-    const auth = getAuth();
-    // אם אין משתמש מחובר, התחבר אנונימית
-    if (!auth.currentUser) {
-      await signInAnonymously(auth);
-    }
-  } catch (error) {
-    console.error("שגיאה בכניסה אנונימית:", error);
-  }
-  
-  // מאזין לשינויים בסטטוס ההתחברות
-  const auth = getAuth();
-  onAuthStateChanged(auth, (user) => {
-    if (user) {
-      // משתמש מחובר
-      currentUser = user;
-      isAuthenticated = true;
+      });
       
-      if (user.isAnonymous) {
-        // משתמש אנונימי - מצב צפייה בלבד
-        userRole = 'viewer';
-        document.getElementById('toggleRole').classList.add('hidden');
-        document.getElementById('loginBtn').classList.remove('hidden');
-        document.getElementById('logoutBtn').classList.add('hidden');
-        document.getElementById('userEmail').textContent = 'משתמש אורח';
-      } else {
-        // בדיקה האם המשתמש הוא מנהל
-        checkIfAdmin(user)
-          .then(isAdmin => {
-            userRole = isAdmin ? 'admin' : 'viewer';
-            document.getElementById('toggleRole').classList.remove('hidden');
-            document.getElementById('roleText').textContent = userRole === 'admin' ? 'מצב עריכה' : 'מצב צפייה';
-            document.getElementById('loginBtn').classList.add('hidden');
-            document.getElementById('logoutBtn').classList.remove('hidden');
-          });
-        
-        // הסתרת מסך ההתחברות אם הוא פתוח
-        hideLoginScreen();
-      }
-      
-      // הצגת פרטי המשתמש
-      document.getElementById('userEmail').textContent = user.email || 'משתמש אורח';
-      
-      // טעינת נתונים מ-Firestore
-      loadDataFromFirestore();
-    } else {
-      // משתמש לא מחובר - זה לא אמור לקרות כי יש כניסה אנונימית
-      currentUser = null;
-      isAuthenticated = false;
-      userRole = 'viewer';
-      
-      // הסרת מאזינים קיימים
-      removeFirestoreListeners();
-      
-      // ניסיון להתחבר כאנונימי שוב
-      try {
-        signInAnonymously(auth);
-      } catch (error) {
-        console.error("שגיאה בכניסה אנונימית:", error);
-        // במקרה של כשלון, נציג את מסך ההתחברות
-        showLoginScreen();
-      }
-    }
-  });
-}
-
-// פונקציה לטיפול בהתחברות
-async function handleLogin(e) {
-  e.preventDefault();
-  
-  const username = document.getElementById('username').value;
-  const password = document.getElementById('password').value;
-  const errorDiv = document.getElementById('loginError');
-  
-  try {
-    const auth = getAuth();
-    await signInWithEmailAndPassword(auth, username, password);
-    errorDiv.classList.add('hidden');
-  } catch (error) {
-    console.error("שגיאת התחברות:", error);
-    errorDiv.textContent = getFirebaseErrorMessage(error.code);
-    errorDiv.classList.remove('hidden');
-  }
-}
-
-// פונקציה להתנתקות
-async function handleLogout() {
-  try {
-    const auth = getAuth();
-    await signOut(auth);
-    
-    // אחרי התנתקות, ניכנס שוב כאנונימי אוטומטית
-    await signInAnonymously(auth);
-    
-    showNotification('התנתקת בהצלחה', 'info');
-  } catch (error) {
-    console.error("שגיאת התנתקות:", error);
-    showNotification('אירעה שגיאה בהתנתקות', 'error');
-  }
-}
-
-// עדכון בפונקציה טעינת נתונים מ-Firestore
-function loadDataFromFirestore() {
-  const db = getFirestore();
-  
-  // טעינת חיילים עם מאזין לשינויים
-  if (unsubscribeSoldiers) unsubscribeSoldiers();
-  
-  unsubscribeSoldiers = onSnapshot(collection(db, "soldiers"), (snapshot) => {
-    soldiers = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
-    renderSoldiers();
-  });
-  
-  // טעינת משימות עם מאזין לשינויים
-  if (unsubscribeTasks) unsubscribeTasks();
-  
-  unsubscribeTasks = onSnapshot(collection(db, "tasks"), (snapshot) => {
-    tasks = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
-    renderCalendar();
-  });
-  
-  // טעינת שיבוצים עם מאזין לשינויים
-  if (unsubscribeAssignments) unsubscribeAssignments();
-  
-  unsubscribeAssignments = onSnapshot(collection(db, "assignments"), (snapshot) => {
-    assignments = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
-    renderCalendar();
-  });
-  
-  // עדכון ממשק למנהלים
-  if (userRole === 'admin') {
-    updateInterfaceForAdmin();
-  }
-}
-
-// פונקציות עזר
-
-// יצירת מערך של ימי השבוע מחמישי עד חמישי
-function getDaysOfWeek() {
-const days = [];
-const startDate = new Date(currentWeek);
-
-for (let i = 0; i < 7; i++) {
-  const date = new Date(startDate);
-  date.setDate(startDate.getDate() + i);
-  days.push(date);
-}
-
-return days;
-}
-
-// פורמט תאריך לתצוגה: DD/MM
-function formatDate(date) {
-return `${date.getDate()}/${date.getMonth() + 1}`;
-}
-
-// פורמט תאריך לתצוגה עם שנה: DD/MM/YYYY
-function formatDateWithYear(date) {
-return `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
-}
-
-// פורמט תאריך ISO: YYYY-MM-DD
-function formatDateISO(date) {
-const year = date.getFullYear();
-const month = String(date.getMonth() + 1).padStart(2, '0');
-const day = String(date.getDate()).padStart(2, '0');
-return `${year}-${month}-${day}`;
-}
-
-// פורמט תאריך בעברית
-function formatDateHebrew(dateStr) {
-if (dateStr instanceof Date) {
-  return dateStr.toLocaleDateString('he-IL');
-}
-
-const date = new Date(dateStr);
-return date.toLocaleDateString('he-IL');
-}
-
-// פונקציה לבדיקה אם תאריך הוא חג
-function isHoliday(date) {
-const holidays = getIsraeliHolidays(date.getFullYear());
-
-for (const holiday of holidays) {
-  if (isSameDay(date, holiday.date)) {
-    return holiday.name;
-  }
-}
-
-return null;
-}
-
-// פונקציה להשוואת תאריכים (יום, חודש, שנה)
-function isSameDay(date1, date2) {
-return date1.getDate() === date2.getDate() &&
-       date1.getMonth() === date2.getMonth() &&
-       date1.getFullYear() === date2.getFullYear();
-}
-
-// פונקציה לקבלת חגי ישראל
-function getIsraeliHolidays(year) {
-// חגים בתאריכים מעודכנים לשנת 2025
-// תאריכים אלו הם קירוב טוב יותר, אך עדיין מומלץ להשתמש בחישוב מדויק לפי הלוח העברי במערכת אמיתית
-const holidays = [
-  // ראש השנה
-  { name: 'ערב ראש השנה', date: new Date(2025, 8, 22), type: 'ערב חג' },       // 22 בספטמבר 2025
-  { name: 'ראש השנה', date: new Date(2025, 8, 23), type: 'חג' },                // 23 בספטמבר 2025
-  { name: 'ראש השנה (יום שני)', date: new Date(2025, 8, 24), type: 'חג' },      // 24 בספטמבר 2025
-  
-  // יום כיפור
-  { name: 'ערב יום כיפור', date: new Date(2025, 9, 1), type: 'ערב חג' },        // 1 באוקטובר 2025
-  { name: 'יום כיפור', date: new Date(2025, 9, 2), type: 'חג' },                // 2 באוקטובר 2025
-  
-  // סוכות
-  { name: 'ערב סוכות', date: new Date(2025, 9, 6), type: 'ערב חג' },            // 6 באוקטובר 2025
-  { name: 'סוכות', date: new Date(2025, 9, 7), type: 'חג' },                    // 7 באוקטובר 2025
-  { name: 'חול המועד סוכות', date: new Date(2025, 9, 8), type: 'חול המועד' },    // 8 באוקטובר 2025
-  { name: 'חול המועד סוכות', date: new Date(2025, 9, 9), type: 'חול המועד' },    // 9 באוקטובר 2025
-  { name: 'חול המועד סוכות', date: new Date(2025, 9, 10), type: 'חול המועד' },   // 10 באוקטובר 2025
-  { name: 'חול המועד סוכות', date: new Date(2025, 9, 11), type: 'חול המועד' },   // 11 באוקטובר 2025
-  { name: 'חול המועד סוכות', date: new Date(2025, 9, 12), type: 'חול המועד' },   // 12 באוקטובר 2025
-  { name: 'הושענה רבה', date: new Date(2025, 9, 13), type: 'חול המועד' },        // 13 באוקטובר 2025
-  { name: 'שמיני עצרת / שמחת תורה', date: new Date(2025, 9, 14), type: 'חג' },   // 14 באוקטובר 2025
-  
-  // חנוכה
-  { name: 'ערב חנוכה', date: new Date(2025, 11, 14), type: 'ערב חג' },          // 14 בדצמבר 2025
-  { name: 'חנוכה - נר ראשון', date: new Date(2025, 11, 15), type: 'חג' },       // 15 בדצמבר 2025
-  { name: 'חנוכה - נר שמיני', date: new Date(2025, 11, 22), type: 'חג' },       // 22 בדצמבר 2025
-  
-  // טו בשבט
-  { name: 'טו בשבט', date: new Date(2025, 0, 14), type: 'חג' },                 // 14 בינואר 2025
-  
-  // פורים
-  { name: 'תענית אסתר', date: new Date(2025, 2, 13), type: 'ערב חג' },          // 13 במרץ 2025
-  { name: 'פורים', date: new Date(2025, 2, 14), type: 'חג' },                   // 14 במרץ 2025
-  { name: 'שושן פורים', date: new Date(2025, 2, 15), type: 'חג' },              // 15 במרץ 2025
-  
-  // פסח
-  { name: 'ערב פסח', date: new Date(2025, 3, 12), type: 'ערב חג' },             // 12 באפריל 2025
-  { name: 'פסח', date: new Date(2025, 3, 13), type: 'חג' },                     // 13 באפריל 2025
-  { name: 'חול המועד פסח', date: new Date(2025, 3, 14), type: 'חול המועד' },     // 14 באפריל 2025
-  { name: 'חול המועד פסח', date: new Date(2025, 3, 15), type: 'חול המועד' },     // 15 באפריל 2025
-  { name: 'חול המועד פסח', date: new Date(2025, 3, 16), type: 'חול המועד' },     // 16 באפריל 2025
-  { name: 'חול המועד פסח', date: new Date(2025, 3, 17), type: 'חול המועד' },     // 17 באפריל 2025
-  { name: 'חול המועד פסח', date: new Date(2025, 3, 18), type: 'חול המועד' },     // 18 באפריל 2025
-  { name: 'שביעי של פסח', date: new Date(2025, 3, 19), type: 'חג' },            // 19 באפריל 2025
-  
-  // יום השואה, יום הזיכרון ויום העצמאות
-  { name: 'יום השואה', date: new Date(2025, 3, 28), type: 'יום זיכרון' },        // 28 באפריל 2025
-  { name: 'יום הזיכרון', date: new Date(2025, 3, 30), type: 'יום זיכרון' },       // 30 באפריל 2025
-  { name: 'ערב יום העצמאות', date: new Date(2025, 3, 30), type: 'ערב חג' },      // 30 באפריל 2025 (בערב)
-  { name: 'יום העצמאות', date: new Date(2025, 4, 1), type: 'חג' },               // 1 במאי 2025
-  
-  // ל"ג בעומר
-  { name: 'ל"ג בעומר', date: new Date(2025, 4, 18), type: 'חג' },               // 18 במאי 2025
-  
-  // שבועות
-  { name: 'ערב שבועות', date: new Date(2025, 5, 1), type: 'ערב חג' },           // 1 ביוני 2025
-  { name: 'שבועות', date: new Date(2025, 5, 2), type: 'חג' },                   // 2 ביוני 2025
-  
-  // ימי בין המצרים
-  { name: 'שבעה עשר בתמוז', date: new Date(2025, 6, 15), type: 'צום' },         // 15 ביולי 2025
-  { name: 'תשעה באב', date: new Date(2025, 7, 10), type: 'צום' }                // 10 באוגוסט 2025
-];
-
-// אם הפונקציה צריכה לטפל בשנים מרובות, ניתן להתאים את התאריכים בהתאם לשנה שהתקבלה כפרמטר
-
-return holidays;
-}
-
-// פונקציה להפיכת משתמש למנהל (להוסיף לקובץ app.js)
-async function promoteToAdmin(email) {
-  try {
-    const db = getFirestore();
-    
-    // חיפוש המשתמש לפי אימייל
-    const usersRef = collection(db, "users");
-    const q = query(usersRef, where("email", "==", email));
-    const querySnapshot = await getDocs(q);
-    
-    if (querySnapshot.empty) {
-      showNotification('לא נמצא משתמש עם האימייל הזה', 'error');
-      return false;
-    }
-    
-    // עדכון תפקיד המשתמש למנהל
-    const userDoc = querySnapshot.docs[0];
-    await updateDoc(doc(db, "users", userDoc.id), {
-      role: 'admin',
-      updatedAt: serverTimestamp(),
-      updatedBy: currentUser ? currentUser.uid : 'system'
+      exportData.push(row);
     });
     
-    showNotification(`המשתמש ${email} הוגדר כמנהל בהצלחה`, 'success');
-    return true;
-  } catch (error) {
-    console.error("שגיאה בהגדרת מנהל:", error);
-    showNotification('אירעה שגיאה בהגדרת המנהל', 'error');
-    return false;
+    // יצירת Workbook
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(exportData);
+    
+    // הגדרת כיוון RTL עבור גיליון הנתונים
+    if (!ws['!cols']) ws['!cols'] = [];
+    ws['!cols'].push({ wch: 20 }); // רוחב עמודת משימה
+    
+    // רוחב עמודות שבועות
+    for (let i = 0; i < sortedWeeks.length; i++) {
+      ws['!cols'].push({ wch: 40 });
+    }
+    
+    // הוספת הגיליון ל-Workbook
+    XLSX.utils.book_append_sheet(wb, ws, "דוח חצי שנתי");
+    
+    // ייצוא הקובץ
+    XLSX.writeFile(wb, "דוח_חצי_שנתי.xlsx");
+    
+    showNotification('הדוח יוצא בהצלחה', 'success');
   }
-}
-
-// פונקציה לפתיחת דיאלוג ניהול משתמשים (להוסיף לקובץ app.js)
-function showAdminManagementDialog() {
-  // בדיקה שהמשתמש הוא מנהל
-  if (userRole !== 'admin') {
-    showNotification('רק מנהל יכול לנהל משתמשים', 'error');
-    return;
-  }
   
-  // יצירת הדיאלוג
-  const adminDialog = document.createElement('div');
-  adminDialog.className = 'admin-dialog';
-  adminDialog.innerHTML = `
-    <div class="dialog-overlay"></div>
-    <div class="quick-add-dialog admin-management-dialog">
-      <div class="dialog-header">
-        <h3 class="dialog-title">ניהול משתמשים</h3>
-        <button class="close-button" id="closeAdminDialog">
-          <svg class="icon" viewBox="0 0 24 24">
-            <path d="M18 6L6 18"></path>
-            <path d="M6 6l12 12"></path>
-          </svg>
-        </button>
-      </div>
-      <div>
-        <div class="mb-4">
-          <h4 class="font-bold mb-2">הגדרת מנהל חדש</h4>
-          <div class="flex gap-2">
-            <input type="email" id="newAdminEmail" class="w-full rounded border px-2 py-1 text-sm" placeholder="הזן אימייל של משתמש">
-            <button id="promoteBtn" class="button button-blue">הגדר כמנהל</button>
-          </div>
-        </div>
-        
-        <div class="mb-4">
-          <h4 class="font-bold mb-2">משתמשים קיימים</h4>
-          <div id="usersList" class="border rounded p-2 max-h-48 overflow-y-auto">
-            טוען משתמשים...
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
-  
-  document.body.appendChild(adminDialog);
-  
-  // הוספת אירועים לכפתורים
-  document.getElementById('closeAdminDialog').addEventListener('click', () => {
-    document.body.removeChild(adminDialog);
-  });
-  
-  document.getElementById('promoteBtn').addEventListener('click', async () => {
-    const email = document.getElementById('newAdminEmail').value.trim();
-    if (!email) {
-      showNotification('נא להזין אימייל', 'error');
+  // פונקציה לייצוא הסיכום השבועי לאקסל
+  function exportWeeklySummaryToExcel() {
+    // קבלת ימי השבוע הנוכחי
+    const daysOfWeek = getDaysOfWeek();
+    const startDate = daysOfWeek[0];
+    const endDate = daysOfWeek[6];
+    
+    // קבלת שיבוצים רק לשבוע הנוכחי
+    const weeklyAssignments = assignments.filter(a => {
+      const assignmentDate = new Date(a.date);
+      return assignmentDate >= startDate && assignmentDate <= endDate;
+    });
+    
+    if (weeklyAssignments.length === 0) {
+      showNotification('אין שיבוצים לשבוע הנוכחי', 'error');
       return;
     }
     
-    await promoteToAdmin(email);
-    loadUsersList(); // טעינה מחדש של רשימת המשתמשים
-  });
-  
-  // טעינת רשימת המשתמשים
-  async function loadUsersList() {
-    try {
-      const db = getFirestore();
-      const usersRef = collection(db, "users");
-      const querySnapshot = await getDocs(usersRef);
+    // הכנת נתונים לייצוא
+    const exportData = [];
+    
+    // כותרות - שורה ראשונה
+    const headers = ['משימה'];
+    daysOfWeek.forEach(day => {
+      const dayName = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'][day.getDay()];
+      headers.push(`${dayName} ${formatDateHebrew(day)}`);
+    });
+    exportData.push(headers);
+    
+    // נתונים לפי משימות
+    tasks.forEach(task => {
+      // בדיקה אם יש שיבוצים למשימה זו בשבוע הנוכחי
+      const hasAssignments = weeklyAssignments.some(a => a.taskId === task.id);
       
-      const usersListElement = document.getElementById('usersList');
+      // אם אין שיבוצים, דלג על המשימה
+      if (!hasAssignments) return;
+      
+      const row = [task.name];
+      
+      // הוספת תאים לכל יום
+      daysOfWeek.forEach(day => {
+        const dateStr = formatDateISO(day);
+        
+        // חיפוש השיבוץ הרלוונטי
+        const assignment = weeklyAssignments.find(a => a.taskId === task.id && a.date === dateStr);
+        
+        if (assignment) {
+          // הצגת שמות החיילים המשובצים
+          const soldiersList = assignment.soldierIds.map(soldierId => {
+            const soldier = soldiers.find(s => s.id === soldierId);
+            return soldier ? `${soldier.firstName} ${soldier.lastName}` : '';
+          }).filter(Boolean).join(', ');
+          
+          row.push(soldiersList);
+        } else {
+          row.push('');
+        }
+      });
+      
+      exportData.push(row);
+    });
+    
+    // יצירת Workbook
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(exportData);
+    
+    // הגדרת כיוון RTL עבור גיליון הנתונים
+    if (!ws['!cols']) ws['!cols'] = [];
+    ws['!cols'].push({ wch: 20 }); // רוחב עמודת משימה
+    
+    // רוחב עמודות ימים
+    for (let i = 0; i < daysOfWeek.length; i++) {
+      ws['!cols'].push({ wch: 30 });
+    }
+    
+    // הוספת הגיליון ל-Workbook
+    XLSX.utils.book_append_sheet(wb, ws, "סיכום שבועי");
+    
+    // ייצוא הקובץ
+    XLSX.writeFile(wb, "סיכום_שבועי.xlsx");
+    
+    showNotification('הדוח יוצא בהצלחה', 'success');
+  }
+  
+  // פונקציה למעבר שבוע אחד קדימה
+  function addWeek() {
+    const newDate = new Date(currentWeek);
+    newDate.setDate(newDate.getDate() - 7); // עברנו את החצים אז גם ההגיון התהפך
+    currentWeek = newDate;
+    renderCalendar();
+  }
+  
+  // פונקציה למעבר שבוע אחד אחורה
+  function subtractWeek() {
+    const newDate = new Date(currentWeek);
+    newDate.setDate(newDate.getDate() + 7); // עברנו את החצים אז גם ההגיון התהפך
+    currentWeek = newDate;
+    renderCalendar();
+  }
+  
+  // פונקציה להחלפת תפקיד (מנהל/צופה)
+  // עדכון פונקציית toggleRole בקובץ app.js
+  async function toggleRole() {
+    if (!isAuthenticated || currentUser.isAnonymous) {
+      showNotification('עליך להתחבר עם חשבון מנהל כדי לשנות הרשאות', 'error');
+      return;
+    }
+
+    try {
+      const userRef = doc(db, "users", currentUser.uid);
+      const userDoc = await getDoc(userRef);
+      
+      if (userDoc.exists()) {
+        if (userDoc.data().role === 'admin') {
+          // החלפה בין מצב צפייה למצב עריכה עבור מנהל
+          if (userRole === 'admin') {
+            // מעבר למצב צפייה (לא משנה את ההרשאה בדאטה-בייס)
+            userRole = 'viewer';
+            showNotification('עברת למצב צפייה', 'info');
+          } else {
+            // מעבר למצב עריכה (המשתמש עדיין מנהל בדאטה-בייס)
+            userRole = 'admin';
+            showNotification('עברת למצב עריכה', 'success');
+          }
+        } else {
+          showNotification('אין לך הרשאות מנהל', 'error');
+        }
+      }
+      
+      // עדכון הכפתור
+      const roleText = document.getElementById('roleText');
+      roleText.textContent = userRole === 'admin' ? 'מצב עריכה' : 'מצב צפייה';
+      
+      // אם הכפתור לא קיים או לא מוסתר/מוצג כראוי
+      const toggleRoleBtn = document.getElementById('toggleRole');
+      if (toggleRoleBtn) {
+        toggleRoleBtn.className = userRole === 'admin' ? 
+          'button button-accent' : 'button button-gray';
+        toggleRoleBtn.style.display = userDoc.data().role === 'admin' ? 'flex' : 'none';
+      }
+      
+      // רינדור מחדש
+      renderSoldiers();
+      renderCalendar();
+    } catch (error) {
+      console.error("שגיאה בהחלפת מצב:", error);
+      showNotification('אירעה שגיאה בהחלפת המצב', 'error');
+    }
+  }
+  
+  // פונקציות לניהול התחברות מעודכנות (להוסיף/לעדכן בקובץ app.js)
+  
+  // מאזינים לאירועים נוספים
+  function setupAuthEventListeners() {
+    document.getElementById('loginBtn').addEventListener('click', showLoginScreen);
+    document.getElementById('cancelLogin').addEventListener('click', hideLoginScreen);
+  }
+  
+  // הצגת מסך התחברות
+  function showLoginScreen() {
+    document.getElementById('loginScreen').classList.remove('hidden');
+  }
+  
+  // הסתרת מסך התחברות
+  function hideLoginScreen() {
+    document.getElementById('loginScreen').classList.add('hidden');
+  }
+  
+  // פונקציה מעודכנת לאתחול האפליקציה
+  async function initApp() {
+    console.log("מאתחל אפליקציה...");
+    
+    // הפעלת מצב עבודה לא מקוון (offline)
+    enableIndexedDbPersistence(db)
+      .catch((err) => {
+        if (err.code == 'failed-precondition') {
+          console.error("Multiple tabs open, persistence can only be enabled in one tab at a time.");
+        } else if (err.code == 'unimplemented') {
+          console.error("The current browser does not support all of the features required to enable persistence");
+        }
+      });
+  
+    // הגדרת מאזינים לממשק המשתמש
+    setupEventListeners();
+    setupAuthEventListeners();
+    
+    // הגדרת אפשרות שינוי גודל רשימת החיילים
+    setupResizable();
+    
+    // כניסה אנונימית אוטומטית למצב צפייה
+    try {
+      // אם אין משתמש מחובר, התחבר אנונימית
+      if (!auth.currentUser) {
+        await signInAnonymously(auth);
+      }
+    } catch (error) {
+      console.error("שגיאה בכניסה אנונימית:", error);
+    }
+    
+    // מאזין לשינויים בסטטוס ההתחברות
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        // משתמש מחובר
+        currentUser = user;
+        isAuthenticated = true;
+        
+        if (user.isAnonymous) {
+          // משתמש אנונימי - מצב צפייה בלבד
+          userRole = 'viewer';
+          document.getElementById('toggleRole').classList.add('hidden');
+          document.getElementById('loginBtn').classList.remove('hidden');
+          document.getElementById('logoutBtn').classList.add('hidden');
+          document.getElementById('userEmail').textContent = 'משתמש אורח';
+        } else {
+          // בדיקה האם המשתמש הוא מנהל
+          checkIfAdmin(user)
+            .then(isAdmin => {
+              userRole = isAdmin ? 'admin' : 'viewer';
+              document.getElementById('toggleRole').classList.remove('hidden');
+              document.getElementById('roleText').textContent = userRole === 'admin' ? 'מצב עריכה' : 'מצב צפייה';
+              document.getElementById('loginBtn').classList.add('hidden');
+              document.getElementById('logoutBtn').classList.remove('hidden');
+            });
+          
+          // הסתרת מסך ההתחברות אם הוא פתוח
+          hideLoginScreen();
+        }
+        
+        // הצגת פרטי המשתמש
+        document.getElementById('userEmail').textContent = user.email || 'משתמש אורח';
+        
+        // טעינת נתונים מ-Firestore
+        loadDataFromFirestore();
+      } else {
+        // משתמש לא מחובר - זה לא אמור לקרות כי יש כניסה אנונימית
+        currentUser = null;
+        isAuthenticated = false;
+        userRole = 'viewer';
+        
+        // הסרת מאזינים קיימים
+        removeFirestoreListeners();
+        
+        // ניסיון להתחבר כאנונימי שוב
+        try {
+          signInAnonymously(auth);
+        } catch (error) {
+          console.error("שגיאה בכניסה אנונימית:", error);
+          // במקרה של כשלון, נציג את מסך ההתחברות
+          showLoginScreen();
+        }
+      }
+    });
+  }
+  
+  // פונקציה לטיפול בהתחברות
+  async function handleLogin(e) {
+    e.preventDefault();
+    
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+    const errorDiv = document.getElementById('loginError');
+    
+    try {
+      await signInWithEmailAndPassword(auth, username, password);
+      errorDiv.classList.add('hidden');
+    } catch (error) {
+      console.error("שגיאת התחברות:", error);
+      errorDiv.textContent = getFirebaseErrorMessage(error.code);
+      errorDiv.classList.remove('hidden');
+    }
+  }
+  
+  // פונקציה להתנתקות
+  async function handleLogout() {
+    try {
+      await signOut(auth);
+      
+      // אחרי התנתקות, ניכנס שוב כאנונימי אוטומטית
+      await signInAnonymously(auth);
+      
+      showNotification('התנתקת בהצלחה', 'info');
+    } catch (error) {
+      console.error("שגיאת התנתקות:", error);
+      showNotification('אירעה שגיאה בהתנתקות', 'error');
+    }
+  }
+  
+  // עדכון בפונקציה טעינת נתונים מ-Firestore
+  function loadDataFromFirestore() {
+    // טעינת חיילים עם מאזין לשינויים
+    if (unsubscribeSoldiers) unsubscribeSoldiers();
+    
+    unsubscribeSoldiers = onSnapshot(collection(db, "soldiers"), (snapshot) => {
+      soldiers = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      renderSoldiers();
+    });
+    
+    // טעינת משימות עם מאזין לשינויים
+    if (unsubscribeTasks) unsubscribeTasks();
+    
+    unsubscribeTasks = onSnapshot(collection(db, "tasks"), (snapshot) => {
+      tasks = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      renderCalendar();
+    });
+    
+    // טעינת שיבוצים עם מאזין לשינויים
+    if (unsubscribeAssignments) unsubscribeAssignments();
+    
+    unsubscribeAssignments = onSnapshot(collection(db, "assignments"), (snapshot) => {
+      assignments = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      renderCalendar();
+    });
+    
+    // עדכון ממשק למנהלים
+    if (userRole === 'admin') {
+      updateInterfaceForAdmin();
+    }
+  }
+  
+  // פונקציות עזר
+  
+  // יצירת מערך של ימי השבוע מחמישי עד חמישי
+  function getDaysOfWeek() {
+    const days = [];
+    const startDate = new Date(currentWeek);
+    
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(startDate);
+      date.setDate(startDate.getDate() + i);
+      days.push(date);
+    }
+    
+    return days;
+  }
+  
+  // פורמט תאריך לתצוגה: DD/MM
+  function formatDate(date) {
+    return `${date.getDate()}/${date.getMonth() + 1}`;
+  }
+  
+  // פורמט תאריך לתצוגה עם שנה: DD/MM/YYYY
+  function formatDateWithYear(date) {
+    return `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
+  }
+  
+  // פורמט תאריך ISO: YYYY-MM-DD
+  function formatDateISO(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+  
+  // פורמט תאריך בעברית
+  function formatDateHebrew(dateStr) {
+    if (dateStr instanceof Date) {
+      return dateStr.toLocaleDateString('he-IL');
+    }
+    
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('he-IL');
+  }
+  
+  // פונקציה לבדיקה אם תאריך הוא חג
+  function isHoliday(date) {
+    const holidays = getIsraeliHolidays(date.getFullYear());
+    
+    for (const holiday of holidays) {
+      if (isSameDay(date, holiday.date)) {
+        return holiday.name;
+      }
+    }
+    
+    return null;
+  }
+  
+  // פונקציה להשוואת תאריכים (יום, חודש, שנה)
+  function isSameDay(date1, date2) {
+    return date1.getDate() === date2.getDate() &&
+           date1.getMonth() === date2.getMonth() &&
+           date1.getFullYear() === date2.getFullYear();
+  }
+  
+  // פונקציה לקבלת חגי ישראל
+  function getIsraeliHolidays(year) {
+    // חגים בתאריכים מעודכנים לשנת 2025
+    // תאריכים אלו הם קירוב טוב יותר, אך עדיין מומלץ להשתמש בחישוב מדויק לפי הלוח העברי במערכת אמיתית
+    const holidays = [
+      // ראש השנה
+      { name: 'ערב ראש השנה', date: new Date(2025, 8, 22), type: 'ערב חג' },       // 22 בספטמבר 2025
+      { name: 'ראש השנה', date: new Date(2025, 8, 23), type: 'חג' },                // 23 בספטמבר 2025
+      { name: 'ראש השנה (יום שני)', date: new Date(2025, 8, 24), type: 'חג' },      // 24 בספטמבר 2025
+      
+      // יום כיפור
+      { name: 'ערב יום כיפור', date: new Date(2025, 9, 1), type: 'ערב חג' },        // 1 באוקטובר 2025
+      { name: 'יום כיפור', date: new Date(2025, 9, 2), type: 'חג' },                // 2 באוקטובר 2025
+      
+      // סוכות
+      { name: 'ערב סוכות', date: new Date(2025, 9, 6), type: 'ערב חג' },            // 6 באוקטובר 2025
+      { name: 'סוכות', date: new Date(2025, 9, 7), type: 'חג' },                    // 7 באוקטובר 2025
+      { name: 'חול המועד סוכות', date: new Date(2025, 9, 8), type: 'חול המועד' },    // 8 באוקטובר 2025
+      { name: 'חול המועד סוכות', date: new Date(2025, 9, 9), type: 'חול המועד' },    // 9 באוקטובר 2025
+      { name: 'חול המועד סוכות', date: new Date(2025, 9, 10), type: 'חול המועד' },   // 10 באוקטובר 2025
+      { name: 'חול המועד סוכות', date: new Date(2025, 9, 11), type: 'חול המועד' },   // 11 באוקטובר 2025
+      { name: 'חול המועד סוכות', date: new Date(2025, 9, 12), type: 'חול המועד' },   // 12 באוקטובר 2025
+      { name: 'הושענה רבה', date: new Date(2025, 9, 13), type: 'חול המועד' },        // 13 באוקטובר 2025
+      { name: 'שמיני עצרת / שמחת תורה', date: new Date(2025, 9, 14), type: 'חג' },   // 14 באוקטובר 2025
+      
+      // חנוכה
+      { name: 'ערב חנוכה', date: new Date(2025, 11, 14), type: 'ערב חג' },          // 14 בדצמבר 2025
+      { name: 'חנוכה - נר ראשון', date: new Date(2025, 11, 15), type: 'חג' },       // 15 בדצמבר 2025
+      { name: 'חנוכה - נר שמיני', date: new Date(2025, 11, 22), type: 'חג' },       // 22 בדצמבר 2025
+      
+      // טו בשבט
+      { name: 'טו בשבט', date: new Date(2025, 0, 14), type: 'חג' },                 // 14 בינואר 2025
+      
+      // פורים
+      { name: 'תענית אסתר', date: new Date(2025, 2, 13), type: 'ערב חג' },          // 13 במרץ 2025
+      { name: 'פורים', date: new Date(2025, 2, 14), type: 'חג' },                   // 14 במרץ 2025
+      { name: 'שושן פורים', date: new Date(2025, 2, 15), type: 'חג' },              // 15 במרץ 2025
+      
+      // פסח
+      { name: 'ערב פסח', date: new Date(2025, 3, 12), type: 'ערב חג' },             // 12 באפריל 2025
+      { name: 'פסח', date: new Date(2025, 3, 13), type: 'חג' },                     // 13 באפריל 2025
+      { name: 'חול המועד פסח', date: new Date(2025, 3, 14), type: 'חול המועד' },     // 14 באפריל 2025
+      { name: 'חול המועד פסח', date: new Date(2025, 3, 15), type: 'חול המועד' },     // 15 באפריל 2025
+      { name: 'חול המועד פסח', date: new Date(2025, 3, 16), type: 'חול המועד' },     // 16 באפריל 2025
+      { name: 'חול המועד פסח', date: new Date(2025, 3, 17), type: 'חול המועד' },     // 17 באפריל 2025
+      { name: 'חול המועד פסח', date: new Date(2025, 3, 18), type: 'חול המועד' },     // 18 באפריל 2025
+      { name: 'שביעי של פסח', date: new Date(2025, 3, 19), type: 'חג' },            // 19 באפריל 2025
+      
+      // יום השואה, יום הזיכרון ויום העצמאות
+      { name: 'יום השואה', date: new Date(2025, 3, 28), type: 'יום זיכרון' },        // 28 באפריל 2025
+      { name: 'יום הזיכרון', date: new Date(2025, 3, 30), type: 'יום זיכרון' },       // 30 באפריל 2025
+      { name: 'ערב יום העצמאות', date: new Date(2025, 3, 30), type: 'ערב חג' },      // 30 באפריל 2025 (בערב)
+      { name: 'יום העצמאות', date: new Date(2025, 4, 1), type: 'חג' },               // 1 במאי 2025
+      
+      // ל"ג בעומר
+      { name: 'ל"ג בעומר', date: new Date(2025, 4, 18), type: 'חג' },               // 18 במאי 2025
+      
+      // שבועות
+      { name: 'ערב שבועות', date: new Date(2025, 5, 1), type: 'ערב חג' },           // 1 ביוני 2025
+      { name: 'שבועות', date: new Date(2025, 5, 2), type: 'חג' },                   // 2 ביוני 2025
+      
+      // ימי בין המצרים
+      { name: 'שבעה עשר בתמוז', date: new Date(2025, 6, 15), type: 'צום' },         // 15 ביולי 2025
+      { name: 'תשעה באב', date: new Date(2025, 7, 10), type: 'צום' }                // 10 באוגוסט 2025
+    ];
+    
+    // אם הפונקציה צריכה לטפל בשנים מרובות, ניתן להתאים את התאריכים בהתאם לשנה שהתקבלה כפרמטר
+    
+    return holidays;
+  }
+  
+  // פונקציה להפיכת משתמש למנהל (להוסיף לקובץ app.js)
+  async function promoteToAdmin(email) {
+    try {
+      // חיפוש המשתמש לפי אימייל
+      const usersRef = collection(db, "users");
+      const q = query(usersRef, where("email", "==", email));
+      const querySnapshot = await getDocs(q);
       
       if (querySnapshot.empty) {
-        usersListElement.innerHTML = '<p class="text-center text-gray-400 py-2">לא נמצאו משתמשים</p>';
+        showNotification('לא נמצא משתמש עם האימייל הזה', 'error');
+        return false;
+      }
+      
+      // עדכון תפקיד המשתמש למנהל
+      const userDoc = querySnapshot.docs[0];
+      await updateDoc(doc(db, "users", userDoc.id), {
+        role: 'admin',
+        updatedAt: serverTimestamp(),
+        updatedBy: currentUser ? currentUser.uid : 'system'
+      });
+      
+      showNotification(`המשתמש ${email} הוגדר כמנהל בהצלחה`, 'success');
+      return true;
+    } catch (error) {
+      console.error("שגיאה בהגדרת מנהל:", error);
+      showNotification('אירעה שגיאה בהגדרת המנהל', 'error');
+      return false;
+    }
+  }
+  
+  // פונקציה לפתיחת דיאלוג ניהול משתמשים (להוסיף לקובץ app.js)
+  function showAdminManagementDialog() {
+    // בדיקה שהמשתמש הוא מנהל
+    if (userRole !== 'admin') {
+      showNotification('רק מנהל יכול לנהל משתמשים', 'error');
+      return;
+    }
+    
+    // יצירת הדיאלוג
+    const adminDialog = document.createElement('div');
+    adminDialog.className = 'admin-dialog';
+    adminDialog.innerHTML = `
+      <div class="dialog-overlay"></div>
+      <div class="quick-add-dialog admin-management-dialog">
+        <div class="dialog-header">
+          <h3 class="dialog-title">ניהול משתמשים</h3>
+          <button class="close-button" id="closeAdminDialog">
+            <svg class="icon" viewBox="0 0 24 24">
+              <path d="M18 6L6 18"></path>
+              <path d="M6 6l12 12"></path>
+            </svg>
+          </button>
+        </div>
+        <div>
+          <div class="mb-4">
+            <h4 class="font-bold mb-2">הגדרת מנהל חדש</h4>
+            <div class="flex gap-2">
+              <input type="email" id="newAdminEmail" class="w-full rounded border px-2 py-1 text-sm" placeholder="הזן אימייל של משתמש">
+              <button id="promoteBtn" class="button button-blue">הגדר כמנהל</button>
+            </div>
+          </div>
+          
+          <div class="mb-4">
+            <h4 class="font-bold mb-2">משתמשים קיימים</h4>
+            <div id="usersList" class="border rounded p-2 max-h-48 overflow-y-auto">
+              טוען משתמשים...
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(adminDialog);
+    
+    // הוספת אירועים לכפתורים
+    document.getElementById('closeAdminDialog').addEventListener('click', () => {
+      document.body.removeChild(adminDialog);
+    });
+    
+    document.getElementById('promoteBtn').addEventListener('click', async () => {
+      const email = document.getElementById('newAdminEmail').value.trim();
+      if (!email) {
+        showNotification('נא להזין אימייל', 'error');
         return;
       }
       
-      let usersHTML = '';
-      querySnapshot.forEach((doc) => {
-        const userData = doc.data();
-        usersHTML += `
-          <div class="user-item p-2 border-b flex justify-between items-center">
-            <div>
-              <span class="font-medium">${userData.email || 'אין אימייל'}</span>
-              <span class="text-sm text-gray-500 mr-2">${userData.role === 'admin' ? 'מנהל' : 'צופה'}</span>
+      await promoteToAdmin(email);
+      loadUsersList(); // טעינה מחדש של רשימת המשתמשים
+    });
+    
+    // טעינת רשימת המשתמשים
+    async function loadUsersList() {
+      try {
+        const usersRef = collection(db, "users");
+        const querySnapshot = await getDocs(usersRef);
+        
+        const usersListElement = document.getElementById('usersList');
+        
+        if (querySnapshot.empty) {
+          usersListElement.innerHTML = '<p class="text-center text-gray-400 py-2">לא נמצאו משתמשים</p>';
+          return;
+        }
+        
+        let usersHTML = '';
+        querySnapshot.forEach((doc) => {
+          const userData = doc.data();
+          usersHTML += `
+            <div class="user-item p-2 border-b flex justify-between items-center">
+              <div>
+                <span class="font-medium">${userData.email || 'אין אימייל'}</span>
+                <span class="text-sm text-gray-500 mr-2">${userData.role === 'admin' ? 'מנהל' : 'צופה'}</span>
+              </div>
+              <div>
+                ${userData.role !== 'admin' ? 
+                  `<button class="icon-button promote-user" data-email="${userData.email}">
+                    <svg class="icon-sm" viewBox="0 0 24 24">
+                      <path d="M20 6L9 17l-5-5"></path>
+                    </svg>
+                    הגדר כמנהל
+                  </button>` : 
+                  '<span class="text-green-600 text-sm">מנהל מערכת</span>'
+                }
+              </div>
             </div>
-            <div>
-              ${userData.role !== 'admin' ? 
-                `<button class="icon-button promote-user" data-email="${userData.email}">
-                  <svg class="icon-sm" viewBox="0 0 24 24">
-                    <path d="M20 6L9 17l-5-5"></path>
-                  </svg>
-                  הגדר כמנהל
-                </button>` : 
-                '<span class="text-green-600 text-sm">מנהל מערכת</span>'
-              }
-            </div>
-          </div>
-        `;
-      });
-      
-      usersListElement.innerHTML = usersHTML;
-      
-      // הוספת אירועים לכפתורי קידום
-      document.querySelectorAll('.promote-user').forEach(button => {
-        button.addEventListener('click', async () => {
-          const email = button.getAttribute('data-email');
-          await promoteToAdmin(email);
-          loadUsersList(); // טעינה מחדש של הרשימה
+          `;
         });
-      });
-      
-    } catch (error) {
-      console.error("שגיאה בטעינת רשימת המשתמשים:", error);
-      document.getElementById('usersList').innerHTML = '<p class="text-center text-red-500 py-2">שגיאה בטעינת המשתמשים</p>';
+        
+        usersListElement.innerHTML = usersHTML;
+        
+        // הוספת אירועים לכפתורי קידום
+        document.querySelectorAll('.promote-user').forEach(button => {
+          button.addEventListener('click', async () => {
+            const email = button.getAttribute('data-email');
+            await promoteToAdmin(email);
+            loadUsersList(); // טעינה מחדש של הרשימה
+          });
+        });
+        
+      } catch (error) {
+        console.error("שגיאה בטעינת רשימת המשתמשים:", error);
+        document.getElementById('usersList').innerHTML = '<p class="text-center text-red-500 py-2">שגיאה בטעינת המשתמשים</p>';
+      }
+    }
+    
+    // טעינת רשימת המשתמשים בפעם הראשונה
+    loadUsersList();
+  }
+  
+  // הוספת כפתור ניהול משתמשים לתפריט
+  function addAdminButton() {
+    const userInfo = document.getElementById('userInfo');
+    
+    if (userInfo && userRole === 'admin') {
+      // בדיקה אם הכפתור כבר קיים
+      if (!document.getElementById('adminMgmtBtn')) {
+        const adminButton = document.createElement('button');
+        adminButton.id = 'adminMgmtBtn';
+        adminButton.className = 'button button-accent';
+        adminButton.innerHTML = `
+          <svg class="icon" viewBox="0 0 24 24">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+          </svg>
+          ניהול משתמשים
+        `;
+        
+        adminButton.addEventListener('click', showAdminManagementDialog);
+        userInfo.insertBefore(adminButton, userInfo.firstChild);
+      }
     }
   }
   
-  // טעינת רשימת המשתמשים בפעם הראשונה
-  loadUsersList();
-}
-
-// הוספת כפתור ניהול משתמשים לתפריט
-function addAdminButton() {
-  const userInfo = document.getElementById('userInfo');
-  
-  if (userInfo && userRole === 'admin') {
-    // בדיקה אם הכפתור כבר קיים
-    if (!document.getElementById('adminMgmtBtn')) {
-      const adminButton = document.createElement('button');
-      adminButton.id = 'adminMgmtBtn';
-      adminButton.className = 'button button-accent';
-      adminButton.innerHTML = `
-        <svg class="icon" viewBox="0 0 24 24">
-          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-          <circle cx="9" cy="7" r="4"></circle>
-          <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-          <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-        </svg>
-        ניהול משתמשים
-      `;
-      
-      adminButton.addEventListener('click', showAdminManagementDialog);
-      userInfo.insertBefore(adminButton, userInfo.firstChild);
+  // הוספת קריאה לפונקציה זו בסוף פונקציית טעינת נתונים מ-Firestore
+  function updateInterfaceForAdmin() {
+    // הוספה רק אם המשתמש הוא מנהל
+    if (userRole === 'admin') {
+      addAdminButton();
     }
   }
-}
-
-// הוספת קריאה לפונקציה זו בסוף פונקציית טעינת נתונים מ-Firestore
-function updateInterfaceForAdmin() {
-  // הוספה רק אם המשתמש הוא מנהל
-  if (userRole === 'admin') {
-    addAdminButton();
+  
+  // עדכון פונקציית loadDataFromFirestore כדי להוסיף את הכפתור
+  // (צריך להוסיף שורה זו בסוף הפונקציה loadDataFromFirestore)
+  // updateInterfaceForAdmin();
+  
+  // בדיקה אם מתבצעת גישה ממכשיר מובייל
+  function isMobileDevice() {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   }
-}
-
-// עדכון פונקציית loadDataFromFirestore כדי להוסיף את הכפתור
-// (צריך להוסיף שורה זו בסוף הפונקציה loadDataFromFirestore)
-// updateInterfaceForAdmin();
-
-// בדיקה אם מתבצעת גישה ממכשיר מובייל
-function isMobileDevice() {
-return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-}
-
-// התאמת ממשק למובייל
-function adjustForMobile() {
-if (isMobileDevice()) {
-  document.body.classList.add('mobile-device');
-}
-}
-
-// אתחול האפליקציה כאשר הדף נטען
-document.addEventListener('DOMContentLoaded', () => {
-console.log("המסמך נטען - מאתחל אפליקציה");
-
-// התאמה למובייל
-adjustForMobile();
-
-// אתחול האפליקציה
-initApp();
-});
+  
+  // התאמת ממשק למובייל
+  function adjustForMobile() {
+    if (isMobileDevice()) {
+      document.body.classList.add('mobile-device');
+    }
+  }
+  
+  // אתחול האפליקציה כאשר הדף נטען
+  document.addEventListener('DOMContentLoaded', () => {
+    console.log("המסמך נטען - מאתחל אפליקציה");
+    
+    // התאמה למובייל
+    adjustForMobile();
+    
+    // אתחול האפליקציה
+    initApp();
+  });
