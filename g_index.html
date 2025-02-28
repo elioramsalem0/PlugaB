@@ -8,10 +8,33 @@
     <link rel="stylesheet" href="g_styles.css">
     <!-- ספריית xlsx לייצוא לאקסל -->
     <script src="https://cdn.sheetjs.com/xlsx-0.19.3/package/dist/xlsx.full.min.js"></script>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getAuth } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+        // תצורת Firebase - תעדכן לפרטים הנכונים
+        const firebaseConfig = {
+    apiKey: "AIzaSyAAM4wM8f-HjAiPCRrobtB6M7i4M3pypVw",
+    authDomain: "gd-fd2fa.firebaseapp.com",
+    projectId: "gd-fd2fa",
+    storageBucket: "gd-fd2fa.firebasestorage.app",
+    messagingSenderId: "313045632664",
+    appId: "1:313045632664:web:8b7aec36289513be1af2ed",
+    measurementId: "G-JM85H6638L"
+};
+
+        // אתחול Firebase
+        const app = initializeApp(firebaseConfig);
+        window.db = getFirestore(app);
+        window.auth = getAuth(app);
+    </script>
 </head>
 <body>
-    <!-- מסך התחברות (מוסתר) - ישמש רק למעבר למצב מנהל -->
-    <div id="loginScreen" class="login-container hidden">
+    <!-- מסך התחברות - ישמש למעבר לצפייה או מנהל -->
+    <div id="loginScreen" class="login-container">
         <div class="login-box">
             <div class="login-logo">
                 <svg class="icon" viewBox="0 0 24 24" style="width: 40px; height: 40px;">
@@ -21,13 +44,17 @@
                     <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
                 </svg>
             </div>
-            <h2>התחברות למצב מנהל</h2>
+            <h2>התחברות למערכת</h2>
             <div id="loginError" class="login-error hidden"></div>
             <form id="loginForm" class="login-form">
-                <input type="text" id="username" placeholder="שם משתמש" required>
+                <input type="email" id="username" placeholder="דוא״ל" required>
                 <input type="password" id="password" placeholder="סיסמה" required>
                 <button type="submit">התחבר</button>
             </form>
+            <!-- כפתור כניסה כאורח -->
+            <div class="mt-4">
+                <button id="guestLogin" class="button button-gray w-full">כניסה במצב צפייה בלבד</button>
+            </div>
         </div>
     </div>
 
@@ -38,6 +65,17 @@
                 <h1 class="text-2xl font-bold">מערכת ניהול משימות</h1>
             </div>
             <div class="flex gap-2">
+                <div id="userInfo" class="flex items-center gap-2 mr-2">
+                    <span id="userEmail" class="text-sm text-gray-600"></span>
+                    <button id="logoutBtn" class="button button-gray">
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                            <polyline points="16 17 21 12 16 7"></polyline>
+                            <line x1="21" y1="12" x2="9" y2="12"></line>
+                        </svg>
+                        התנתק
+                    </button>
+                </div>
                 <button id="toggleRole" class="button button-gray">
                     <svg class="icon" viewBox="0 0 24 24">
                         <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"></path>
@@ -168,7 +206,7 @@
         </div>
         
         <!-- תצוגת לוח זמנים -->
-        <div id="schedulerView" class="main-content">
+        <div id="schedulerView" class="main-content hidden">
             <!-- לוח זמנים -->
             <div class="scheduler-container">
                 <!-- לוח שבועי -->
@@ -391,6 +429,7 @@
         </div>
     </div>
     
-    <script src="g_script.js"></script>
+    <!-- קובץ הסקריפט החדש עם תמיכה ב-Firebase -->
+    <script type="module" src="app.js"></script>
 </body>
 </html>
