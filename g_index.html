@@ -8,8 +8,80 @@
     <link rel="stylesheet" href="g_styles.css">
     <!-- ספריית xlsx לייצוא לאקסל -->
     <script src="https://cdn.sheetjs.com/xlsx-0.19.3/package/dist/xlsx.full.min.js"></script>
+    
+    <!-- סקריפט לבדיקת טעינת Firebase -->
+    <script>
+        // פונקציה לבדיקת חיבור לאינטרנט
+        function checkInternetConnection() {
+            return navigator.onLine;
+        }
+        
+        // פונקציה להצגת התראת שגיאה
+        function showLoadingError(message) {
+            // יצירת אלמנט התראה
+            const errorDiv = document.createElement('div');
+            errorDiv.style.position = 'fixed';
+            errorDiv.style.top = '0';
+            errorDiv.style.left = '0';
+            errorDiv.style.right = '0';
+            errorDiv.style.padding = '15px';
+            errorDiv.style.backgroundColor = '#dc2626';
+            errorDiv.style.color = 'white';
+            errorDiv.style.textAlign = 'center';
+            errorDiv.style.fontWeight = 'bold';
+            errorDiv.style.zIndex = '9999';
+            errorDiv.style.direction = 'rtl';
+            errorDiv.textContent = message;
+            
+            // הוספת כפתור רענון
+            const refreshButton = document.createElement('button');
+            refreshButton.textContent = 'רענן דף';
+            refreshButton.style.marginRight = '10px';
+            refreshButton.style.padding = '5px 10px';
+            refreshButton.style.backgroundColor = 'white';
+            refreshButton.style.color = '#dc2626';
+            refreshButton.style.border = 'none';
+            refreshButton.style.borderRadius = '4px';
+            refreshButton.style.cursor = 'pointer';
+            refreshButton.onclick = function() {
+                window.location.reload();
+            };
+            
+            errorDiv.appendChild(refreshButton);
+            document.body.appendChild(errorDiv);
+        }
+        
+        // בדיקת חיבור לאינטרנט
+        if (!checkInternetConnection()) {
+            window.addEventListener('DOMContentLoaded', function() {
+                showLoadingError('אין חיבור לאינטרנט. חלק מהפונקציות עלולות לא לעבוד כראוי.');
+            });
+        }
+        
+        // הגדרת טיימר לבדיקת טעינת Firebase
+        let firebaseLoaded = false;
+        window.addEventListener('DOMContentLoaded', function() {
+            setTimeout(function() {
+                if (!firebaseLoaded) {
+                    showLoadingError('אירעה שגיאה בטעינת Firebase. נסה לרענן את הדף.');
+                }
+            }, 30000); // בדיקה אחרי 30 שניות
+        });
+        
+        // פונקציה שתיקרא כאשר Firebase נטען בהצלחה
+        window.firebaseLoadedSuccessfully = function() {
+            firebaseLoaded = true;
+            console.log("Firebase נטען בהצלחה!");
+        };
+    </script>
 </head>
 <body>
+    <!-- מסך טעינה -->
+    <div id="loadingScreen" class="loading-container">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">טוען את המערכת...</div>
+    </div>
+
     <!-- מסך התחברות - מוסתר בהתחלה -->
     <div id="loginScreen" class="login-container hidden">
         <div class="login-box">
@@ -423,5 +495,21 @@
     
     <!-- קובץ הסקריפט החדש עם תמיכה ב-Firebase -->
     <script type="module" src="app.js"></script>
+    
+    <!-- סקריפט להסתרת מסך הטעינה -->
+    <script>
+        // הסתרת מסך הטעינה אחרי שהדף נטען
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                const loadingScreen = document.getElementById('loadingScreen');
+                if (loadingScreen) {
+                    loadingScreen.style.opacity = '0';
+                    setTimeout(function() {
+                        loadingScreen.style.display = 'none';
+                    }, 500);
+                }
+            }, 1000); // הסתרה אחרי שניה נוספת
+        });
+    </script>
 </body>
 </html>

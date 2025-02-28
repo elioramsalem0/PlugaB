@@ -34,23 +34,55 @@ import {
     onAuthStateChanged, 
     signInAnonymously 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-  
-// אתחול Firebase
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const auth = getAuth(app);
+
+// פונקציה להצגת התראות שגיאה (תוגדר מחדש ב-app.js)
+function showFirebaseError(message) {
+    console.error("Firebase Error:", message);
+    // אם פונקציית showNotification קיימת, נשתמש בה
+    if (typeof window.showNotification === 'function') {
+        window.showNotification(message, 'error');
+    } else {
+        // אחרת נציג התראה פשוטה
+        alert("שגיאת Firebase: " + message);
+    }
+}
+
+let app, db, auth;
+
+try {
+    // אתחול Firebase
+    app = initializeApp(firebaseConfig);
+    console.log("Firebase App initialized successfully");
+    
+    // אתחול Firestore
+    db = getFirestore(app);
+    console.log("Firestore initialized successfully");
+    
+    // אתחול Authentication
+    auth = getAuth(app);
+    console.log("Firebase Auth initialized successfully");
+} catch (error) {
+    console.error("Error initializing Firebase:", error);
+    showFirebaseError("אירעה שגיאה באתחול Firebase: " + error.message);
+}
 
 // ניסיון להפעיל מצב עבודה לא מקוון (offline)
 try {
-    enableIndexedDbPersistence(db)
-        .catch((err) => {
-            if (err.code == 'failed-precondition') {
-                console.error("Multiple tabs open, persistence can only be enabled in one tab at a time.");
-            } else if (err.code == 'unimplemented') {
-                console.error("The current browser does not support all of the features required to enable persistence");
-            }
-        });
-    console.log("מצב עבודה לא מקוון הופעל בהצלחה");
+    if (db) {
+        enableIndexedDbPersistence(db)
+            .then(() => {
+                console.log("מצב עבודה לא מקוון הופעל בהצלחה");
+            })
+            .catch((err) => {
+                if (err.code == 'failed-precondition') {
+                    console.error("Multiple tabs open, persistence can only be enabled in one tab at a time.");
+                } else if (err.code == 'unimplemented') {
+                    console.error("The current browser does not support all of the features required to enable persistence");
+                } else {
+                    console.error("Error enabling offline persistence:", err);
+                }
+            });
+    }
 } catch (error) {
     console.error("שגיאה בהפעלת מצב עבודה לא מקוון:", error);
 }
@@ -78,3 +110,8 @@ export {
     serverTimestamp,
     signInAnonymously
 };
+
+// סימון שהטעינה הושלמה בהצלחה
+if (typeof window.firebaseLoadedSuccessfully === 'function') {
+    window.firebaseLoadedSuccessfully();
+}

@@ -34,6 +34,7 @@ let unsubscribeSoldiers = null;
 let unsubscribeTasks = null;
 let unsubscribeAssignments = null;
 let currentUser = null;
+let appInitialized = false; // דגל לסימון אם האפליקציה אותחלה בהצלחה
   
 // אובייקט עבור המשבצת הנוכחית לשיבוץ מהיר
 let currentQuickAdd = {
@@ -43,26 +44,41 @@ let currentQuickAdd = {
 };
   
 // פונקציה לאתחול האפליקציה
-async function initApp() {
+async function initAppLegacy() {
   console.log("מאתחל אפליקציה...");
   
-  // הגדרת מאזינים לממשק המשתמש
-  setupEventListeners();
-  setupAuthEventListeners();
-  
-  // הגדרת אפשרות שינוי גודל רשימת החיילים
-  setupResizable();
+  // סימון שהטעינה הושלמה בהצלחה
+  if (typeof window.firebaseLoadedSuccessfully === 'function') {
+    window.firebaseLoadedSuccessfully();
+  }
   
   try {
+    // הגדרת מאזינים לממשק המשתמש
+    setupEventListeners();
+    setupAuthEventListeners();
+    
+    // הגדרת אפשרות שינוי גודל רשימת החיילים
+    setupResizable();
+    
+    // הגדרת מאזין לשגיאות גלובליות
+    setupErrorHandling();
+    
     // הפעלת מצב עבודה לא מקוון (offline)
-    enableIndexedDbPersistence(db)
-      .catch((err) => {
-        if (err.code == 'failed-precondition') {
-          console.error("Multiple tabs open, persistence can only be enabled in one tab at a time.");
-        } else if (err.code == 'unimplemented') {
-          console.error("The current browser does not support all of the features required to enable persistence");
-        }
-      });
+    try {
+      await enableIndexedDbPersistence(db);
+      console.log("מצב עבודה לא מקוון הופעל בהצלחה");
+    } catch (err) {
+      if (err.code === 'failed-precondition') {
+        console.error("Multiple tabs open, persistence can only be enabled in one tab at a time.");
+        showNotification('האפליקציה פתוחה במספר כרטיסיות. מצב עבודה לא מקוון יעבוד רק בכרטיסיה אחת.', 'warning');
+      } else if (err.code === 'unimplemented') {
+        console.error("The current browser does not support all of the features required to enable persistence");
+        showNotification('הדפדפן הנוכחי אינו תומך במצב עבודה לא מקוון', 'warning');
+      } else {
+        console.error("שגיאה בהפעלת מצב עבודה לא מקוון:", err);
+        showNotification('אירעה שגיאה בהפעלת מצב עבודה לא מקוון', 'warning');
+      }
+    }
     
     console.log("בדיקת מצב התחברות...");
     // בדיקה אם יש משתמש מחובר
@@ -76,13 +92,32 @@ async function initApp() {
       // אם יש משתמש מחובר, נפעיל את הטיפול בו ישירות
       handleAuthStateChanged(auth.currentUser);
     }
+    
+    // מאזין לשינויים בסטטוס ההתחברות
+    onAuthStateChanged(auth, handleAuthStateChanged);
+    
+    // סימון שהאפליקציה אותחלה בהצלחה
+    appInitialized = true;
+    
   } catch (error) {
     console.error("שגיאה באתחול האפליקציה:", error);
-    showNotification('אירעה שגיאה באתחול האפליקציה', 'error');
+    showNotification('אירעה שגיאה באתחול האפליקציה: ' + error.message, 'error');
   }
+}
   
-  // מאזין לשינויים בסטטוס ההתחברות
-  onAuthStateChanged(auth, handleAuthStateChanged);
+// פונקציה להגדרת מאזין לשגיאות גלובליות
+function setupErrorHandling() {
+  // מאזין לשגיאות לא מטופלות
+  window.addEventListener('error', function(event) {
+    console.error('שגיאה לא מטופלת:', event.error);
+    showNotification('אירעה שגיאה לא מטופלת: ' + (event.error?.message || 'שגיאה לא ידועה'), 'error');
+  });
+  
+  // מאזין להבטחות שנכשלו ולא טופלו
+  window.addEventListener('unhandledrejection', function(event) {
+    console.error('הבטחה שנכשלה ולא טופלה:', event.reason);
+    showNotification('אירעה שגיאה בפעולה אסינכרונית: ' + (event.reason?.message || 'שגיאה לא ידועה'), 'error');
+  });
 }
   
 // פונקציה לטיפול בשינוי מצב ההתחברות
@@ -113,6 +148,10 @@ function handleAuthStateChanged(user) {
           document.getElementById('roleText').textContent = userRole === 'admin' ? 'מצב עריכה' : 'מצב צפייה';
           document.getElementById('loginBtn').classList.add('hidden');
           document.getElementById('logoutBtn').classList.remove('hidden');
+        })
+        .catch(error => {
+          console.error("שגיאה בבדיקת הרשאות:", error);
+          showNotification('אירעה שגיאה בבדיקת הרשאות המשתמש', 'error');
         });
       
       // הסתרת מסך ההתחברות אם הוא פתוח
@@ -137,9 +176,16 @@ function handleAuthStateChanged(user) {
     
     // ניסיון להתחבר כאנונימי שוב
     try {
-      signInAnonymously(auth);
+      signInAnonymously(auth)
+        .catch(error => {
+          console.error("שגיאה בכניסה אנונימית:", error);
+          showNotification('אירעה שגיאה בכניסה אנונימית: ' + error.message, 'error');
+          // במקרה של כשלון, נציג את מסך ההתחברות
+          showLoginScreen();
+        });
     } catch (error) {
       console.error("שגיאה בכניסה אנונימית:", error);
+      showNotification('אירעה שגיאה בכניסה אנונימית: ' + error.message, 'error');
       // במקרה של כשלון, נציג את מסך ההתחברות
       showLoginScreen();
     }
@@ -148,23 +194,29 @@ function handleAuthStateChanged(user) {
   
 // פונקציה לבדיקה אם המשתמש הוא מנהל
 async function checkIfAdmin(user) {
-  const userDocRef = doc(db, "users", user.uid);
-  const userDoc = await getDoc(userDocRef);
-  
-  if (userDoc.exists() && userDoc.data().role === 'admin') {
-    return true;
+  try {
+    const userDocRef = doc(db, "users", user.uid);
+    const userDoc = await getDoc(userDocRef);
+    
+    if (userDoc.exists() && userDoc.data().role === 'admin') {
+      return true;
+    }
+    
+    // אם אין מסמך למשתמש, יצירת אחד עם תפקיד ברירת מחדל
+    if (!userDoc.exists()) {
+      await setDoc(userDocRef, {
+        email: user.email,
+        role: 'viewer',
+        createdAt: serverTimestamp()
+      });
+    }
+    
+    return false;
+  } catch (error) {
+    console.error("שגיאה בבדיקת הרשאות מנהל:", error);
+    showNotification('אירעה שגיאה בבדיקת הרשאות המשתמש', 'error');
+    return false;
   }
-  
-  // אם אין מסמך למשתמש, יצירת אחד עם תפקיד ברירת מחדל
-  if (!userDoc.exists()) {
-    await setDoc(userDocRef, {
-      email: user.email,
-      role: 'viewer',
-      createdAt: serverTimestamp()
-    });
-  }
-  
-  return false;
 }
   
 // פונקציה לטעינת נתונים מ-Firestore
@@ -172,77 +224,87 @@ async function loadDataFromFirestore() {
   console.log("מתחיל טעינת נתונים מ-Firestore...");
   
   try {
-      // הסרת מאזינים קודמים אם קיימים
-      removeFirestoreListeners();
-      
-      // טעינת חיילים
-      console.log("מגדיר מאזין לאוסף חיילים...");
-      unsubscribeSoldiers = onSnapshot(
-          collection(db, "soldiers"), 
-          (snapshot) => {
-              console.log(`התקבלו ${snapshot.docs.length} חיילים מהמסד`);
-              soldiers = snapshot.docs.map(doc => ({
-                  id: doc.id,
-                  ...doc.data()
-              }));
-              renderSoldiers();
-              
-              // טעינת משימות רק לאחר טעינת החיילים
-              loadTasks();
-          },
-          (error) => {
-              console.error("שגיאה בטעינת חיילים:", error);
-              showNotification('אירעה שגיאה בטעינת נתוני החיילים', 'error');
-          }
-      );
+    // הסרת מאזינים קודמים אם קיימים
+    removeFirestoreListeners();
+    
+    // טעינת חיילים
+    console.log("מגדיר מאזין לאוסף חיילים...");
+    unsubscribeSoldiers = onSnapshot(
+      collection(db, "soldiers"), 
+      (snapshot) => {
+        console.log(`התקבלו ${snapshot.docs.length} חיילים מהמסד`);
+        soldiers = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        renderSoldiers();
+        
+        // טעינת משימות רק לאחר טעינת החיילים
+        loadTasks();
+      },
+      (error) => {
+        console.error("שגיאה בטעינת חיילים:", error);
+        showNotification('אירעה שגיאה בטעינת נתוני החיילים: ' + error.message, 'error');
+      }
+    );
   } catch (error) {
-      console.error("שגיאה בטעינת נתונים:", error);
-      showNotification('אירעה שגיאה בטעינת הנתונים', 'error');
+    console.error("שגיאה בטעינת נתונים:", error);
+    showNotification('אירעה שגיאה בטעינת הנתונים: ' + error.message, 'error');
   }
 }
   
 // פונקציה לטעינת משימות
 function loadTasks() {
   console.log("מגדיר מאזין לאוסף משימות...");
-  unsubscribeTasks = onSnapshot(
+  try {
+    unsubscribeTasks = onSnapshot(
       collection(db, "tasks"), 
       (snapshot) => {
-          console.log(`התקבלו ${snapshot.docs.length} משימות מהמסד`);
-          tasks = snapshot.docs.map(doc => ({
-              id: doc.id,
-              ...doc.data()
-          }));
-          
-          // טעינת שיבוצים רק לאחר טעינת המשימות
-          loadAssignments();
+        console.log(`התקבלו ${snapshot.docs.length} משימות מהמסד`);
+        tasks = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        
+        // טעינת שיבוצים רק לאחר טעינת המשימות
+        loadAssignments();
       },
       (error) => {
-          console.error("שגיאה בטעינת משימות:", error);
-          showNotification('אירעה שגיאה בטעינת נתוני המשימות', 'error');
+        console.error("שגיאה בטעינת משימות:", error);
+        showNotification('אירעה שגיאה בטעינת נתוני המשימות: ' + error.message, 'error');
       }
-  );
+    );
+  } catch (error) {
+    console.error("שגיאה בטעינת משימות:", error);
+    showNotification('אירעה שגיאה בטעינת נתוני המשימות: ' + error.message, 'error');
+  }
 }
   
 // פונקציה לטעינת שיבוצים
 function loadAssignments() {
   console.log("מגדיר מאזין לאוסף שיבוצים...");
-  unsubscribeAssignments = onSnapshot(
+  try {
+    unsubscribeAssignments = onSnapshot(
       collection(db, "assignments"), 
       (snapshot) => {
-          console.log(`התקבלו ${snapshot.docs.length} שיבוצים מהמסד`);
-          assignments = snapshot.docs.map(doc => ({
-              id: doc.id,
-              ...doc.data()
-          }));
-          
-          // רינדור לוח השנה רק לאחר טעינת כל הנתונים
-          renderCalendar();
+        console.log(`התקבלו ${snapshot.docs.length} שיבוצים מהמסד`);
+        assignments = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        
+        // רינדור לוח השנה רק לאחר טעינת כל הנתונים
+        renderCalendar();
       },
       (error) => {
-          console.error("שגיאה בטעינת שיבוצים:", error);
-          showNotification('אירעה שגיאה בטעינת נתוני השיבוצים', 'error');
+        console.error("שגיאה בטעינת שיבוצים:", error);
+        showNotification('אירעה שגיאה בטעינת נתוני השיבוצים: ' + error.message, 'error');
       }
-  );
+    );
+  } catch (error) {
+    console.error("שגיאה בטעינת שיבוצים:", error);
+    showNotification('אירעה שגיאה בטעינת נתוני השיבוצים: ' + error.message, 'error');
+  }
 }
   
 // פונקציה להסרת מאזינים של Firestore
@@ -694,38 +756,51 @@ function getNextThursday() {
   
 // רינדור של לוח השנה
 function renderCalendar() {
-  console.log("מתחיל רינדור לוח השנה...");
-  
-  try {
-      // בדיקה שכל הנתונים הנדרשים קיימים
-      if (!Array.isArray(soldiers) || !Array.isArray(tasks) || !Array.isArray(assignments)) {
-          console.error("חסרים נתונים נדרשים לרינדור לוח השנה");
-          showNotification('חסרים נתונים נדרשים להצגת לוח השנה', 'error');
-          return;
-      }
+    console.log("מתחיל רינדור לוח השנה...");
+    
+    try {
+        // בדיקה שכל הנתונים הנדרשים קיימים
+        if (!Array.isArray(soldiers)) {
+            console.error("חסרים נתוני חיילים לרינדור לוח השנה");
+            showNotification('חסרים נתוני חיילים להצגת לוח השנה', 'error');
+            return;
+        }
+        
+        if (!Array.isArray(tasks)) {
+            console.error("חסרים נתוני משימות לרינדור לוח השנה");
+            showNotification('חסרים נתוני משימות להצגת לוח השנה', 'error');
+            return;
+        }
+        
+        if (!Array.isArray(assignments)) {
+            console.error("חסרים נתוני שיבוצים לרינדור לוח השנה");
+            showNotification('חסרים נתוני שיבוצים להצגת לוח השנה', 'error');
+            return;
+        }
 
-      // בדיקה שהאלמנטים הנדרשים קיימים ב-DOM
-      const calendarElement = document.getElementById('calendar');
-      const calendarBodyElement = document.getElementById('calendarBody');
-      if (!calendarElement || !calendarBodyElement) {
-          console.error("לא נמצאו אלמנטים נדרשים ללוח השנה");
-          return;
-      }
+        // בדיקה שהאלמנטים הנדרשים קיימים ב-DOM
+        const calendarElement = document.getElementById('calendar');
+        const calendarBodyElement = document.getElementById('calendarBody');
+        if (!calendarBodyElement) {
+            console.error("לא נמצא אלמנט calendarBody");
+            showNotification('לא נמצאו אלמנטים נדרשים להצגת לוח השנה', 'error');
+            return;
+        }
 
-      // רינדור כותרות
-      renderCalendarHeader();
+        // רינדור כותרות
+        renderCalendarHeader();
 
-      // רינדור גוף הלוח
-      renderCalendarBody();
+        // רינדור גוף הלוח
+        renderCalendarBody();
 
-      // הוספת מאזינים לאירועי גרירה
-      setupDragAndDrop();
+        // הוספת מאזינים לאירועי גרירה
+        setupDragAndDrop();
 
-      console.log("רינדור לוח השנה הושלם");
-  } catch (error) {
-      console.error("שגיאה ברינדור לוח השנה:", error);
-      showNotification('אירעה שגיאה בהצגת לוח השנה', 'error');
-  }
+        console.log("רינדור לוח השנה הושלם");
+    } catch (error) {
+        console.error("שגיאה ברינדור לוח השנה:", error);
+        showNotification('אירעה שגיאה בהצגת לוח השנה: ' + error.message, 'error');
+    }
 }
 
 // רינדור של כותרות לוח השנה
@@ -1315,51 +1390,125 @@ function renderAddTaskRow(container) {
   function showNotification(message, type = 'info') {
     // יצירת אלמנט ההתראה
     const notification = document.createElement('div');
-    notification.className = `notification`;
+    notification.className = `notification notification-${type}`;
     notification.style.position = 'fixed';
     notification.style.bottom = '20px';
     notification.style.right = '20px';
-    notification.style.padding = '10px 15px';
+    notification.style.padding = '15px 20px';
     notification.style.borderRadius = '4px';
     notification.style.zIndex = '1000';
-    notification.style.minWidth = '250px';
-    notification.style.boxShadow = '0 3px 6px rgba(0,0,0,0.16)';
+    notification.style.minWidth = '300px';
+    notification.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)';
     notification.style.animation = 'slide-in 0.3s ease-out forwards';
+    notification.style.direction = 'rtl';
+    notification.style.textAlign = 'right';
+    notification.style.fontWeight = 'bold';
     
     // צבע רקע לפי סוג ההתראה
     if (type === 'error') {
       notification.style.backgroundColor = '#dc2626';
       notification.style.color = 'white';
+      notification.style.borderRight = '5px solid #991b1b';
     } else if (type === 'success') {
       notification.style.backgroundColor = '#16a34a';
       notification.style.color = 'white';
+      notification.style.borderRight = '5px solid #166534';
+    } else if (type === 'warning') {
+      notification.style.backgroundColor = '#f59e0b';
+      notification.style.color = 'white';
+      notification.style.borderRight = '5px solid #b45309';
     } else {
       notification.style.backgroundColor = '#2563eb';
       notification.style.color = 'white';
+      notification.style.borderRight = '5px solid #1e40af';
     }
     
+    // הוספת אייקון לפי סוג ההתראה
+    const icon = type === 'error' ? 
+      '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>' : 
+      type === 'success' ? 
+      '<svg class="icon" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>' :
+      type === 'warning' ?
+      '<svg class="icon" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>' :
+      '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><polyline points="12 16 12.01 16"></polyline></svg>';
+    
     notification.innerHTML = `
-      <div class="notification-content">
-        ${type === 'error' ? 
-          '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>' : 
-          type === 'success' ? 
-          '<svg class="icon" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>' :
-          '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><polyline points="12 16 12.01 16"></polyline></svg>'
-        }
+      <div class="notification-content" style="display: flex; align-items: center;">
+        <div style="margin-left: 12px; width: 24px; height: 24px; flex-shrink: 0;">
+          ${icon}
+        </div>
         <span>${message}</span>
       </div>
     `;
     
+    // הוספת כפתור סגירה
+    const closeButton = document.createElement('button');
+    closeButton.innerHTML = '×';
+    closeButton.style.position = 'absolute';
+    closeButton.style.top = '5px';
+    closeButton.style.left = '5px';
+    closeButton.style.background = 'transparent';
+    closeButton.style.border = 'none';
+    closeButton.style.color = 'white';
+    closeButton.style.fontSize = '20px';
+    closeButton.style.cursor = 'pointer';
+    closeButton.style.width = '24px';
+    closeButton.style.height = '24px';
+    closeButton.style.display = 'flex';
+    closeButton.style.alignItems = 'center';
+    closeButton.style.justifyContent = 'center';
+    closeButton.style.borderRadius = '50%';
+    
+    closeButton.addEventListener('click', () => {
+      notification.style.animation = 'fade-out 0.3s ease-out forwards';
+      setTimeout(() => {
+        notification.remove();
+      }, 300);
+    });
+    
+    notification.appendChild(closeButton);
+    
     // הוספת ההתראה לעמוד
     document.body.appendChild(notification);
     
-    // הסרת ההתראה אחרי 3 שניות
+    // הסרת ההתראה אחרי 5 שניות
     setTimeout(() => {
-      notification.style.animation = 'fade-out 0.5s ease-out forwards';
-      setTimeout(() => {
-        notification.remove();
-      }, 500);
-    }, 3000);
+      if (document.body.contains(notification)) {
+        notification.style.animation = 'fade-out 0.5s ease-out forwards';
+        setTimeout(() => {
+          if (document.body.contains(notification)) {
+            notification.remove();
+          }
+        }, 500);
+      }
+    }, 5000);
+  }
+  
+  // הוספת סגנונות CSS לאנימציות
+  function addNotificationStyles() {
+    const styleElement = document.createElement('style');
+    styleElement.textContent = `
+      @keyframes slide-in {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+      }
+      
+      @keyframes fade-out {
+        from { opacity: 1; }
+        to { opacity: 0; }
+      }
+      
+      .notification .icon {
+        width: 24px;
+        height: 24px;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        fill: none;
+      }
+    `;
+    document.head.appendChild(styleElement);
   }
   
   // פונקציה להסרת חייל ממשימה
@@ -2729,7 +2878,7 @@ function renderAddTaskRow(container) {
   }
   
   // פונקציה מעודכנת לאתחול האפליקציה
-  async function initApp() {
+  async function initAppLegacy() {
     console.log("מאתחל אפליקציה...");
     
     // הפעלת מצב עבודה לא מקוון (offline)
@@ -3265,11 +3414,29 @@ function renderAddTaskRow(container) {
   document.addEventListener('DOMContentLoaded', () => {
     console.log("המסמך נטען - מאתחל אפליקציה");
     
+    // הוספת סגנונות להתראות
+    addNotificationStyles();
+    
     // התאמה למובייל
     adjustForMobile();
     
     // אתחול האפליקציה
-    initApp();
+    initAppLegacy()
+      .then(() => {
+        console.log("אתחול האפליקציה הושלם בהצלחה");
+      })
+      .catch(error => {
+        console.error("שגיאה באתחול האפליקציה:", error);
+        showNotification('אירעה שגיאה באתחול האפליקציה: ' + error.message, 'error');
+      });
+    
+    // בדיקה אם האפליקציה אותחלה בהצלחה אחרי 10 שניות
+    setTimeout(() => {
+      if (!appInitialized) {
+        console.error("האפליקציה לא אותחלה בהצלחה אחרי 10 שניות");
+        showNotification('האפליקציה לא אותחלה בהצלחה. נסה לרענן את הדף.', 'error');
+      }
+    }, 10000);
   });
 
   // פונקציה לבדיקת תקינות תאריך
