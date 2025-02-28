@@ -37,6 +37,7 @@
                 <button type="submit">התחבר</button>
             </form>
             <div class="mt-4">
+                <button id="guestLogin" class="button button-blue w-full mb-2">כניסה כאורח</button>
                 <button id="cancelLogin" class="button button-gray w-full">ביטול וחזרה למצב צפייה</button>
             </div>
         </div>
@@ -320,7 +321,105 @@
         </div>
     </div>
 
-    <!-- הדיאלוגים השונים נשארים ללא שינוי -->
+    <!-- הדיאלוגים השונים -->
+    
+    <!-- דיאלוג הוספת משימה -->
+    <div id="addTaskDialog" class="dialog-container hidden">
+        <div class="dialog-overlay"></div>
+        <div class="dialog-box">
+            <div class="dialog-header">
+                <h3 class="dialog-title">הוספת משימה חדשה</h3>
+                <button class="close-button" id="closeAddTaskDialog">
+                    <svg class="icon" viewBox="0 0 24 24">
+                        <path d="M18 6L6 18"></path>
+                        <path d="M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="dialog-content">
+                <div class="form-group">
+                    <label for="newTaskName">שם המשימה</label>
+                    <input type="text" id="newTaskName" class="form-control" placeholder="הזן שם משימה">
+                </div>
+            </div>
+            <div class="dialog-footer">
+                <button id="addTaskCancel" class="button button-gray">ביטול</button>
+                <button id="addTaskConfirm" class="button button-green">הוסף משימה</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- דיאלוג הוספה מהירה -->
+    <div id="quickAddDialog" class="dialog-container hidden">
+        <div class="dialog-overlay"></div>
+        <div class="quick-add-dialog">
+            <div class="dialog-header">
+                <h3 class="dialog-title">הוספת חיילים למשימה</h3>
+                <button class="close-button" id="closeQuickAdd">
+                    <svg class="icon" viewBox="0 0 24 24">
+                        <path d="M18 6L6 18"></path>
+                        <path d="M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="dialog-content">
+                <div class="mb-4">
+                    <div class="font-bold">משימה: <span id="quickAddTaskName"></span></div>
+                    <div>תאריך: <span id="quickAddDate"></span></div>
+                </div>
+                
+                <div class="mb-4">
+                    <h4 class="font-bold mb-2">בחר חיילים לשיבוץ:</h4>
+                    <div id="availableSoldiers" class="available-soldiers">
+                        <!-- רשימת החיילים הזמינים תוזרק כאן בג'אווהסקריפט -->
+                    </div>
+                </div>
+            </div>
+            <div class="dialog-footer">
+                <button id="quickAddCancel" class="button button-gray">ביטול</button>
+                <button id="quickAddConfirm" class="button button-green">המשך</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- דיאלוג בחירת סוג שיבוץ -->
+    <div id="assignmentTypeDialog" class="dialog-container hidden">
+        <div class="dialog-overlay"></div>
+        <div class="assignment-type-dialog">
+            <div class="dialog-header">
+                <h3 class="dialog-title">בחר סוג שיבוץ</h3>
+                <button class="close-button" id="closeAssignmentTypeDialog">
+                    <svg class="icon" viewBox="0 0 24 24">
+                        <path d="M18 6L6 18"></path>
+                        <path d="M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="dialog-content">
+                <div class="assignment-type-options">
+                    <button id="assignSingleDay" class="button button-blue w-full mb-3">
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="16" y1="2" x2="16" y2="6"></line>
+                            <line x1="8" y1="2" x2="8" y2="6"></line>
+                            <line x1="3" y1="10" x2="21" y2="10"></line>
+                        </svg>
+                        שיבוץ ליום אחד בלבד
+                    </button>
+                    <button id="assignFullWeek" class="button button-accent w-full">
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="16" y1="2" x2="16" y2="6"></line>
+                            <line x1="8" y1="2" x2="8" y2="6"></line>
+                            <line x1="3" y1="10" x2="21" y2="10"></line>
+                            <line x1="9" y1="16" x2="15" y2="16"></line>
+                        </svg>
+                        שיבוץ לכל השבוע
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
     
     <!-- קובץ הסקריפט החדש עם תמיכה ב-Firebase -->
     <script type="module" src="app.js"></script>
