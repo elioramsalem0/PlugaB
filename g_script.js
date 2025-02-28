@@ -89,85 +89,107 @@ function adjustForMobile() {
     }
 }
 
-// אתחול האפליקציה
-function initApp() {
-    console.log("מאתחל אפליקציה...");
+// אתחול האפליקציה כאשר הדף נטען
+document.addEventListener('DOMContentLoaded', () => {
+    console.log("המסמך נטען - מאתחל אפליקציה");
+    
+    // בדיקה אם Firebase כבר מאותחל
+    if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+    }
+    
+    // אתחול שירותים
+    const analytics = firebase.analytics();
+    const db = firebase.firestore();
+    const auth = firebase.auth();
     
     // התאמה למובייל
-    adjustForMobile();
+    mobileUtils.adjustForMobile();
     
     // אתחול הנתונים
-    initData();
+    initApp();
     
     // הוספת Event Listeners
     setupEventListeners();
-    
-    // בדיקת מצב התחברות
-    checkUserLoginState();
-}
-  
-// אתחול האפליקציה
-function initApp() {
+});
+
+// פונקציית אתחול ראשית
+async function initApp() {
     console.log("מאתחל אפליקציה...");
+    showLoadingIndicator();
     
-    // אתחול הנתונים ישירות, ללא מסך התחברות בהתחלה
-    initData();
+    try {
+        // בדיקת מצב התחברות
+        checkUserLoginState();
+        
+        // אתחול הנתונים
+        await initData();
+        
+        // הגדרת אפשרות שינוי גודל רשימת החיילים
+        setupResizable();
+        
+        // הוספת מאזינים לשינויים בזמן אמת
+        setupRealTimeListeners();
+        
+    } catch (error) {
+        console.error("שגיאה באתחול האפליקציה:", error);
+        showNotification('שגיאה באתחול האפליקציה. נסה לרענן את הדף', 'error');
+    } finally {
+        hideLoadingIndicator();
+    }
+}
+
+// הוספת Event Listeners
+function setupEventListeners() {
+    // לחצנים ראשיים
+    document.getElementById('addSoldierBtn')?.addEventListener('click', handleAddSoldier);
+    document.getElementById('toggleRole')?.addEventListener('click', toggleRole);
+    document.getElementById('toggleReport')?.addEventListener('click', () => toggleReportView('regular'));
+    document.getElementById('toggleSemiAnnualReport')?.addEventListener('click', () => toggleReportView('semiAnnual'));
+    document.getElementById('toggleWeeklySummary')?.addEventListener('click', () => toggleReportView('weekly'));
     
-    // הוספת Event Listeners לטופס ההתחברות אם יצטרכו אותו בעתיד
-    document.getElementById('loginForm')?.addEventListener('submit', handleLogin);
+    // כפתורי חזרה ללוח מהדוחות
+    document.getElementById('backToCalendarBtn')?.addEventListener('click', () => toggleReportView('calendar'));
+    document.getElementById('backToCalendarFromSemiBtn')?.addEventListener('click', () => toggleReportView('calendar'));
+    document.getElementById('backToCalendarFromWeeklyBtn')?.addEventListener('click', () => toggleReportView('calendar'));
     
-    // הוספת Event Listeners לכפתורי ניווט בלוח
-    document.getElementById('prevWeek')?.addEventListener('click', () => {
-        currentWeek.setDate(currentWeek.getDate() - 7);
-        renderAll();
-    });
-    
-    document.getElementById('nextWeek')?.addEventListener('click', () => {
-        currentWeek.setDate(currentWeek.getDate() + 7);
-        renderAll();
-    });
-    
+    // ניווט בלוח
+    document.getElementById('prevWeek')?.addEventListener('click', subtractWeek);
+    document.getElementById('nextWeek')?.addEventListener('click', addWeek);
     document.getElementById('currentWeek')?.addEventListener('click', goToCurrentWeek);
     
-    // הוספת Event Listeners לכפתורי הדוחות
-    document.getElementById('toggleReport')?.addEventListener('click', () => toggleReportView('regular'));
-    document.getElementById('toggleWeeklySummary')?.addEventListener('click', () => toggleReportView('weekly'));
-    document.getElementById('toggleSemiAnnualReport')?.addEventListener('click', () => toggleReportView('semiAnnual'));
-    
-    // הוספת Event Listeners לכפתורי חזרה מדוחות
-    document.getElementById('backToCalendarBtn')?.addEventListener('click', () => toggleReportView('calendar'));
-    document.getElementById('backToCalendarFromWeeklyBtn')?.addEventListener('click', () => toggleReportView('calendar'));
-    document.getElementById('backToCalendarFromSemiBtn')?.addEventListener('click', () => toggleReportView('calendar'));
-    
-    // הוספת Event Listeners לכפתורי ייצוא לאקסל
+    // ייצוא לאקסל
     document.getElementById('exportExcel')?.addEventListener('click', () => exportToExcel('regular'));
-    document.getElementById('exportWeeklySummaryExcel')?.addEventListener('click', () => exportToExcel('weekly'));
     document.getElementById('exportSemiAnnualExcel')?.addEventListener('click', () => exportToExcel('semiAnnual'));
+    document.getElementById('exportWeeklySummaryExcel')?.addEventListener('click', () => exportToExcel('weekly'));
     
-    // בדיקה אם המשתמש כבר מחובר (זיכרון מקומי)
-    checkUserLoginState();
+    // הוספת משימה חדשה
+    document.getElementById('addTaskBtn')?.addEventListener('click', showAddTaskDialog);
+    document.getElementById('closeAddTaskDialog')?.addEventListener('click', closeAddTaskDialog);
+    document.getElementById('addTaskCancel')?.addEventListener('click', closeAddTaskDialog);
+    document.getElementById('addTaskConfirm')?.addEventListener('click', confirmAddTask);
     
-    // הגדרת אפשרות שינוי גודל רשימת החיילים
-    setupResizable();
-    
-    // הוספת Event Listener לחיפוש חיילים
+    // חיפוש
     document.getElementById('searchInput')?.addEventListener('input', (e) => {
         searchTerm = e.target.value.trim().toLowerCase();
         renderSoldiers();
     });
     
-    // הוספת Event Listener למעבר בין מצבי תצוגה
-    document.getElementById('toggleRole')?.addEventListener('click', () => {
-        if (userRole === 'viewer') {
-            document.getElementById('loginScreen').classList.remove('hidden');
-        } else {
-            userRole = 'viewer';
-            localStorage.removeItem('userRole');
-            document.getElementById('roleText').textContent = 'צופה';
-            renderAll();
-            showNotification('עברת למצב צפייה', 'info');
-        }
+    // טופס התחברות
+    document.getElementById('loginForm')?.addEventListener('submit', (e) => {
+        e.preventDefault();
+        handleLogin(e);
     });
+    
+    // הוספה מהירה דיאלוג
+    document.getElementById('closeQuickAdd')?.addEventListener('click', closeQuickAddDialog);
+    document.getElementById('quickAddCancel')?.addEventListener('click', closeQuickAddDialog);
+    document.getElementById('quickAddConfirm')?.addEventListener('click', prepareQuickAdd);
+    
+    // דיאלוג בחירת סוג שיבוץ
+    document.getElementById('closeAssignmentTypeDialog')?.addEventListener('click', closeAssignmentTypeDialog);
+    document.getElementById('assignSingleDay')?.addEventListener('click', () => confirmQuickAdd(false));
+    document.getElementById('assignFullWeek')?.addEventListener('click', () => confirmQuickAdd(true));
 }
   
 // בדיקת מצב התחברות המשתמש
@@ -515,7 +537,7 @@ function setupEventListeners() {
     
     // חיפוש
     document.getElementById('searchInput').addEventListener('input', (e) => {
-        searchTerm = e.target.value;
+        searchTerm = e.target.value.trim().toLowerCase();
         renderSoldiers();
     });
     
