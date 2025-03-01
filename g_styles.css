@@ -855,15 +855,12 @@ input:focus, select:focus {
   position: fixed;
   bottom: 20px;
   right: 20px;
-  padding: 15px 20px;
+  padding: 10px 15px;
   border-radius: 4px;
   z-index: 1000;
-  min-width: 300px;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+  min-width: 250px;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.2);
   animation: slide-in 0.3s ease-out forwards;
-  direction: rtl;
-  text-align: right;
-  font-weight: bold;
 }
 
 .notification-content {
@@ -873,48 +870,13 @@ input:focus, select:focus {
 }
 
 @keyframes slide-in {
-  from { transform: translateX(100%); opacity: 0; }
-  to { transform: translateX(0); opacity: 1; }
+  0% { transform: translateX(100%); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
 }
 
 @keyframes fade-out {
-  from { opacity: 1; }
-  to { opacity: 0; }
-}
-
-.notification-error {
-  background-color: #dc2626;
-  color: white;
-  border-right: 5px solid #991b1b;
-}
-
-.notification-success {
-  background-color: #16a34a;
-  color: white;
-  border-right: 5px solid #166534;
-}
-
-.notification-warning {
-  background-color: #f59e0b;
-  color: white;
-  border-right: 5px solid #b45309;
-}
-
-.notification-info {
-  background-color: #2563eb;
-  color: white;
-  border-right: 5px solid #1e40af;
-}
-
-.notification .icon {
-  width: 24px;
-  height: 24px;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  fill: none;
-  margin-left: 12px;
+  0% { opacity: 1; }
+  100% { opacity: 0; }
 }
 
 /* דיאלוגים */
@@ -1082,41 +1044,4 @@ input:focus, select:focus {
   .mobile-device .soldier-card {
       touch-action: none;
   }
-}
-
-/* סגנונות למסך טעינה */
-.loading-container {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(255, 255, 255, 0.9);
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    z-index: 9999;
-    transition: opacity 0.5s ease;
-}
-
-.loading-spinner {
-    width: 50px;
-    height: 50px;
-    border: 5px solid #f3f3f3;
-    border-top: 5px solid #2563eb;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin-bottom: 20px;
-}
-
-.loading-text {
-    font-size: 18px;
-    font-weight: bold;
-    color: #2563eb;
-}
-
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
 }
