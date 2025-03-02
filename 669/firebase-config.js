@@ -31,8 +31,7 @@ import {
     getAuth, 
     signInWithEmailAndPassword, 
     signOut, 
-    onAuthStateChanged, 
-    signInAnonymously 
+    onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
 // פונקציה להצגת התראות שגיאה (תוגדר מחדש ב-app.js)
@@ -66,26 +65,6 @@ try {
     showFirebaseError("אירעה שגיאה באתחול Firebase: " + error.message);
 }
 
-// ניסיון להפעיל מצב עבודה לא מקוון (offline)
-try {
-    if (db) {
-        enableIndexedDbPersistence(db)
-            .then(() => {
-                console.log("מצב עבודה לא מקוון הופעל בהצלחה");
-            })
-            .catch((err) => {
-                if (err.code == 'failed-precondition') {
-                    console.error("Multiple tabs open, persistence can only be enabled in one tab at a time.");
-                } else if (err.code == 'unimplemented') {
-                    console.error("The current browser does not support all of the features required to enable persistence");
-                } else {
-                    console.error("Error enabling offline persistence:", err);
-                }
-            });
-    }
-} catch (error) {
-    console.error("שגיאה בהפעלת מצב עבודה לא מקוון:", error);
-}
 
 // ייצוא המודולים לשימוש
 export { 
@@ -107,8 +86,7 @@ export {
     onAuthStateChanged,
     enableIndexedDbPersistence,
     addDoc,
-    serverTimestamp,
-    signInAnonymously
+    serverTimestamp
 };
 
 // סימון שהטעינה הושלמה בהצלחה

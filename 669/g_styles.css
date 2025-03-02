@@ -10,8 +10,8 @@
   --grey-color: #4A5568;
   --grey-light: #A0AEC0;
   --bg-color: #F7FAFC;
-  --holiday-color: #FED7D7;
-  --holiday-text: #E53E3E;
+  --holiday-color: #FFF8DC;
+  --holiday-text: #D4AF37;
 }
 
 * {
@@ -582,7 +582,7 @@ th:first-child {
 }
 
 .holiday-cell {
-  background-color: rgba(254, 215, 215, 0.3);
+  background-color: rgba(255, 248, 220, 0.3);
 }
 
 .task-cell {
@@ -615,10 +615,19 @@ th:first-child {
   box-shadow: 0 1px 2px rgba(0,0,0,0.05);
   transition: all 0.2s;
   border-right: 3px solid;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  position: relative;
+  z-index: 1;
 }
 
 .soldier-tag:hover {
   transform: scale(1.05);
+  z-index: 5;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
 
 .soldier-tag .remove-btn {
@@ -729,6 +738,13 @@ input:focus, select:focus {
   border-radius: 0.375rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   padding: 1rem;
+  display: block;
+  width: 100%;
+  position: relative;
+}
+
+.report-container.hidden {
+  display: none !important;
 }
 
 .report-header {
@@ -738,11 +754,28 @@ input:focus, select:focus {
   margin-bottom: 1rem;
   padding-bottom: 0.5rem;
   border-bottom: 1px solid #e5e7eb;
+  width: 100%;
 }
 
 .report-controls {
   display: flex;
   gap: 0.5rem;
+  align-items: center;
+}
+
+.report-content {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.space-y-6 {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.space-y-6 > * {
+  width: 100%;
 }
 
 .report-item {
@@ -830,24 +863,47 @@ input:focus, select:focus {
   width: 12px;
   height: 12px;
 }
-
 .search-icon-container {
   position: absolute;
-  right: 0.5rem;
-  top: 0.375rem;
+  right: 8px; /* שינוי מ-0.5rem ל-8px לדיוק יותר */
+  top: 50%; /* מיקום אנכי במרכז */
+  transform: translateY(-50%); /* גורם לאייקון להיות ממורכז אנכית */
   color: #9ca3af;
+  pointer-events: none; /* מאפשר ללחוץ דרך האייקון על תיבת החיפוש */
+  display: flex; /* משתמש ב-flexbox למיקום */
+  align-items: center; /* מיישר אנכית */
+  justify-content: center; /* מיישר אופקית */
 }
 
+/* התאמת גודל האייקון אם נדרש */
+.search-icon-container .icon {
+  width: 16px;
+  height: 16px; 
+}
+
+/* וידוא שתיבת החיפוש מכילה מרווח מספיק בצד ימין לאייקון */
+#searchInput {
+  padding-right: 32px; /* מרווח מספיק בצד ימין להכיל את האייקון */
+}
 .trash-icon {
   width: 12px;
   height: 12px;
   stroke: #ef4444;
   cursor: pointer;
+  margin-left: 0.25rem;
   margin-right: 0.25rem;
+  display: inline-block;
+  vertical-align: middle;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.7;
 }
 
 .trash-icon:hover {
   stroke: #b91c1c;
+  opacity: 1;
 }
 
 /* התראות */
@@ -855,12 +911,15 @@ input:focus, select:focus {
   position: fixed;
   bottom: 20px;
   right: 20px;
-  padding: 10px 15px;
+  padding: 15px 20px;
   border-radius: 4px;
   z-index: 1000;
-  min-width: 250px;
-  box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+  min-width: 300px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
   animation: slide-in 0.3s ease-out forwards;
+  direction: rtl;
+  text-align: right;
+  font-weight: bold;
 }
 
 .notification-content {
@@ -870,13 +929,48 @@ input:focus, select:focus {
 }
 
 @keyframes slide-in {
-  0% { transform: translateX(100%); opacity: 0; }
-  100% { transform: translateX(0); opacity: 1; }
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
 }
 
 @keyframes fade-out {
-  0% { opacity: 1; }
-  100% { opacity: 0; }
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.notification-error {
+  background-color: #dc2626;
+  color: white;
+  border-right: 5px solid #991b1b;
+}
+
+.notification-success {
+  background-color: #16a34a;
+  color: white;
+  border-right: 5px solid #166534;
+}
+
+.notification-warning {
+  background-color: #f59e0b;
+  color: white;
+  border-right: 5px solid #b45309;
+}
+
+.notification-info {
+  background-color: #2563eb;
+  color: white;
+  border-right: 5px solid #1e40af;
+}
+
+.notification .icon {
+  width: 24px;
+  height: 24px;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+  margin-left: 12px;
 }
 
 /* דיאלוגים */
@@ -890,20 +984,43 @@ input:focus, select:focus {
   border-radius: 0.5rem;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   z-index: 50;
-  width: 90%;
   max-width: 500px;
-  max-height: 80vh;
+  width: 90%;
+  max-height: 90vh;
   overflow-y: auto;
 }
 
-.dialog-overlay {
+/* סגנונות כלליים לדיאלוגים */
+.dialog-container {
   position: fixed;
   top: 0;
+  left: 0;
   right: 0;
   bottom: 0;
-  left: 0;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  direction: rtl;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.dialog-container.hidden {
+  display: none !important;
+}
+
+.dialog-box {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  width: 90%;
+  max-width: 500px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  z-index: 1001;
+  position: relative;
+  overflow: hidden;
 }
 
 .dialog-header {
@@ -911,48 +1028,110 @@ input:focus, select:focus {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1rem;
-  padding-bottom: 0.5rem;
+  padding: 16px;
   border-bottom: 1px solid #e5e7eb;
 }
 
 .dialog-title {
+  font-weight: bold;
   font-size: 1.25rem;
-  font-weight: 600;
-  color: var(--primary-color);
+}
+
+.dialog-content {
+  padding: 16px;
+  overflow-y: auto;
+  flex-grow: 1;
+}
+
+.dialog-footer {
+  padding: 16px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .close-button {
-  background: none;
+  background: transparent;
   border: none;
+  font-size: 24px;
   cursor: pointer;
-  color: var(--grey-color);
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
 }
 
 .close-button:hover {
-  color: var(--primary-color);
+  background-color: #f3f4f6;
 }
 
-.soldiers-selection {
+/* סגנונות לדיאלוג הוספת משימה */
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: bold;
+}
+
+.form-control {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 16px;
+}
+
+/* סגנונות לדיאלוג הוספה מהירה */
+.available-soldiers {
   max-height: 300px;
   overflow-y: auto;
-  margin-bottom: 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  padding: 8px;
 }
 
 .soldier-checkbox {
-  display: flex;
-  align-items: center;
-  margin-bottom: 0.5rem;
-  padding: 0.5rem;
-  border-radius: 0.25rem;
-  transition: background-color 0.2s;
+  margin-bottom: 8px;
+  padding: 4px;
+  border-radius: 4px;
 }
 
 .soldier-checkbox:hover {
-  background-color: #f8f9fa;
+  background-color: #f3f4f6;
 }
 
 .soldier-checkbox input {
-  margin-left: 0.5rem;
+  margin-left: 8px;
+}
+
+/* סגנונות לדיאלוג בחירת סוג שיבוץ */
+.assignment-type-dialog {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  width: 90%;
+  max-width: 400px;
+  padding: 16px;
+}
+
+.assignment-type-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* התאמה למובייל */
+@media (max-width: 640px) {
+  .quick-add-dialog {
+      padding: 1rem;
+      width: 95%;
+  }
 }
 
 /* התאמה למסכים שונים */
@@ -1044,4 +1223,69 @@ input:focus, select:focus {
   .mobile-device .soldier-card {
       touch-action: none;
   }
+}
+
+/* סגנונות למסך טעינה */
+.loading-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(255, 255, 255, 0.9);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    transition: opacity 0.5s ease;
+}
+
+.loading-spinner {
+    width: 50px;
+    height: 50px;
+    border: 5px solid #f3f3f3;
+    border-top: 5px solid #2563eb;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 20px;
+}
+
+.loading-text {
+    font-size: 18px;
+    font-weight: bold;
+    color: #2563eb;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+/* סגנונות להערות שבועיות */
+.weekly-notes-container {
+  background-color: #f8f9fa;
+  border-radius: 0.375rem;
+  padding: 1rem;
+  margin-top: 1rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.weekly-notes-display {
+  min-height: 80px;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+.weekly-notes-display.empty {
+  color: #9ca3af;
+  font-style: italic;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.weekly-notes-form textarea {
+  resize: vertical;
+  min-height: 100px;
+  font-family: 'Rubik', sans-serif;
 }
