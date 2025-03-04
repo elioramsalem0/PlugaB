@@ -571,7 +571,7 @@ async function handleLogout() {
 }
 
 
-// פונקציה לשיבוץ חיילים ליום מסוים
+// פונקציה משופרת לשיבוץ חיילים ליום מסוים
 async function assignSoldiersToDay(taskId, dateStr, soldierIds) {
   console.log("מתחיל שיבוץ חיילים:", {
     taskId: taskId,
@@ -579,113 +579,127 @@ async function assignSoldiersToDay(taskId, dateStr, soldierIds) {
     soldierIds: soldierIds
   });
   
-  // בדיקה שהפרמטרים תקינים
-  if (!taskId || !dateStr || !soldierIds || !Array.isArray(soldierIds)) {
+  // וידוא שהפרמטרים תקינים
+  if (!taskId || !dateStr || !soldierIds || !Array.isArray(soldierIds) || soldierIds.length === 0) {
     console.error("שגיאה: פרמטרים חסרים או לא תקינים לשיבוץ", {
       taskId: taskId,
       dateStr: dateStr,
       soldierIds: soldierIds
     });
-    return { success: false, addedCount: 0 };
+    return { success: false, addedCount: 0, error: "פרמטרים לא תקינים" };
   }
   
-  // בדיקה נוספת שהמערך לא ריק
-  if (soldierIds.length === 0) {
-    console.error("שגיאה: מערך החיילים ריק");
-    return { success: false, addedCount: 0 };
-  }
-
-  // חיפוש אם כבר קיים שיבוץ למשימה זו בתאריך זה
-  const existingAssignment = assignments.find(
-    a => a.taskId === taskId && a.date === dateStr
-  );
-
-  if (existingAssignment) {
-    // עדכון שיבוץ קיים - הוספת חיילים שלא משובצים כבר
-    const newSoldiers = soldierIds.filter(id => 
-      !existingAssignment.soldierIds.includes(id) && !hasConflict(id, dateStr)
+  try {
+    // נרמול המזהים
+    const normalizedTaskId = normalizeId(taskId);
+    const normalizedSoldierIds = normalizeIds(soldierIds);
+    
+    // וידוא שיש חיילים לשיבוץ אחרי הנרמול
+    if (normalizedSoldierIds.length === 0) {
+      console.error("שגיאה: אין חיילים תקינים לשיבוץ");
+      return { success: false, addedCount: 0, error: "אין חיילים תקינים לשיבוץ" };
+    }
+    
+    // חיפוש שיבוץ קיים - עם וידוא שלא יסתמך על עיצוב אובייקט האוסף
+    const existingAssignment = assignments.find(a => 
+      normalizeId(a.taskId) === normalizedTaskId && a.date === dateStr
     );
     
-    console.log("חיילים חדשים להוספה:", newSoldiers);
-    
-    if (newSoldiers.length > 0) {
-      try {
-        // עדכון המסמך בפיירסטור
-        const assignmentRef = doc(db, "assignments", existingAssignment.id);
-        const updatedSoldierIds = [...existingAssignment.soldierIds, ...newSoldiers];
-        
-        await updateDoc(assignmentRef, {
-          soldierIds: updatedSoldierIds,
-          updatedAt: serverTimestamp(),
-          updatedBy: currentUser ? currentUser.uid : 'anonymous'
-        });
-        
-        console.log("שיבוץ עודכן עם חיילים:", updatedSoldierIds);
-        
-        // עדכון המערך המקומי
-        const index = assignments.findIndex(a => a.id === existingAssignment.id);
-        if (index !== -1) {
-          assignments[index] = {
-            ...existingAssignment,
-            soldierIds: updatedSoldierIds
+    if (existingAssignment) {
+      // עדכון שיבוץ קיים - הוספת חיילים שלא משובצים כבר
+      const existingSoldierIds = existingAssignment.soldierIds || [];
+      const normalizedExistingSoldierIds = normalizeIds(existingSoldierIds);
+      
+      // מניעת שיבוץ כפול וחיפוש התנגשויות
+      const newSoldiers = normalizedSoldierIds.filter(id => 
+        !normalizedExistingSoldierIds.includes(id) && !hasConflict(id, dateStr)
+      );
+      
+      console.log("חיילים חדשים להוספה:", newSoldiers);
+      
+      if (newSoldiers.length > 0) {
+        try {
+          // עדכון המסמך בפיירסטור
+          const assignmentRef = doc(db, "assignments", existingAssignment.id);
+          const updatedSoldierIds = [...normalizedExistingSoldierIds, ...newSoldiers];
+          
+          await updateDoc(assignmentRef, {
+            soldierIds: updatedSoldierIds,
+            updatedAt: serverTimestamp(),
+            updatedBy: currentUser ? normalizeId(currentUser.uid) : 'anonymous'
+          });
+          
+          console.log("שיבוץ עודכן עם חיילים:", updatedSoldierIds);
+          
+          // עדכון המערך המקומי במקביל
+          const index = assignments.findIndex(a => a.id === existingAssignment.id);
+          if (index !== -1) {
+            assignments[index] = {
+              ...existingAssignment,
+              soldierIds: updatedSoldierIds
+            };
+          }
+          
+          return { success: true, addedCount: newSoldiers.length };
+        } catch (error) {
+          console.error("שגיאה בעדכון שיבוץ:", error);
+          return { success: false, addedCount: 0, error: error.message };
+        }
+      } else {
+        return { success: true, addedCount: 0 };
+      }
+    } else {
+      // יצירת שיבוץ חדש - בדיקת חיילים זמינים
+      const availableSoldiers = normalizedSoldierIds.filter(id => !hasConflict(id, dateStr));
+      
+      console.log("חיילים זמינים לשיבוץ חדש:", availableSoldiers);
+      
+      if (availableSoldiers.length > 0) {
+        try {
+          // וידוא שהמשתמש מחובר
+          if (!currentUser) {
+            console.error("שגיאה: אין משתמש מחובר");
+            return { success: false, addedCount: 0, error: "נדרשת התחברות למערכת" };
+          }
+          
+          // הוספת מסמך חדש לפיירסטור
+          const docRef = await addDoc(collection(db, "assignments"), {
+            taskId: normalizedTaskId,
+            date: dateStr,
+            soldierIds: availableSoldiers,
+            createdAt: serverTimestamp(),
+            createdBy: normalizeId(currentUser.uid)
+          });
+          
+          console.log("נוצר שיבוץ חדש עם ID:", docRef.id);
+          
+          // הוספת השיבוץ החדש למערך המקומי - יש מעקב אחר הוספה בזמן אמת
+          // עם זאת, נעשה גם עדכון מקומי מיידי למקרה שהאזנה לפיירסטור איטית
+          const newAssignment = {
+            id: normalizeId(docRef.id),
+            taskId: normalizedTaskId,
+            date: dateStr,
+            soldierIds: availableSoldiers
           };
+          
+          assignments.push(newAssignment);
+          
+          return { success: true, addedCount: availableSoldiers.length };
+        } catch (error) {
+          console.error("שגיאה ביצירת שיבוץ חדש:", error);
+          return { success: false, addedCount: 0, error: error.message };
         }
-        
-        return { success: true, addedCount: newSoldiers.length };
-      } catch (error) {
-        console.error("שגיאה בעדכון שיבוץ:", error);
-        return { success: false, addedCount: 0, error: error };
+      } else {
+        return { success: true, addedCount: 0 };
       }
-    } else {
-      return { success: true, addedCount: 0 };
     }
-  } else {
-    // יצירת שיבוץ חדש
-    const availableSoldiers = soldierIds.filter(id => !hasConflict(id, dateStr));
-    
-    console.log("חיילים זמינים לשיבוץ חדש:", availableSoldiers);
-    
-    if (availableSoldiers.length > 0) {
-      try {
-        // וידוא שהמשתמש מחובר
-        if (!currentUser) {
-          console.error("שגיאה: אין משתמש מחובר");
-          return { success: false, addedCount: 0 };
-        }
-        
-        // הוספת מסמך חדש לפיירסטור - עם וידוא שהמערך לא ריק
-        const docRef = await addDoc(collection(db, "assignments"), {
-          taskId: taskId,
-          date: dateStr,
-          soldierIds: availableSoldiers,
-          createdAt: serverTimestamp(),
-          createdBy: currentUser.uid
-        });
-        
-        console.log("נוצר שיבוץ חדש עם ID:", docRef.id);
-        
-        // הוספת השיבוץ החדש למערך המקומי
-        const newAssignment = {
-          id: docRef.id,
-          taskId: taskId,
-          date: dateStr,
-          soldierIds: availableSoldiers
-        };
-        
-        assignments.push(newAssignment);
-        
-        return { success: true, addedCount: availableSoldiers.length };
-      } catch (error) {
-        console.error("שגיאה ביצירת שיבוץ חדש:", error);
-        return { success: false, addedCount: 0, error: error };
-      }
-    } else {
-      return { success: true, addedCount: 0 };
-    }
+  } catch (error) {
+    console.error("שגיאה כללית בתהליך השיבוץ:", error);
+    return { success: false, addedCount: 0, error: error.message };
   }
 }
 
-// פונקציה לבדיקה אם יש התנגשות (חייל משובץ ליום זה)
+// פונקציה משופרת לבדיקת התנגשויות (חייל משובץ ליום זה)
 function hasConflict(soldierId, dateStr) {
   // בדיקה שה-ID תקין
   if (!soldierId) {
@@ -699,65 +713,89 @@ function hasConflict(soldierId, dateStr) {
     return false;
   }
   
+  // נרמול ה-ID
+  const normalizedId = normalizeId(soldierId);
+  
+  // בדיקת כל השיבוצים בתאריך הנתון
   return assignments.some(assignment => 
     assignment.date === dateStr && 
     assignment.soldierIds && 
     Array.isArray(assignment.soldierIds) &&
-    assignment.soldierIds.includes(soldierId)
+    assignment.soldierIds.some(id => normalizeId(id) === normalizedId)
   );
 }
 
-// פונקציה להסרת חייל ממשימה
+// פונקציה משופרת להסרת חייל ממשימה
 async function handleRemoveSoldierFromTask(assignmentId, soldierId) {
-if (userRole !== 'admin') {
-  showNotification('רק מנהל יכול להסיר חיילים ממשימה', 'error');
-  return;
+  if (userRole !== 'admin') {
+    showNotification('רק מנהל יכול להסיר חיילים ממשימה', 'error');
+    return;
+  }
+
+  try {
+    const normalizedAssignmentId = normalizeId(assignmentId);
+    const normalizedSoldierId = normalizeId(soldierId);
+    
+    const assignmentRef = doc(db, "assignments", normalizedAssignmentId);
+    
+    // קבלת השיבוץ העדכני
+    const assignmentDoc = await getDoc(assignmentRef);
+    
+    if (assignmentDoc.exists()) {
+      const assignmentData = assignmentDoc.data();
+      
+      // וידוא שיש מערך חיילים
+      if (!assignmentData.soldierIds || !Array.isArray(assignmentData.soldierIds)) {
+        console.error("מערך חיילים חסר או לא תקין בשיבוץ:", normalizedAssignmentId);
+        return;
+      }
+      
+      // נרמול כל מערך החיילים והסרת החייל המבוקש
+      const soldierIds = normalizeIds(assignmentData.soldierIds);
+      const updatedSoldierIds = soldierIds.filter(id => id !== normalizedSoldierId);
+      
+      if (updatedSoldierIds.length === 0) {
+        // אם השיבוץ ריק, נמחק אותו לגמרי
+        await deleteDoc(assignmentRef);
+        
+        // עדכון המערך המקומי - הסרת השיבוץ
+        const index = assignments.findIndex(a => normalizeId(a.id) === normalizedAssignmentId);
+        if (index !== -1) {
+          assignments.splice(index, 1);
+        }
+        
+        console.log("נמחק שיבוץ ריק:", normalizedAssignmentId);
+      } else {
+        // עדכון השיבוץ עם רשימת החיילים המעודכנת
+        await updateDoc(assignmentRef, {
+          soldierIds: updatedSoldierIds,
+          updatedAt: serverTimestamp(),
+          updatedBy: currentUser ? normalizeId(currentUser.uid) : 'anonymous'
+        });
+        
+        // עדכון המערך המקומי
+        const index = assignments.findIndex(a => normalizeId(a.id) === normalizedAssignmentId);
+        if (index !== -1) {
+          assignments[index].soldierIds = updatedSoldierIds;
+        }
+        
+        console.log("הוסר חייל משיבוץ:", normalizedSoldierId);
+      }
+      
+      // רינדור מחדש של הלוח
+      renderCalendar();
+      
+      showNotification('החייל הוסר מהמשימה', 'info');
+    } else {
+      console.error("לא נמצא שיבוץ עם ID:", normalizedAssignmentId);
+      showNotification('לא נמצא שיבוץ להסרת החייל', 'error');
+    }
+  } catch (error) {
+    console.error("שגיאה בהסרת חייל ממשימה:", error);
+    showNotification('אירעה שגיאה בהסרת החייל מהמשימה', 'error');
+  }
 }
 
-try {
-  const assignmentRef = doc(db, "assignments", assignmentId);
-  
-  // קבלת השיבוץ העדכני
-  const assignmentDoc = await getDoc(assignmentRef);
-  
-  if (assignmentDoc.exists()) {
-    const assignmentData = assignmentDoc.data();
-    const updatedSoldierIds = assignmentData.soldierIds.filter(id => id !== soldierId);
-    
-    if (updatedSoldierIds.length === 0) {
-      // אם השיבוץ ריק, נמחק אותו לגמרי
-      await deleteDoc(assignmentRef);
-      
-      // עדכון המערך המקומי - הסרת השיבוץ
-      const index = assignments.findIndex(a => a.id === assignmentId);
-      if (index !== -1) {
-        assignments.splice(index, 1);
-      }
-    } else {
-      // עדכון השיבוץ עם רשימת החיילים המעודכנת
-      await updateDoc(assignmentRef, {
-        soldierIds: updatedSoldierIds,
-        updatedAt: serverTimestamp(),
-        updatedBy: currentUser.uid
-      });
-      
-      // עדכון המערך המקומי
-      const index = assignments.findIndex(a => a.id === assignmentId);
-      if (index !== -1) {
-        assignments[index].soldierIds = updatedSoldierIds;
-      }
-    }
-    
-    // רינדור מחדש של הלוח
-    renderCalendar();
-    
-    showNotification('החייל הוסר מהמשימה', 'info');
-  }
-} catch (error) {
-  console.error("שגיאה בהסרת חייל ממשימה:", error);
-  showNotification('אירעה שגיאה בהסרת החייל מהמשימה', 'error');
-}
-}
 
 // -------------------------------------
 // פונקציות ניהול חיילים
@@ -1036,7 +1074,9 @@ const role = roleSelect.value;
 
 if (firstName) {
   try {
-    const soldierRef = doc(db, "soldiers", soldierId);
+    // וידוא שה-ID הוא מחרוזת
+    const normalizedId = normalizeId(soldierId);
+    const soldierRef = doc(db, "soldiers", normalizedId);
     
     await updateDoc(soldierRef, {
       firstName,
@@ -1047,9 +1087,9 @@ if (firstName) {
     });
     
     editingSoldierId = null;
+    renderSoldiers(); // רינדור מחדש של רשימת החיילים
     showNotification('פרטי החייל עודכנו בהצלחה!', 'success');
     
-    // רינדור מחדש יקרה אוטומטית עקב המאזין לשינויים
   } catch (error) {
     console.error("שגיאה בעדכון חייל:", error);
     showNotification('אירעה שגיאה בעדכון פרטי החייל', 'error');
@@ -1109,121 +1149,323 @@ let mobileDragElement = null;
 
 // פונקציה להגדרת גרירה במגע למובייל
 function setupMobileDragTouch(element, soldierId) {
-let touchStartX = 0;
-let touchStartY = 0;
-let touchTimeStart = 0;
-let isDragging = false;
-
-element.addEventListener('touchstart', function(e) {
-  touchStartX = e.touches[0].clientX;
-  touchStartY = e.touches[0].clientY;
-  touchTimeStart = Date.now();
-  
-  // בטלפון נצטרך להמתין קצת כדי להבדיל בין גרירה וסקרול
-  setTimeout(() => {
-    if (!isDragging && Date.now() - touchTimeStart > 200) {
-      // התחלת גרירה
-      mobileDraggedSoldierId = soldierId;
-      element.classList.add('dragging');
-      
-      // יצירת אלמנט הנגרר
-      if (!mobileDragElement) {
-        mobileDragElement = document.createElement('div');
-        mobileDragElement.className = 'mobile-drag-indicator';
-        mobileDragElement.textContent = 'גורר חייל...';
-        document.body.appendChild(mobileDragElement);
-      }
-    }
-  }, 200);
-});
-
-element.addEventListener('touchmove', function(e) {
-  if (mobileDraggedSoldierId !== null) {
-    isDragging = true;
-    
-    // עדכון מיקום האינדיקטור
-    if (mobileDragElement) {
-      mobileDragElement.style.top = (e.touches[0].clientY - 30) + 'px';
-      mobileDragElement.style.left = (e.touches[0].clientX - 50) + 'px';
-      mobileDragElement.classList.add('visible');
-    }
-    
-    // בדיקה אם נמצאים מעל תא בלוח
-    const taskCells = document.querySelectorAll('.task-cell');
-    let hoveredCell = null;
-    
-    taskCells.forEach(cell => {
-      const rect = cell.getBoundingClientRect();
-      if (
-        e.touches[0].clientX >= rect.left && 
-        e.touches[0].clientX <= rect.right && 
-        e.touches[0].clientY >= rect.top && 
-        e.touches[0].clientY <= rect.bottom
-      ) {
-        hoveredCell = cell;
-        cell.classList.add('bg-blue-50');
-      } else {
-        cell.classList.remove('bg-blue-50');
-      }
-    });
-  }
-});
-
-element.addEventListener('touchend', function(e) {
-  if (mobileDraggedSoldierId !== null && isDragging) {
-    // בדיקה אם נמצאים מעל תא בלוח
-    const taskCells = document.querySelectorAll('.task-cell');
-    let targetCell = null;
-    
-    const lastTouch = e.changedTouches[0];
-    
-    taskCells.forEach(cell => {
-      const rect = cell.getBoundingClientRect();
-      if (
-        lastTouch.clientX >= rect.left && 
-        lastTouch.clientX <= rect.right && 
-        lastTouch.clientY >= rect.top && 
-        lastTouch.clientY <= rect.bottom
-      ) {
-        targetCell = cell;
-      }
-      cell.classList.remove('bg-blue-50');
-    });
-    
-    if (targetCell && userRole === 'admin') {
-      // שיבוץ החייל לתא
-      const taskId = targetCell.dataset.taskId;
-      const dateStr = targetCell.dataset.date;
-      
-      // שמירת המידע הנוכחי עבור הדיאלוג
-      currentQuickAdd.taskId = taskId;
-      currentQuickAdd.date = dateStr;
-      currentQuickAdd.selectedSoldiers = [mobileDraggedSoldierId];
-      
-      // פתיחת דיאלוג בחירת סוג השיבוץ
-      document.getElementById('assignmentTypeDialog').classList.remove('hidden');
-    }
-    
-    // ניקוי
-    if (mobileDragElement) {
-      mobileDragElement.classList.remove('visible');
-      setTimeout(() => {
-        if (mobileDragElement) {
-          mobileDragElement.remove();
-          mobileDragElement = null;
-        }
-      }, 300);
-    }
+  // בדיקה שהפרמטרים תקינים
+  if (!element || !soldierId) {
+    console.error("פרמטרים חסרים לפונקציית setupMobileDragTouch");
+    return;
   }
   
-  element.classList.remove('dragging');
-  mobileDraggedSoldierId = null;
-  isDragging = false;
-});
+  // המרת מזהה החייל למחרוזת
+  const normalizedId = normalizeId(soldierId);
+  
+  // משתנים לניהול המצב
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let touchTimeStart = 0;
+  let isDragging = false;
+  let longTouchTimer = null;
+  
+  // יצירת אינדיקטור גרירה אם לא קיים
+  if (!document.getElementById('mobileDragIndicator')) {
+    const indicator = document.createElement('div');
+    indicator.id = 'mobileDragIndicator';
+    indicator.className = 'mobile-drag-indicator';
+    indicator.textContent = 'גורר חייל...';
+    document.body.appendChild(indicator);
+  }
+  
+  // מאזין לאירוע התחלת מגע
+  element.addEventListener('touchstart', function(e) {
+    // שמירת מיקום התחלתי
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+    touchTimeStart = Date.now();
+    
+    // איפוס דגלים
+    isDragging = false;
+    
+    // הגדרת טיימר לזיהוי לחיצה ארוכה
+    longTouchTimer = setTimeout(() => {
+      // במידה והלחיצה ארוכה מספיק, נסמן התחלת גרירה
+      if (!isDragging) {
+        startMobileDrag(normalizedId, element);
+      }
+    }, 500); // זיהוי לחיצה ארוכה אחרי חצי שנייה
+  }, { passive: false });
+  
+  // מאזין לאירוע תזוזת מגע
+  element.addEventListener('touchmove', function(e) {
+    // אם התחילה גרירה
+    if (mobileDraggedSoldierId !== null) {
+      // מניעת גלילת העמוד
+      e.preventDefault();
+      
+      // סימון שישנה גרירה פעילה
+      isDragging = true;
+      
+      // עדכון מיקום אינדיקטור הגרירה
+      updateDragIndicator(e.touches[0].clientX, e.touches[0].clientY);
+      
+      // בדיקה אם נמצאים מעל תא
+      highlightTargetCell(e.touches[0].clientX, e.touches[0].clientY);
+    }
+  }, { passive: false });
+  
+  // מאזין לאירוע סיום מגע
+  element.addEventListener('touchend', function(e) {
+    // ביטול הטיימר ללחיצה ארוכה
+    if (longTouchTimer) {
+      clearTimeout(longTouchTimer);
+      longTouchTimer = null;
+    }
+    
+    // אם הייתה גרירה פעילה
+    if (mobileDraggedSoldierId !== null && isDragging) {
+      // בדיקה אם השחרור היה מעל תא
+      const targetCell = findTargetCell(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+      
+      if (targetCell && userRole === 'admin') {
+        // שיבוץ החייל לתא
+        processMobileDrop(targetCell);
+      }
+      
+      // ניקוי מצב הגרירה
+      endMobileDrag();
+    }
+    
+    // איפוס דגלים
+    isDragging = false;
+  }, { passive: false });
+  
+  // מאזין לביטול אירוע מגע
+  element.addEventListener('touchcancel', function() {
+    // ביטול הטיימר ללחיצה ארוכה
+    if (longTouchTimer) {
+      clearTimeout(longTouchTimer);
+      longTouchTimer = null;
+    }
+    
+    // ניקוי מצב הגרירה
+    endMobileDrag();
+    
+    // איפוס דגלים
+    isDragging = false;
+  }, { passive: false });
 }
+
+// פונקציה להתחלת גרירה במובייל
+function startMobileDrag(soldierId, element) {
+  console.log("מתחיל גרירה במובייל:", soldierId);
+  
+  // שמירת מזהה החייל הנגרר
+  mobileDraggedSoldierId = soldierId;
+  
+  // הוספת סגנון חזותי לאלמנט הנגרר
+  element.classList.add('dragging');
+  
+  // הצגת אינדיקטור הגרירה
+  const indicator = document.getElementById('mobileDragIndicator');
+  if (indicator) {
+    // עדכון טקסט האינדיקטור עם שם החייל
+    const soldierName = getSoldierName(soldierId);
+    indicator.textContent = `גורר: ${soldierName}`;
+    
+    // הצגת האינדיקטור
+    indicator.classList.add('visible');
+  }
+  
+  // הודעה למשתמש
+  navigator.vibrate?.(50); // רטט קצר אם נתמך בדפדפן
+}
+
+// פונקציה לעדכון מיקום אינדיקטור הגרירה
+function updateDragIndicator(x, y) {
+  const indicator = document.getElementById('mobileDragIndicator');
+  if (indicator) {
+    indicator.style.top = (y - 30) + 'px';
+    indicator.style.left = (x - 50) + 'px';
+  }
+}
+
+// פונקציה להדגשת תא יעד
+function highlightTargetCell(x, y) {
+  // איפוס הדגשות קודמות
+  document.querySelectorAll('.task-cell').forEach(cell => {
+    cell.classList.remove('bg-blue-50');
+  });
+  
+  // חיפוש התא שנמצא תחת מיקום המגע
+  const targetCell = findTargetCell(x, y);
+  
+  // הדגשת התא אם נמצא
+  if (targetCell) {
+    targetCell.classList.add('bg-blue-50');
+  }
+}
+
+// פונקציה למציאת תא יעד
+function findTargetCell(x, y) {
+  let targetCell = null;
+  
+  document.querySelectorAll('.task-cell').forEach(cell => {
+    const rect = cell.getBoundingClientRect();
+    if (
+      x >= rect.left && 
+      x <= rect.right && 
+      y >= rect.top && 
+      y <= rect.bottom
+    ) {
+      targetCell = cell;
+    }
+  });
+  
+  return targetCell;
+}
+
+// פונקציה לעיבוד שחרור גרירה במובייל
+function processMobileDrop(targetCell) {
+  if (!targetCell || !mobileDraggedSoldierId) return;
+  
+  // קבלת נתוני התא
+  const taskId = targetCell.dataset.taskId;
+  const dateStr = targetCell.dataset.date;
+  
+  if (!taskId || !dateStr) {
+    console.error("נתוני התא חסרים:", targetCell);
+    return;
+  }
+  
+  // שמירת המידע הנוכחי עבור הדיאלוג
+  currentQuickAdd.taskId = taskId;
+  currentQuickAdd.date = dateStr;
+  currentQuickAdd.selectedSoldiers = [mobileDraggedSoldierId];
+  
+  console.log("שחרור גרירה במובייל:", {
+    taskId: taskId,
+    date: dateStr,
+    soldierId: mobileDraggedSoldierId
+  });
+  
+  // פתיחת דיאלוג בחירת סוג השיבוץ
+  document.getElementById('assignmentTypeDialog')?.classList.remove('hidden');
+  document.getElementById('assignmentTypeDialog').style.display = 'flex';
+}
+
+// פונקציה לסיום גרירה במובייל
+function endMobileDrag() {
+  // איפוס הדגשות תאים
+  document.querySelectorAll('.task-cell').forEach(cell => {
+    cell.classList.remove('bg-blue-50');
+  });
+  
+  // הסרת סגנון גרירה מהאלמנט המקורי
+  const draggedElement = document.getElementById(`soldier-${mobileDraggedSoldierId}`);
+  if (draggedElement) {
+    draggedElement.classList.remove('dragging');
+  }
+  
+  // הסתרת אינדיקטור הגרירה
+  const indicator = document.getElementById('mobileDragIndicator');
+  if (indicator) {
+    indicator.classList.remove('visible');
+  }
+  
+  // איפוס מזהה החייל הנגרר
+  mobileDraggedSoldierId = null;
+}
+
+
+
+// פונקציה להתאמת פריסת הממשק למובייל
+function adjustMobileLayout() {
+  // התאמת גודל פונט וכפתורים
+  if (window.innerWidth < 480) {
+    document.documentElement.style.fontSize = '14px';
+    
+    // הקטנת רווחים בטבלה
+    document.querySelectorAll('th, td').forEach(cell => {
+      cell.style.padding = '0.25rem';
+    });
+    
+    // התאמת כפתורים
+    document.querySelectorAll('.button').forEach(button => {
+      button.classList.add('button-sm');
+    });
+  }
+  
+  // בדיקה אם המסך צר במיוחד ומעבר לתצוגה מצומצמת
+  if (window.innerWidth < 360) {
+    document.querySelectorAll('.calendar-header').forEach(header => {
+      header.style.flexDirection = 'column';
+      header.style.gap = '0.5rem';
+    });
+  }
+}
+
+// פונקציה להגדרת מאזינים למגע במובייל
+function setupMobileTouchHandlers() {
+  // מניעת זום לא רצוי
+  document.addEventListener('touchmove', function(e) {
+    if (e.touches.length > 1) {
+      // מניעת מולטי-טאץ' בזמן גרירה
+      if (mobileDraggedSoldierId !== null) {
+        e.preventDefault();
+      }
+    }
+  }, { passive: false });
+  
+  // טיפול בשגיאות מגע
+  document.addEventListener('touchcancel', function() {
+    // ניקוי מצב הגרירה במקרה של ביטול מגע
+    if (mobileDraggedSoldierId !== null) {
+      endMobileDrag();
+    }
+  });
+}
+
+
+
+// פונקציה המגיבה לשינויי גודל מסך
+function handleResize() {
+  // התאמות לגודל המסך הנוכחי
+  adjustMobileLayout();
+  
+  // רינדור מחדש של לוח השנה עם התאמות גודל תאים
+  renderCalendar();
+}
+
+// הוספת מאזין לשינוי גודל חלון
+window.addEventListener('resize', function() {
+  // דחיית פעולות כבדות בעת שינוי גודל
+  if (this.resizeTimer) clearTimeout(this.resizeTimer);
+  this.resizeTimer = setTimeout(handleResize, 300);
+});
 
 // -------------------------------------
 // פונקציות דוחות
+// לוגיקה לתפריט נפתח של דוחות
+document.addEventListener('DOMContentLoaded', () => {
+  const reportsDropdownBtn = document.getElementById('reportsDropdownBtn');
+  const reportsDropdown = document.getElementById('reportsDropdown');
+
+  // פתיחה וסגירה של התפריט הנפתח
+  reportsDropdownBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      reportsDropdown.classList.toggle('hidden');
+  });
+
+  // סגירת התפריט בלחיצה מחוץ לתפריט
+  document.addEventListener('click', (e) => {
+      if (!reportsDropdown.contains(e.target) && !reportsDropdownBtn.contains(e.target)) {
+          reportsDropdown.classList.add('hidden');
+      }
+  });
+
+  // מניעת סגירת התפריט בלחיצה על פריט בתפריט
+  reportsDropdown.addEventListener('click', (e) => {
+      e.stopPropagation();
+  });
+});
 // -------------------------------------
 // יש להוסיף אחרי toggleReportView כדי לקרוא לפונקציית הדיבוג
 function toggleReportView(reportType) {
@@ -1317,129 +1559,22 @@ function createNormalizedSoldiersMap() {
     return soldiersMap; // החזר אובייקט רגיל
 }
 
-// פונקציה לקבלת שם חייל (ללא HTML)
-function getSoldierName(soldierId) {
-  if (!soldierId) return 'שם לא זמין';
-  
-  // המרה למחרוזת של ה-ID לצורך השוואה עקבית
-  const stringId = String(soldierId);
-  
-  // 1. ננסה קודם כל למצוא במאגר הגלובלי - עם המזהה המקורי
-  let nameFromMap = soldierNamesMap[soldierId];
-  if (nameFromMap) return nameFromMap;
-  
-  // 2. ננסה למצוא במאגר הגלובלי - עם המזהה כמחרוזת
-  nameFromMap = soldierNamesMap[stringId];
-  if (nameFromMap) return nameFromMap;
-  
-  // 3. אם המזהה הוא מספרי, ננסה להמיר אותו למחרוזת ולחפש שוב
-  if (typeof soldierId === 'number') {
-    nameFromMap = soldierNamesMap[stringId];
-    if (nameFromMap) return nameFromMap;
-  }
-  
-  // 4. אם המזהה הוא מחרוזת, ננסה להמיר אותו למספר ולחפש שוב
-  if (typeof soldierId === 'string' && !isNaN(Number(soldierId))) {
-    nameFromMap = soldierNamesMap[Number(soldierId)];
-    if (nameFromMap) return nameFromMap;
-  }
-  
-  // 5. אם לא נמצא במאגר, ננסה לחפש ישירות במערך החיילים
-  console.log(`חיפוש מורחב עבור חייל עם ID: ${soldierId}`);
-  
-  // 5.1 חיפוש עם השוואה רגילה
-  let directSoldier = soldiers.find(s => s.id === soldierId);
-  
-  // 5.2 חיפוש עם השוואת מחרוזות
-  if (!directSoldier) {
-    directSoldier = soldiers.find(s => String(s.id) === stringId);
-  }
-  
-  // 5.3 חיפוש עם השוואה של מספרים (למקרה שהמזהה הוא מחרוזת מספרית)
-  if (!directSoldier && typeof soldierId === 'string' && !isNaN(Number(soldierId))) {
-    directSoldier = soldiers.find(s => s.id === Number(soldierId) || Number(s.id) === Number(soldierId));
-  }
-  
-  if (directSoldier) {
-    const fullName = `${directSoldier.firstName || ''} ${directSoldier.lastName || ''}`.trim();
-    
-    // נעדכן את המאגר הגלובלי עם השם שמצאנו
-    soldierNamesMap[soldierId] = fullName;
-    soldierNamesMap[stringId] = fullName;
-    if (!isNaN(Number(soldierId))) {
-      soldierNamesMap[Number(soldierId)] = fullName;
-    }
-    
-    console.log(`נמצא שם בחיפוש מורחב: ${fullName} עבור ID: ${soldierId}`);
-    return fullName;
-  }
-  
-  // 6. נסיון אחרון - חיפוש בכל השיבוצים למקרה שיש איזכור של השם בשיבוץ אחר
-  if (assignments && assignments.length > 0) {
-    for (const assignment of assignments) {
-      if (assignment.soldierNames && assignment.soldierNames[soldierId]) {
-        const nameFromAssignment = assignment.soldierNames[soldierId];
-        console.log(`נמצא שם בשיבוץ: ${nameFromAssignment} עבור ID: ${soldierId}`);
-        
-        // עדכון המאגר הגלובלי
-        soldierNamesMap[soldierId] = nameFromAssignment;
-        soldierNamesMap[stringId] = nameFromAssignment;
-        
-        return nameFromAssignment;
-      }
-    }
-  }
-  
-  console.warn(`לא נמצא שם לחייל עם ID: ${soldierId}`);
-  return 'שם לא זמין';
-}
-
-// פונקציה משופרת לקבלת HTML לשם חייל
-function getSoldierNameSpan(soldierId, soldiersMap) {
-    if (!soldierId) return '';
-    
-    // אם לא התקבלה מפה, ניצור אחת
-    if (!soldiersMap) {
-        soldiersMap = createNormalizedSoldiersMap();
-    }
-    
-    // בדיקה אם soldiersMap הוא Map או אובייקט רגיל
-    const isMapObject = soldiersMap instanceof Map;
-    
-    let soldier;
-    if (isMapObject) {
-        // אם זה Map, השתמש בפונקציה get
-        soldier = soldiersMap.get(soldierId) || soldiersMap.get(String(soldierId));
-    } else {
-        // אם זה אובייקט רגיל
-        soldier = soldiersMap[soldierId] || soldiersMap[String(soldierId)];
-    }
-    
-    if (soldier) {
-        return `<span class="${soldier.role || ''}">${soldier.firstName || ''} ${soldier.lastName || ''}</span>`;
-    }
-    
-    // נסיון אחרון - חיפוש ישיר במערך
-    const directSoldier = soldiers.find(s => 
-        s.id === soldierId || String(s.id) === String(soldierId)
-    );
-    
-    if (directSoldier) {
-        return `<span class="${directSoldier.role || ''}">${directSoldier.firstName || ''} ${directSoldier.lastName || ''}</span>`;
-    }
-    
-    return '';
-}
 
 // הטמעה ישירה של פתרון הדוחות - להחלפה מלאה של הפונקציות הקיימות
 
 // פונקציה לרינדור דוח יומי - חדש לגמרי
+// פונקציה משופרת לרינדור דוח יומי
 function renderReport() {
   console.log("מפיק דוח יומי משופר...");
   
-  // בדיקת נתונים בסיסית
-  console.log("מספר משימות במערכת:", tasks ? tasks.length : 0);
-  console.log("דוגמה למשימה ראשונה:", tasks && tasks.length > 0 ? tasks[0] : null);
+  // בדיקה בסיסית שיש נתונים
+  if (!tasks || !tasks.length) {
+    console.warn("אין משימות במערכת להצגה בדוח");
+  }
+  
+  if (!assignments || !assignments.length) {
+    console.warn("אין שיבוצים במערכת להצגה בדוח");
+  }
   
   const reportContent = document.getElementById('reportContent');
   if (!reportContent) {
@@ -1447,9 +1582,10 @@ function renderReport() {
     return;
   }
   
+  // איפוס תוכן הדוח
   reportContent.innerHTML = '';
   
-  // טעינה מחדש של מאגר השמות לפני הרינדור
+  // וידוא שמאגר השמות טעון
   loadSoldierNamesMap();
   
   // כותרת הדוח
@@ -1467,25 +1603,15 @@ function renderReport() {
   reportContent.appendChild(dateDisplay);
   
   // חיפוש שיבוצים של היום
-  const todayAssignments = assignments.filter(a => {
-    const isMatch = a.date === todayISOString;
-    console.log("בדיקת שיבוץ:", {
-      assignmentId: a.id,
-      taskId: a.taskId,
-      taskIdType: typeof a.taskId,
-      date: a.date,
-      todayDate: todayISOString,
-      isMatch: isMatch,
-      soldierIds: a.soldierIds
-    });
-    return isMatch;
-  });
+  const todayAssignments = assignments.filter(a => a.date === todayISOString);
   
   console.log(`נמצאו ${todayAssignments.length} שיבוצים להיום`);
-  console.log('שיבוצים שנמצאו:', todayAssignments);
   
-  if (!todayAssignments || todayAssignments.length === 0) {
-    reportContent.innerHTML += '<div class="text-center py-4">אין שיבוצים להיום</div>';
+  if (todayAssignments.length === 0) {
+    const emptyMessage = document.createElement('div');
+    emptyMessage.className = 'text-center py-4 bg-gray-50 rounded-lg';
+    emptyMessage.textContent = 'אין שיבוצים להיום';
+    reportContent.appendChild(emptyMessage);
     return;
   }
   
@@ -1494,6 +1620,23 @@ function renderReport() {
   reportContainer.className = 'grid grid-cols-1 md:grid-cols-2 gap-6';
   
   // חלק 1: טבלת שיבוצים לפי משימות
+  const tasksSection = createTasksSection(todayAssignments);
+  
+  // חלק 2: סיכום חיילים משובצים
+  const soldiersSection = createSoldiersSection(todayAssignments);
+  
+  // הוספת שני החלקים למיכל
+  reportContainer.appendChild(tasksSection);
+  reportContainer.appendChild(soldiersSection);
+  
+  // הוספת המיכל לדוח
+  reportContent.appendChild(reportContainer);
+  
+  console.log("הדוח היומי הופק בהצלחה");
+}
+
+// פונקציה ליצירת חלק המשימות בדוח
+function createTasksSection(todayAssignments) {
   const tasksSection = document.createElement('div');
   tasksSection.className = 'bg-white p-4 rounded-lg shadow';
   
@@ -1527,14 +1670,11 @@ function renderReport() {
   const tbody = document.createElement('tbody');
   const assignedSoldiers = new Map(); // מפה לשמירת כל החיילים המשובצים
   
+  // מיון המשימות לפי שם
+  const sortedTasks = [...tasks].sort((a, b) => a.name.localeCompare(b.name));
+  
   // מעבר על כל המשימות
-  tasks.forEach(task => {
-    console.log("מעבד משימה:", {
-      taskId: task.id,
-      taskIdType: typeof task.id,
-      taskName: task.name
-    });
-    
+  sortedTasks.forEach(task => {
     const row = document.createElement('tr');
     
     // תא שם המשימה
@@ -1547,29 +1687,31 @@ function renderReport() {
     const cell = document.createElement('td');
     cell.className = 'border p-2';
     
-    // חיפוש השיבוץ המתאים
-    const assignment = todayAssignments.find(a => {
-      const isMatch = String(a.taskId) === String(task.id);
-      console.log(`בדיקת התאמה למשימה ${task.name}:`, {
-        assignmentTaskId: a.taskId,
-        assignmentTaskIdType: typeof a.taskId,
-        taskId: task.id,
-        taskIdType: typeof task.id,
-        isMatch: isMatch
-      });
-      return isMatch;
-    });
+    // חיפוש השיבוץ המתאים - עם בדיקת מזהים מנורמלים
+    const assignment = todayAssignments.find(a => normalizeId(a.taskId) === normalizeId(task.id));
     
     if (assignment && assignment.soldierIds && assignment.soldierIds.length > 0) {
       const names = [];
       
-      assignment.soldierIds.forEach(soldierId => {
-        const soldier = soldiers.find(s => String(s.id) === String(soldierId));
-        console.log(`חיפוש חייל למשימה ${task.name}:`, {
-          soldierId: soldierId,
-          soldierIdType: typeof soldierId,
-          foundSoldier: soldier
-        });
+      // מיון החיילים לפי תפקיד
+      const sortedSoldierIds = [...assignment.soldierIds].sort((idA, idB) => {
+        const soldierA = getSoldierById(idA);
+        const soldierB = getSoldierById(idB);
+        
+        if (!soldierA || !soldierB) return 0;
+        
+        const roleOrder = { doctor: 1, paramedic: 2, mentor: 3, trainee: 4 };
+        const roleA = roleOrder[soldierA.role] || 5;
+        const roleB = roleOrder[soldierB.role] || 5;
+        
+        if (roleA !== roleB) return roleA - roleB;
+        
+        return (soldierA.firstName || '').localeCompare(soldierB.firstName || '');
+      });
+      
+      // הצגת החיילים בטבלה
+      sortedSoldierIds.forEach(soldierId => {
+        const soldier = getSoldierById(soldierId);
         
         if (soldier) {
           const fullName = `${soldier.firstName || ''} ${soldier.lastName || ''}`.trim();
@@ -1579,11 +1721,16 @@ function renderReport() {
             names.push(`<span class="${role}">${fullName}</span>`);
             
             // הוספה למפת החיילים המשובצים
-            assignedSoldiers.set(soldierId, { 
-              name: fullName, 
-              role: role, 
-              tasks: [task.name] 
-            });
+            if (!assignedSoldiers.has(normalizeId(soldierId))) {
+              assignedSoldiers.set(normalizeId(soldierId), { 
+                name: fullName, 
+                role: role, 
+                tasks: [task.name] 
+              });
+            } else {
+              // הוספת המשימה הנוכחית לרשימת המשימות של החייל
+              assignedSoldiers.get(normalizeId(soldierId)).tasks.push(task.name);
+            }
           }
         }
       });
@@ -1604,7 +1751,11 @@ function renderReport() {
   table.appendChild(tbody);
   tasksSection.appendChild(table);
   
-  // חלק 2: סיכום חיילים משובצים
+  return tasksSection;
+}
+
+// פונקציה ליצירת חלק החיילים בדוח
+function createSoldiersSection(todayAssignments) {
   const soldiersSection = document.createElement('div');
   soldiersSection.className = 'bg-white p-4 rounded-lg shadow';
   
@@ -1613,23 +1764,61 @@ function renderReport() {
   soldiersSectionTitle.textContent = 'סיכום חיילים משובצים היום';
   soldiersSection.appendChild(soldiersSectionTitle);
   
+  // איסוף כל החיילים המשובצים
+  const assignedSoldiers = new Map();
+  
+  // מעבר על כל השיבוצים והחיילים בהם
+  todayAssignments.forEach(assignment => {
+    if (!assignment.soldierIds || !Array.isArray(assignment.soldierIds)) {
+      return;
+    }
+    
+    const taskObj = tasks.find(t => normalizeId(t.id) === normalizeId(assignment.taskId));
+    const taskName = taskObj ? taskObj.name : 'משימה לא ידועה';
+    
+    assignment.soldierIds.forEach(soldierId => {
+      const normalizedId = normalizeId(soldierId);
+      const soldier = getSoldierById(normalizedId);
+      
+      if (soldier) {
+        const fullName = `${soldier.firstName || ''} ${soldier.lastName || ''}`.trim();
+        const role = soldier.role || '';
+        
+        if (!assignedSoldiers.has(normalizedId)) {
+          assignedSoldiers.set(normalizedId, {
+            name: fullName,
+            role: role,
+            tasks: [taskName]
+          });
+        } else {
+          // הוספת המשימה הנוכחית אם היא לא קיימת כבר
+          const existingData = assignedSoldiers.get(normalizedId);
+          if (!existingData.tasks.includes(taskName)) {
+            existingData.tasks.push(taskName);
+          }
+        }
+      }
+    });
+  });
+  
+  // בדיקה אם יש חיילים משובצים
   if (assignedSoldiers.size > 0) {
     // מיון החיילים לפי תפקיד
     const roleGroups = {
       doctor: { label: 'רופאים', soldiers: [] },
       paramedic: { label: 'פראמדיקים', soldiers: [] },
       trainee: { label: 'חניכים', soldiers: [] },
-      mentor: { label: 'חונכים', soldiers: [] }
+      mentor: { label: 'חונכים', soldiers: [] },
+      other: { label: 'אחר', soldiers: [] }
     };
     
     // מיון החיילים לקבוצות
     assignedSoldiers.forEach((data, id) => {
-      if (roleGroups[data.role]) {
-        roleGroups[data.role].soldiers.push({
-          name: data.name,
-          tasks: data.tasks
-        });
-      }
+      const targetGroup = roleGroups[data.role] || roleGroups.other;
+      targetGroup.soldiers.push({
+        name: data.name,
+        tasks: data.tasks
+      });
     });
     
     // יצירת רשימות לפי תפקיד
@@ -1639,6 +1828,9 @@ function renderReport() {
         roleTitle.className = `font-bold mt-4 mb-2 ${role}`;
         roleTitle.textContent = group.label;
         soldiersSection.appendChild(roleTitle);
+        
+        // מיון חיילים לפי שם
+        group.soldiers.sort((a, b) => a.name.localeCompare(b.name));
         
         const soldiersList = document.createElement('div');
         soldiersList.className = 'space-y-2';
@@ -1663,14 +1855,99 @@ function renderReport() {
     soldiersSection.appendChild(emptyMessage);
   }
   
-  // הוספת שני החלקים למיכל
-  reportContainer.appendChild(tasksSection);
-  reportContainer.appendChild(soldiersSection);
+  return soldiersSection;
+}
+
+// פונקציה משופרת לייצוא הדוח הרגיל לאקסל
+function exportToExcel() {
+  console.log("מייצא דוח לאקסל...");
   
-  // הוספת המיכל לדוח
-  reportContent.appendChild(reportContainer);
-  
-  console.log("הדוח היומי הופק בהצלחה");
+  try {
+    // וידוא שספריית XLSX קיימת
+    if (typeof XLSX === 'undefined') {
+      console.error("ספריית XLSX לא נטענה!");
+      showNotification('לא ניתן לייצא לאקסל - הספרייה הנדרשת חסרה', 'error');
+      return;
+    }
+    
+    // וידוא שיש נתונים לייצוא
+    if (!tasks || !tasks.length) {
+      showNotification('אין משימות במערכת לייצוא', 'warning');
+      return;
+    }
+    
+    if (!assignments || !assignments.length) {
+      showNotification('אין שיבוצים במערכת לייצוא', 'warning');
+      return;
+    }
+    
+    // רענון מאגר השמות
+    loadSoldierNamesMap();
+    
+    // קבלת רשימת תאריכים ייחודיים ומיונם
+    const uniqueDates = [...new Set(assignments.map(a => a.date))].sort();
+    
+    // הכנת נתונים לייצוא
+    const exportData = [];
+    
+    // כותרות - שורה ראשונה
+    const headers = ['משימה'];
+    uniqueDates.forEach(dateStr => {
+      headers.push(formatDateHebrew(dateStr));
+    });
+    exportData.push(headers);
+    
+    // נתונים לפי משימות
+    tasks.forEach(task => {
+      const row = [task.name];
+      
+      uniqueDates.forEach(dateStr => {
+        // חיפוש שיבוץ למשימה בתאריך
+        const assignment = assignments.find(a => 
+          normalizeId(a.taskId) === normalizeId(task.id) && a.date === dateStr
+        );
+        
+        if (assignment && assignment.soldierIds && assignment.soldierIds.length > 0) {
+          // איסוף שמות החיילים
+          const soldierNames = assignment.soldierIds
+            .map(soldierId => getSoldierName(soldierId))
+            .filter(name => name !== 'שם לא זמין')
+            .join(', ');
+          
+          row.push(soldierNames || '');
+        } else {
+          row.push('');
+        }
+      });
+      
+      exportData.push(row);
+    });
+    
+    // יצירת Workbook
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(exportData);
+    
+    // הגדרת כיוון RTL והגדרות עיצוב
+    ws['!cols'] = [
+      { wch: 20 }, // רוחב עמודת משימה
+      ...uniqueDates.map(() => ({ wch: 30 })) // רוחב עמודות תאריכים
+    ];
+    
+    // הוספת הגיליון ל-Workbook
+    XLSX.utils.book_append_sheet(wb, ws, "דוח משימות");
+    
+    // ייצוא הקובץ
+    try {
+      XLSX.writeFile(wb, "דוח_משימות.xlsx");
+      showNotification('הדוח יוצא בהצלחה', 'success');
+    } catch (error) {
+      console.error("שגיאה בכתיבת קובץ אקסל:", error);
+      showNotification('אירעה שגיאה בייצוא הקובץ: ' + error.message, 'error');
+    }
+  } catch (error) {
+    console.error("שגיאה בייצוא לאקסל:", error);
+    showNotification('אירעה שגיאה בייצוא הדוח: ' + error.message, 'error');
+  }
 }
 // אפשר להוסיף פונקציה שתתבצע מיד אחרי הטענת נתוני החיילים משרת ה-Firestore
 function afterSoldiersDataLoaded() {
@@ -1827,10 +2104,13 @@ function renderWeeklySummary() {
   reportTitle.textContent = 'סיכום שבועי לפי משימות';
   reportContent.appendChild(reportTitle);
   
-  // תאריכי השבוע
-  const today = new Date();
+  // תאריכי השבוע - מתחיל מיום חמישי
+  const today = new Date(currentWeek);
+  const dayOfWeek = today.getDay();
   const startOfWeek = new Date(today);
-  startOfWeek.setDate(today.getDate() - today.getDay());
+  // מחשב את ההפרש לתחילת השבוע (יום חמישי)
+  const diff = dayOfWeek >= 4 ? dayOfWeek - 4 : dayOfWeek + 3;
+  startOfWeek.setDate(today.getDate() - diff);
   const endOfWeek = new Date(startOfWeek);
   endOfWeek.setDate(startOfWeek.getDate() + 6);
   
@@ -1839,9 +2119,9 @@ function renderWeeklySummary() {
   subtitle.textContent = `${formatDateHebrew(formatDateISO(startOfWeek))} - ${formatDateHebrew(formatDateISO(endOfWeek))}`;
   reportContent.appendChild(subtitle);
   
-  // איסוף כל התאריכים בשבוע
+  // איסוף כל התאריכים בשבוע - מתחיל מיום חמישי
   const weekDates = [];
-  const weekDayNames = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+  const weekDayNames = ['חמישי', 'שישי', 'שבת', 'ראשון', 'שני', 'שלישי', 'רביעי'];
   for (let i = 0; i < 7; i++) {
     const date = new Date(startOfWeek);
     date.setDate(startOfWeek.getDate() + i);
@@ -1942,87 +2222,7 @@ function renderWeeklySummary() {
   table.appendChild(tbody);
   reportContent.appendChild(table);
   
-  // הוספת סיכום שבועי
-  const summaryTitle = document.createElement('h4');
-  summaryTitle.className = 'text-lg font-bold mb-4';
-  summaryTitle.textContent = 'סיכום שבועי לפי חיילים';
-  reportContent.appendChild(summaryTitle);
-  
-  // יצירת מפת סיכום לחיילים
-  const soldiersSummary = new Map();
-  
-  weeklyAssignments.forEach(assignment => {
-    if (assignment.soldierIds) {
-      assignment.soldierIds.forEach(soldierId => {
-        const soldier = soldiersMap.get(String(soldierId));
-        if (soldier) {
-          if (!soldiersSummary.has(soldierId)) {
-            soldiersSummary.set(soldierId, {
-              name: `${soldier.firstName} ${soldier.lastName}`,
-              role: soldier.role,
-              tasks: new Set()
-            });
-          }
-          const task = tasks.find(t => String(t.id) === String(assignment.taskId));
-          if (task) {
-            soldiersSummary.get(soldierId).tasks.add(task.name);
-          }
-        }
-      });
-    }
-  });
-  
-  // יצירת טבלת סיכום
-  const summaryTable = document.createElement('table');
-  summaryTable.className = 'w-full border-collapse';
-  
-  const summaryThead = document.createElement('thead');
-  const summaryHeaderRow = document.createElement('tr');
-  
-  ['חייל', 'תפקיד', 'משימות בשבוע'].forEach(header => {
-    const th = document.createElement('th');
-    th.className = 'border p-2 bg-gray-100';
-    th.textContent = header;
-    summaryHeaderRow.appendChild(th);
-  });
-  
-  summaryThead.appendChild(summaryHeaderRow);
-  summaryTable.appendChild(summaryThead);
-  
-  const summaryTbody = document.createElement('tbody');
-  
-  // מיון החיילים לפי שם
-  const sortedSoldiers = Array.from(soldiersSummary.values()).sort((a, b) => a.name.localeCompare(b.name));
-  
-  sortedSoldiers.forEach(({ name, role, tasks }) => {
-    const row = document.createElement('tr');
-    
-    const nameCell = document.createElement('td');
-    nameCell.className = 'border p-2';
-    nameCell.textContent = name;
-    row.appendChild(nameCell);
-    
-    const roleCell = document.createElement('td');
-    roleCell.className = 'border p-2';
-    roleCell.textContent = role === 'doctor' ? 'רופא' :
-                          role === 'paramedic' ? 'פראמדיק' :
-                          role === 'trainee' ? 'חניך' :
-                          role === 'mentor' ? 'חונך' : 'אחר';
-    row.appendChild(roleCell);
-    
-    const tasksCell = document.createElement('td');
-    tasksCell.className = 'border p-2';
-    tasksCell.textContent = Array.from(tasks).join(', ');
-    row.appendChild(tasksCell);
-    
-    summaryTbody.appendChild(row);
-  });
-  
-  summaryTable.appendChild(summaryTbody);
-  reportContent.appendChild(summaryTable);
 }
-
-// פונקציה לרינדור דוח חצי שנתי - חדש לגמרי
 
 
 
@@ -2151,122 +2351,77 @@ function debugSoldiersAndAssignments() {
   
   console.log("=== סיום מידע אבחוני ===");
 }
-// פונקציה לייצוא הדוח הרגיל לאקסל
-function exportToExcel() {
-  // יצירת מפה מנורמלת של חיילים
-  const soldiersMap = createNormalizedSoldiersMap();
 
-  // קבלת רשימת תאריכים ייחודיים
-  const uniqueDates = [...new Set(assignments.map(a => a.date))].sort();
-  
-  // הכנת נתונים לייצוא
-  const exportData = [];
-  
-  // כותרות - שורה ראשונה
-  const headers = ['משימה'];
-  uniqueDates.forEach(dateStr => {
-    const date = new Date(dateStr);
-    const dayName = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'][date.getDay()];
-    headers.push(`${dayName} ${formatDateHebrew(dateStr)}`);
-  });
-  exportData.push(headers);
-  
-  // נתונים לפי משימות
-  tasks.forEach(task => {
-    const row = [task.name];
-    
-    uniqueDates.forEach(dateStr => {
-      // חיפוש שיבוץ למשימה בתאריך
-      const assignment = assignments.find(a => a.taskId === task.id && a.date === dateStr);
-      
-      if (assignment && assignment.soldierIds && assignment.soldierIds.length > 0) {
-        // שימוש בפונקציה משופרת לקבלת שמות החיילים
-        const soldierNames = assignment.soldierIds
-          .map(soldierId => getSoldierName(soldierId, soldiersMap))
-          .filter(name => name.trim() !== '')
-          .join(', ');
-        
-        row.push(soldierNames || '');
-      } else {
-        row.push('');
-      }
-    });
-    
-    exportData.push(row);
-  });
-  
-  // יצירת Workbook
-  const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.aoa_to_sheet(exportData);
-  
-  // הגדרת כיוון RTL עבור גיליון הנתונים
-  if (!ws['!cols']) ws['!cols'] = [];
-  ws['!cols'].push({ wch: 20 }); // רוחב עמודת משימה
-  
-  // רוחב עמודות תאריכים
-  for (let i = 0; i < uniqueDates.length; i++) {
-    ws['!cols'].push({ wch: 30 });
-  }
-  
-  // הוספת הגיליון ל-Workbook
-  XLSX.utils.book_append_sheet(wb, ws, "דוח משימות");
-  
-  // ייצוא הקובץ
-  XLSX.writeFile(wb, "דוח_משימות.xlsx");
-  
-  showNotification('הדוח יוצא בהצלחה', 'success');
-}
 
 // פונקציה לייצוא הדוח החצי שנתי לאקסל
 // פונקציה לייצוא הדוח החצי שנתי לאקסל - עם תיקון ותוספת ספירת ימים
 // פונקציה לרינדור דוח חצי שנתי - התייחסות לחודשים מלאים
 function renderSemiAnnualReport() {
-  console.log("מפיק דוח חצי שנתי משופר - לפי חודשים מלאים...");
+  console.log("מפיק דוח חצי שנתי עם טווח תאריכים ורשימת חיילים");
+
   const reportContent = document.getElementById('semiAnnualReportContent');
   if (!reportContent) {
     console.error("לא נמצא אלמנט semiAnnualReportContent");
     return;
   }
-  
   reportContent.innerHTML = '';
-  
-  // טעינה מחדש של מאגר השמות לפני הרינדור
+
+  // עדכון מאגר שמות החיילים
   loadSoldierNamesMap();
-  
-  // כותרת הדוח
-  const reportTitle = document.createElement('h3');
-  reportTitle.className = 'text-xl font-bold mb-4 text-center';
-  reportTitle.textContent = 'דוח חצי שנתי לפי משימות';
-  reportContent.appendChild(reportTitle);
-  
-  // חישוב טווח זמן של 6 חודשים מלאים
+
+  // חישוב 6 חודשים מלאים (כולל חודש נוכחי)
   const today = new Date();
-  // חישוב החודש הנוכחי
-  const currentMonth = today.getMonth();
+  const currentMonth = today.getMonth(); // 0-11
   const currentYear = today.getFullYear();
-  
-  // ניצור מערך של 6 חודשים שלמים אחורה
   const months = [];
   for (let i = 0; i < 6; i++) {
     let monthIndex = currentMonth - i;
     let year = currentYear;
-    
-    // טיפול במעבר שנה
     if (monthIndex < 0) {
       monthIndex += 12;
       year -= 1;
     }
-    
     months.push({
       month: monthIndex,
       year: year,
       key: `${year}-${String(monthIndex + 1).padStart(2, '0')}`
     });
   }
-  
-  console.log("מייצר דוח עבור החודשים:", months.map(m => m.key));
-  
-  // יצירת מפה של חיילים (כאובייקט רגיל)
+
+  // לסדר את החודשים בסדר עולה כדי לחשב את טווח התאריכים
+  const sortedMonths = months.slice().sort((a, b) => {
+    if (a.year === b.year) return a.month - b.month;
+    return a.year - b.year;
+  });
+
+  // התאריך ההתחלתי הוא היום הראשון של החודש הראשון
+  const startMonthObj = sortedMonths[0];
+  const startDate = new Date(startMonthObj.year, startMonthObj.month, 1);
+  // התאריך הסופי הוא היום האחרון של החודש האחרון
+  const endMonthObj = sortedMonths[sortedMonths.length - 1];
+  const endDate = new Date(endMonthObj.year, endMonthObj.month + 1, 0);
+
+  // עיצוב תאריכים (באזור הזמן העברי)
+  const options = { year: 'numeric', month: 'long', day: 'numeric' };
+  const startDateStr = startDate.toLocaleDateString('he-IL', options);
+  const endDateStr = endDate.toLocaleDateString('he-IL', options);
+
+  // כותרת הדוח עם טווח התאריכים
+  const reportTitle = document.createElement('h3');
+  reportTitle.className = 'text-xl font-bold mb-2 text-center';
+  reportTitle.textContent = 'דוח חצי שנתי';
+  reportContent.appendChild(reportTitle);
+
+  const dateRangeInfo = document.createElement('div');
+  dateRangeInfo.className = 'text-center text-sm mb-4';
+  dateRangeInfo.textContent = `טווח התאריכים: ${startDateStr} - ${endDateStr}`;
+  reportContent.appendChild(dateRangeInfo);
+
+  // בניית מערך מפתחות החודשים הזמינים (לסינון השיבוצים)
+  const allowedMonthKeys = new Set(months.map(m => m.key));
+
+  // יצירת מפה של חיילים עם סט תאריכים (לספירת ימי השיבוץ הייחודיים)
+  const soldierTotals = {};
   const soldiersObj = {};
   soldiers.forEach(soldier => {
     if (soldier && soldier.id) {
@@ -2274,70 +2429,28 @@ function renderSemiAnnualReport() {
       soldiersObj[String(soldier.id)] = soldier;
     }
   });
-  
-  // ארגון נתונים לפי חודשים
-  const monthlyData = {};
-  const hebrewMonths = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
-  
-  // אתחול מבנה נתונים לכל חודש
-  months.forEach(monthInfo => {
-    monthlyData[monthInfo.key] = {
-      name: `${hebrewMonths[monthInfo.month]} ${monthInfo.year}`,
-      assignments: {},
-      totalAssignments: 0
-    };
-  });
-  
-  // סינון והוספת כל השיבוצים בטווח ששת החודשים האחרונים
+
+  // מעבר על כל השיבוצים ובדיקה אם הם נופלים בטווח ה-6 חודשים
   assignments.forEach(assignment => {
-    if (!assignment.date || !assignment.taskId) return;
-    
+    if (!assignment.date) return;
     try {
       const assignmentDate = new Date(assignment.date);
       const monthKey = `${assignmentDate.getFullYear()}-${String(assignmentDate.getMonth() + 1).padStart(2, '0')}`;
-      
-      // בדיקה אם החודש נמצא בטווח 6 החודשים שלנו
-      if (monthlyData[monthKey]) {
-        const monthData = monthlyData[monthKey];
-        const taskId = String(assignment.taskId);
-        
-        // וידוא שיש מיפוי למשימה זו
-        if (!monthData.assignments[taskId]) {
-          monthData.assignments[taskId] = {
-            taskName: '',
-            soldiers: {}
-          };
-          
-          // חיפוש שם המשימה
-          const taskObj = tasks.find(t => String(t.id) === taskId);
-          if (taskObj) {
-            monthData.assignments[taskId].taskName = taskObj.name;
-          }
-        }
-        
-        // עדכון מונה השיבוצים
-        monthData.totalAssignments++;
-        
-        // הוספת החיילים המשובצים
+      if (allowedMonthKeys.has(monthKey)) {
         if (assignment.soldierIds && Array.isArray(assignment.soldierIds)) {
           assignment.soldierIds.forEach(soldierId => {
             if (!soldierId) return;
-            
             const soldierKey = String(soldierId);
             const soldier = soldiersObj[soldierId] || soldiersObj[soldierKey];
-            
             if (soldier) {
-              if (!monthData.assignments[taskId].soldiers[soldierKey]) {
-                // הוספת החייל לראשונה
-                monthData.assignments[taskId].soldiers[soldierKey] = {
+              if (!soldierTotals[soldierKey]) {
+                soldierTotals[soldierKey] = {
                   name: `${soldier.firstName || ''} ${soldier.lastName || ''}`.trim(),
-                  role: soldier.role || 'אחר',
                   dates: new Set()
                 };
               }
-              
-              // הוספת התאריך לסט התאריכים של החייל
-              monthData.assignments[taskId].soldiers[soldierKey].dates.add(assignment.date);
+              // הוספת התאריך לסט של הימים בהם החייל שובץ
+              soldierTotals[soldierKey].dates.add(assignment.date);
             }
           });
         }
@@ -2346,181 +2459,58 @@ function renderSemiAnnualReport() {
       console.error("שגיאה בעיבוד שיבוץ:", assignment, e);
     }
   });
-  
-  // בדיקה אם יש נתונים כלשהם
-  const hasData = Object.values(monthlyData).some(month => 
-    Object.values(month.assignments).some(task => 
-      Object.keys(task.soldiers || {}).length > 0
-    )
-  );
-  
-  if (!hasData) {
-    const emptyMsg = document.createElement('div');
-    emptyMsg.className = 'text-center text-gray-400 py-4';
-    emptyMsg.textContent = 'אין נתונים זמינים לדוח חצי שנתי';
-    reportContent.appendChild(emptyMsg);
-    return;
-  }
-  
-  // יצירת גריד של 6 חודשים
-  const gridContainer = document.createElement('div');
-  gridContainer.className = 'grid grid-cols-2 gap-4';
-  
-  // מיון החודשים בסדר יורד (מהחדש לישן)
-  const sortedMonths = months.map(m => m.key);
-  
-  // יצירת קופסה לכל חודש
-  sortedMonths.forEach((monthKey) => {
-    const monthData = monthlyData[monthKey];
-    
-    console.log(`עיבוד חודש: ${monthData.name}`);
-    
-    // ספירת משימות עם שיבוצים
-    const tasksWithAssignments = Object.values(monthData.assignments).filter(task => 
-      Object.keys(task.soldiers || {}).length > 0
-    ).length;
-    
-    console.log(`סה"כ שיבוצים: ${monthData.totalAssignments}, משימות עם שיבוצים: ${tasksWithAssignments}`);
-    
-    const monthBox = document.createElement('div');
-    monthBox.className = 'border rounded-lg p-4 bg-white shadow';
-    
-    // כותרת החודש עם מספר המשימות והשיבוצים
-    const monthTitle = document.createElement('h4');
-    monthTitle.className = 'text-lg font-bold mb-3 text-center text-blue-600';
-    monthTitle.textContent = `${monthData.name} (${tasksWithAssignments} משימות)`;
-    monthBox.appendChild(monthTitle);
-    
-    // בדיקה אם יש משימות עם שיבוצים
-    if (tasksWithAssignments === 0) {
-      const emptyMonthMsg = document.createElement('div');
-      emptyMonthMsg.className = 'text-center text-gray-400 py-4';
-      emptyMonthMsg.textContent = `אין שיבוצים בחודש ${monthData.name}`;
-      monthBox.appendChild(emptyMonthMsg);
-      gridContainer.appendChild(monthBox);
-      return; // המשך לחודש הבא
-    }
-    
-    // טבלת משימות לחודש
-    const table = document.createElement('table');
-    table.className = 'w-full text-right';
-    
-    // כותרות הטבלה
-    const thead = document.createElement('thead');
-    const headerRow = document.createElement('tr');
-    ['משימה', 'חיילים'].forEach(header => {
-      const th = document.createElement('th');
-      th.className = 'border-b pb-2 px-2 font-medium';
-      th.textContent = header;
-      headerRow.appendChild(th);
-    });
-    thead.appendChild(headerRow);
-    table.appendChild(thead);
-    
-    // גוף הטבלה
-    const tbody = document.createElement('tbody');
-    
-    // מיון משימות לפי שם (א-ת)
-    const sortedTaskIds = Object.keys(monthData.assignments).sort((a, b) => {
-      const taskA = monthData.assignments[a];
-      const taskB = monthData.assignments[b];
-      return (taskA.taskName || '').localeCompare(taskB.taskName || '');
-    });
-    
-    // מעבר על כל המשימות ממוינות
-    sortedTaskIds.forEach(taskId => {
-      const taskData = monthData.assignments[taskId];
-      
-      // נדלג על משימות ללא שיבוצים
-      if (!taskData.soldiers || Object.keys(taskData.soldiers).length === 0) {
-        return;
-      }
-      
-      // יצירת שורה למשימה
-      const row = document.createElement('tr');
-      
-      // תא שם המשימה
-      const taskCell = document.createElement('td');
-      taskCell.className = 'border-b py-2 px-2 font-medium';
-      taskCell.textContent = taskData.taskName || `משימה ${taskId}`;
-      row.appendChild(taskCell);
-      
-      // תא חיילים
-      const soldiersCell = document.createElement('td');
-      soldiersCell.className = 'border-b py-2 px-2';
-      
-      // ארגון חיילים לפי תפקיד
-      const soldiersByRole = {};
-      
-      Object.values(taskData.soldiers).forEach(soldier => {
-        const role = soldier.role || 'אחר';
-        
-        if (!soldiersByRole[role]) {
-          soldiersByRole[role] = [];
-        }
-        
-        soldiersByRole[role].push({
-          name: soldier.name,
-          daysCount: soldier.dates.size
-        });
-      });
-      
-      // הצגת חיילים לפי תפקיד
-      const rolesList = document.createElement('div');
-      rolesList.className = 'space-y-1';
-      
-      // סדר תפקידים קבוע: רופאים, פראמדיקים, חונכים, חניכים, אחר
-      const roleOrder = ['doctor', 'paramedic', 'mentor', 'trainee', 'אחר'];
-      
-      roleOrder.forEach(role => {
-        if (!soldiersByRole[role] || soldiersByRole[role].length === 0) {
-          return;
-        }
-        
-        const roleDiv = document.createElement('div');
-        roleDiv.className = 'text-sm';
-        
-        const roleTitle = document.createElement('span');
-        roleTitle.className = `font-medium ml-1 ${role !== 'אחר' ? role : ''}`;
-        roleTitle.textContent = role === 'doctor' ? 'רופאים:' :
-                              role === 'paramedic' ? 'פראמדיקים:' :
-                              role === 'trainee' ? 'חניכים:' :
-                              role === 'mentor' ? 'חונכים:' : 'אחר:';
-        
-        roleDiv.appendChild(roleTitle);
-        
-        // מיון חיילים לפי שם א-ת
-        const sortedSoldiers = soldiersByRole[role].sort((a, b) => a.name.localeCompare(b.name));
-        
-        // הוספת שמות החיילים עם מספר הימים
-        const soldierNames = sortedSoldiers.map(soldier => 
-          `${soldier.name} (${soldier.daysCount} ימים)`
-        ).join(', ');
-        
-        roleDiv.appendChild(document.createTextNode(' ' + soldierNames));
-        rolesList.appendChild(roleDiv);
-      });
-      
-      soldiersCell.appendChild(rolesList);
-      row.appendChild(soldiersCell);
-      tbody.appendChild(row);
-    });
-    
-    table.appendChild(tbody);
-    monthBox.appendChild(table);
-    gridContainer.appendChild(monthBox);
+
+  // יצירת רשימת חיילים עם מספר הימים בהם שובצו
+  const soldierListContainer = document.createElement('div');
+  soldierListContainer.className = 'mt-4';
+
+  const soldierListTitle = document.createElement('h4');
+  soldierListTitle.className = 'text-lg font-bold mb-2';
+  soldierListTitle.textContent = 'רשימת חיילים עם סך ימי השיבוץ';
+  soldierListContainer.appendChild(soldierListTitle);
+
+  // יצירת טבלה להצגת הנתונים
+  const table = document.createElement('table');
+  table.className = 'w-full text-right border-collapse';
+
+  // כותרת הטבלה
+  const thead = document.createElement('thead');
+  const headerRow = document.createElement('tr');
+  ['שם', 'ימי שיבוץ'].forEach(headerText => {
+    const th = document.createElement('th');
+    th.className = 'border px-2 py-1';
+    th.textContent = headerText;
+    headerRow.appendChild(th);
   });
-  
-  reportContent.appendChild(gridContainer);
-  
-  // הוספת הערה תחתונה
-  const note = document.createElement('div');
-  note.className = 'text-sm text-gray-500 mt-8 text-center';
-  note.textContent = 'הדוח מציג את החיילים המשובצים לכל משימה לפי חודשים ב-6 החודשים האחרונים, כולל מספר הימים שכל חייל ביצע';
-  reportContent.appendChild(note);
-  
-  console.log("הדוח החצי שנתי הופק בהצלחה");
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
+
+  // גוף הטבלה
+  const tbody = document.createElement('tbody');
+  // המרת הנתונים למערך ומיון לפי שם
+  const soldierTotalsArray = Object.values(soldierTotals).sort((a, b) => a.name.localeCompare(b.name));
+  soldierTotalsArray.forEach(soldierEntry => {
+    const tr = document.createElement('tr');
+
+    const nameTd = document.createElement('td');
+    nameTd.className = 'border px-2 py-1';
+    nameTd.textContent = soldierEntry.name;
+    tr.appendChild(nameTd);
+
+    const daysTd = document.createElement('td');
+    daysTd.className = 'border px-2 py-1';
+    daysTd.textContent = soldierEntry.dates.size;
+    tr.appendChild(daysTd);
+
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  soldierListContainer.appendChild(table);
+  reportContent.appendChild(soldierListContainer);
+
+  console.log("דוח חצי שנתי עם טווח תאריכים ורשימת חיילים הופק בהצלחה");
 }
+
 
 // פונקציה לייצוא הדוח החצי שנתי לאקסל - מותאם לחודשים מלאים
 function exportSemiAnnualToExcel() {
@@ -4032,7 +4022,6 @@ function renderCalendarBody() {
     // יצירת מפה של שיבוצים לפי תאריך ומשימה לשיפור ביצועים
     const assignmentMap = new Map();
     
-    
     console.log("מספר השיבוצים הקיימים:", assignments.length);
     
     assignments.forEach(assignment => {
@@ -4097,17 +4086,18 @@ function renderCalendarBody() {
         
         if (assignment) {
           console.log(`נמצא שיבוץ לתא: ${key} -> ${assignment.id} (${assignment.soldierIds ? assignment.soldierIds.length : 0} חיילים)`);
-        }
-        
-        if (!assignment && userRole === 'admin') {
-          // תא ריק במצב מנהל
-          renderEmptyCell(td);
-        } else if (assignment) {
           // תא עם שיבוץ
           renderAssignmentCell(td, assignment, soldiersMap);
         } else {
-          // תא ריק במצב צפייה - רק להצגה
-          td.innerHTML = '<span class="text-gray-300">-</span>';
+          // תא ריק - יצירת מיכל ריק עם גובה מינימלי
+          const emptyContainer = document.createElement('div');
+          emptyContainer.className = 'assignment-container min-h-[40px]';
+          if (userRole === 'admin') {
+            emptyContainer.innerHTML = '<span class="text-gray-300">+</span>';
+          } else {
+            emptyContainer.innerHTML = '<span class="text-gray-300">-</span>';
+          }
+          td.appendChild(emptyContainer);
         }
         
         tr.appendChild(td);
@@ -4200,9 +4190,9 @@ function debugAssignments() {
 
 debugAssignments();
 
-// פונקציית עזר לרינדור תא עם שיבוץ
-function renderAssignmentCell(cell, assignment, soldiersMap) {
-  console.log("מרנדר תא שיבוץ:", assignment);
+// פונקציה משופרת לרינדור תא שיבוץ שמציגה את כל החיילים
+function renderAssignmentCell(cell, assignment) {
+  console.log("מרנדר תא שיבוץ:", assignment.id);
   
   // בדיקה שהשיבוץ תקין
   if (!assignment) {
@@ -4210,147 +4200,159 @@ function renderAssignmentCell(cell, assignment, soldiersMap) {
     return;
   }
   
+  // יצירת מיכל לשיבוץ - שינוי מהותי: הוספת מאפיין overflow-y: auto
   const assignmentContainer = document.createElement('div');
-  assignmentContainer.className = 'flex flex-wrap gap-1 p-1';
-
+  assignmentContainer.className = 'assignment-container';
+  assignmentContainer.style.maxHeight = 'none'; // ביטול מגבלת גובה
+  assignmentContainer.style.overflowY = 'visible'; // וידוא שהתוכן נראה גם אם הוא גולש
+  
   // ודא שיש מערך soldierIds תקין
   if (!assignment.soldierIds || !Array.isArray(assignment.soldierIds)) {
-    console.error("שגיאה: חסר מערך soldierIds בשיבוץ", assignment);
-    assignment.soldierIds = [];
+    // רינדור מיכל ריק אם אין חיילים
+    const emptyMessage = document.createElement('div');
+    emptyMessage.className = 'text-gray-400 text-sm';
+    emptyMessage.textContent = 'אין חיילים משובצים';
+    assignmentContainer.appendChild(emptyMessage);
+    cell.appendChild(assignmentContainer);
+    return;
   }
   
-  console.log(`מספר חיילים בשיבוץ: ${assignment.soldierIds.length}`, assignment.soldierIds);
-  
-  // פתרון לבעיית ID מספרי vs ID מחרוזת
-  const normalizedSoldierIds = assignment.soldierIds.map(id => id.toString());
-  
-  // בדיקה אם soldiersMap הוא Map או אובייקט רגיל
-  const isMapObject = soldiersMap instanceof Map;
-  console.log("סוג מפת החיילים:", isMapObject ? "Map" : "אובייקט רגיל");
-  
-  // בניית מפה אחידה עם מפתחות מנורמלים
-  const normalizedSoldiersMap = new Map();
-  
-  if (isMapObject) {
-    // אם זה Map, השתמש ב-forEach של Map
-    soldiersMap.forEach((soldier, id) => {
-      normalizedSoldiersMap.set(id.toString(), soldier);
-    });
-  } else {
-    // אם זה אובייקט רגיל, עבור על המפתחות
-    Object.keys(soldiersMap).forEach(id => {
-      normalizedSoldiersMap.set(id.toString(), soldiersMap[id]);
-    });
+  // טעינת מאגר שמות עדכני אם צריך
+  if (soldierNamesMap.size === 0) {
+    loadSoldierNamesMap();
   }
   
-  console.log("מפת חיילים מנורמלת:", [...normalizedSoldiersMap.keys()]);
+  // יצירת תגיות לכל חייל משובץ
+  let tagsAdded = 0;
   
-  // מציאת חיילים תקינים (עם התאמת ID)
-  let soldierTagsAdded = 0;
+  // מיון החיילים לפי תפקיד ושם
+  const sortedSoldierIds = [...assignment.soldierIds].sort((idA, idB) => {
+    const soldierA = getSoldierById(idA);
+    const soldierB = getSoldierById(idB);
+    
+    if (!soldierA || !soldierB) return 0;
+    
+    // קודם לפי תפקיד
+    const roleOrder = { doctor: 1, paramedic: 2, mentor: 3, trainee: 4 };
+    const roleA = roleOrder[soldierA.role] || 5;
+    const roleB = roleOrder[soldierB.role] || 5;
+    
+    if (roleA !== roleB) return roleA - roleB;
+    
+    // אחר כך לפי שם
+    return (soldierA.firstName || '').localeCompare(soldierB.firstName || '');
+  });
   
-  normalizedSoldierIds.forEach(normalizedId => {
-    const soldier = normalizedSoldiersMap.get(normalizedId);
+  console.log(`מרנדר ${sortedSoldierIds.length} חיילים בתא`, assignment.id);
+  
+  // חשוב: נעבור על *כל* החיילים ללא הגבלה
+  for (const soldierId of sortedSoldierIds) {
+    // ניסיון למצוא את החייל
+    const soldier = getSoldierById(soldierId);
     
     if (soldier) {
-      console.log(`נמצא חייל עם ID ${normalizedId}:`, soldier.firstName, soldier.lastName);
-      
-      // יצירה ידנית של תגית החייל
-      const soldierTag = document.createElement('div');
-      soldierTag.className = `soldier-tag ${soldier.role || ''}`;
-      soldierTag.textContent = `${soldier.firstName} ${soldier.lastName || ''}`;
-      
-      // אם המשתמש הוא מנהל, הוסף אייקון מחיקה
-      if (userRole === 'admin') {
-        const deleteIcon = document.createElement('span');
-        deleteIcon.innerHTML = '✕';
-        deleteIcon.style.marginLeft = '5px';
-        deleteIcon.style.marginRight = '3px';
-        deleteIcon.style.cursor = 'pointer';
-        deleteIcon.style.color = '#ff4d4d';
-        
-        deleteIcon.addEventListener('click', (e) => {
-          e.stopPropagation();
-          handleRemoveSoldierFromTask(assignment.id, normalizedId);
-        });
-        
-        // הוספת האייקון לתחילת התגית
-        soldierTag.insertBefore(deleteIcon, soldierTag.firstChild);
-      }
-      
-      // הוספת התגית למיכל
-      assignmentContainer.appendChild(soldierTag);
-      soldierTagsAdded++;
+      // יצירת תגית חייל
+      const tag = createSoldierTag(soldier, assignment.id);
+      assignmentContainer.appendChild(tag);
+      tagsAdded++;
     } else {
-      console.warn(`חייל עם ID ${normalizedId} לא נמצא גם אחרי נירמול`);
+      console.warn(`לא נמצא חייל עם ID ${soldierId} בשיבוץ ${assignment.id}`);
     }
-  });
-
-  // בדיקה אם יש תוכן בתא
-  if (soldierTagsAdded === 0) {
-    console.log("אין חיילים תקינים בשיבוץ, מוסיף הודעה");
+  }
+  
+  // אם לא נוספו תגיות, הוסף הודעה
+  if (tagsAdded === 0) {
     const emptyMessage = document.createElement('div');
     emptyMessage.className = 'text-gray-400 text-sm';
     emptyMessage.textContent = 'אין חיילים משובצים';
     assignmentContainer.appendChild(emptyMessage);
   }
-
+  
   // הוספת המיכל לתא
   cell.appendChild(assignmentContainer);
+  
+  // שינוי משמעותי: במקום להגביל את גובה התא, נאפשר גדילה לפי הצורך
+  adjustCellHeightImproved(cell, tagsAdded);
 }
-// פונקציית עזר ליצירת תג חייל
-function createSoldierTag(soldier, assignmentId) {
-  console.log("יוצר תגית חייל:", soldier.firstName, soldier.lastName, soldier.role);
+
+// פונקציה משופרת להתאמת גובה תא השיבוץ
+function adjustCellHeightImproved(cell, numSoldiers) {
+  // הסרת כל הגבלת גובה קודמת
+  cell.style.minHeight = '';
+  cell.style.maxHeight = '';
+  cell.style.height = '';
   
-  // בדיקה שהחייל תקין
-  if (!soldier || !soldier.firstName) {
-    console.error("שגיאה: התקבל חייל לא תקין", soldier);
-    return document.createElement('div'); // החזרת אלמנט ריק
+  if (numSoldiers > 0) {
+    // חישוב גובה דינמי לפי מספר החיילים - ללא הגבלה מקסימלית
+    const baseHeight = 40; // גובה בסיסי
+    const heightPerSoldier = 32; // גובה לכל חייל - הגדלנו מ-30 ל-32 לרווח נוסף
+    const totalHeight = baseHeight + (numSoldiers * heightPerSoldier);
+    
+    // הגדרת גובה מינימלי בלבד
+    cell.style.minHeight = `${totalHeight}px`;
+    
+    // וידוא שהתוכן נראה במלואו
+    cell.style.overflow = 'visible';
+  } else {
+    // גובה ברירת מחדל לתא ללא חיילים
+    cell.style.minHeight = '40px';
   }
-  
+}
+
+function createSoldierTag(soldier, assignmentId) {
   const soldierTag = document.createElement('div');
-  soldierTag.className = `soldier-tag ${soldier.role || ''} ${soldier.status === 'unavailable' ? 'unavailable' : ''}`;
+  soldierTag.className = `soldier-tag ${soldier.role}`;
   
-  // הוספת שם החייל כטקסט ישיר במקום innerHTML
-  const nameText = document.createTextNode(`${soldier.firstName} ${soldier.lastName || ''}`);
+  const soldierName = document.createElement('span');
+  soldierName.className = 'soldier-name';
+  soldierName.textContent = `${soldier.firstName} ${soldier.lastName}`;
   
+  // אם המשתמש הוא מנהל, הוסף כפתור מחיקה
   if (userRole === 'admin') {
-    // יצירת אייקון מחיקה
-    const trashIcon = document.createElement('svg');
-    trashIcon.className = 'trash-icon';
-    trashIcon.setAttribute('viewBox', '0 0 24 24');
+    const deleteButton = document.createElement('button');
+    deleteButton.className = 'remove-btn';
     
-    // הוספת הפאת'ים לאייקון
-    const paths = [
-      'M3 6h18',
-      'M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6',
-      'M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2'
-    ];
-    
-    paths.forEach(d => {
-      const path = document.createElement('path');
-      path.setAttribute('d', d);
-      trashIcon.appendChild(path);
-    });
-    
-    // הוספת מאזין לאירוע לחיצה
-    trashIcon.addEventListener('click', (e) => {
+    // הוספת מאזין לאירוע לחיצה עם מניעת התפשטות האירוע
+    deleteButton.addEventListener('click', (e) => {
       e.stopPropagation();
+      e.preventDefault();
       handleRemoveSoldierFromTask(assignmentId, soldier.id);
     });
     
-    // הוספת האייקון לתגית
-    soldierTag.appendChild(trashIcon);
+    soldierTag.appendChild(deleteButton);
   }
   
-  // הוספת שם החייל לתגית
-  soldierTag.appendChild(nameText);
-  
-  // הוספת לוג לבדיקת התגית שנוצרה
-  console.log("תגית חייל נוצרה:", soldierTag.outerHTML);
-  
+  soldierTag.appendChild(soldierName);
   return soldierTag;
 }
 
+// פונקציה לעדכון הסגנון של תאי השיבוץ
+function updateAssignmentCellStyles() {
+  // הוספת סגנון לכל תאי השיבוץ
+  const taskCells = document.querySelectorAll('.task-cell');
+  taskCells.forEach(cell => {
+    // ביטול הגבלת גובה
+    cell.style.maxHeight = 'none';
+    cell.style.overflow = 'visible';
+  });
+  
+  // הוספת סגנון למיכלי השיבוץ
+  const assignmentContainers = document.querySelectorAll('.assignment-container');
+  assignmentContainers.forEach(container => {
+    container.style.maxHeight = 'none';
+    container.style.overflowY = 'visible';
+  });
+  
+  console.log("סגנונות תאי השיבוץ עודכנו לתמיכה בכל החיילים");
+}
+
+// פונקציה שיש להוסיף לסוף renderCalendar
+function enhanceCalendarAfterRender() {
+  // עדכון סגנונות התאים לתמיכה בכל החיילים
+  updateAssignmentCellStyles();
+  
+  console.log("שיפורים לתמיכה בכל החיילים הוספו ללוח");
+}
 // פונקציית עזר לבדיקת חפיפות
 function checkAssignmentConflicts(assignment) {
   const conflicts = [];
@@ -4381,21 +4383,9 @@ function checkAssignmentConflicts(assignment) {
     });
   });
 
-  return [...new Set(conflicts)]; // הסרת כפילויות
+  return [...new Set(conflicts)]; // הסרת כפילות
 }
 
-// פונקציית עזר להתאמת גובה תא
-function adjustCellHeight(cell, numSoldiers) {
-  if (numSoldiers > 1) {
-    const baseHeight = 40;
-    const heightPerSoldier = 30;
-    const totalHeight = baseHeight + (numSoldiers - 1) * heightPerSoldier;
-    const maxHeight = 200;
-    cell.style.height = `${Math.min(totalHeight, maxHeight)}px`;
-  } else {
-    cell.style.height = '40px';
-  }
-}
 
 // פונקציית עזר להגדרת מאזיני אירועים לתא
 function setupCellEventListeners(cell, task, dateStr, day) {
@@ -5107,196 +5097,195 @@ async function checkFirebaseData() {
 
 // הפעל את הפונקציה
 checkFirebaseData();
-// פונקציה לטעינת נתונים מ-Firestore
+// פונקציה משופרת לטעינת נתונים מ-Firestore
 async function loadDataFromFirestore() {
   console.log("מתחיל טעינת נתונים מ-Firestore...");
-
+  
   try {
     // הסרת מאזינים קודמים אם קיימים
     removeFirestoreListeners();
     
-    // בדיקה אם יש מצב שמור ב-localStorage לפני טעינת הנתונים
+    // המתנה לטעינת מידע המשתמש לפני המשך
     if (currentUser) {
-      const userRef = doc(db, "users", currentUser.uid);
-      const userDoc = await getDoc(userRef);
-      
-      if (userDoc.exists() && userDoc.data().role === 'admin') {
-        // אם המשתמש הוא מנהל, בדוק אם יש מצב שמור
-        const savedViewMode = localStorage.getItem('userViewMode');
-        if (savedViewMode) {
-          userRole = savedViewMode;
-          console.log("נטען מצב צפייה מהאחסון המקומי בעת טעינת נתונים:", userRole);
-          
-          // עדכון הממשק לפי המצב השמור
-          updateInterfaceForRole();
+      try {
+        const userRef = doc(db, "users", currentUser.uid);
+        const userDoc = await getDoc(userRef);
+        
+        if (userDoc.exists() && userDoc.data().role === 'admin') {
+          // אם המשתמש הוא מנהל, בדוק אם יש מצב שמור
+          const savedViewMode = localStorage.getItem('userViewMode');
+          if (savedViewMode) {
+            userRole = savedViewMode;
+            console.log("נטען מצב צפייה מהאחסון המקומי:", userRole);
+          }
         }
+      } catch (error) {
+        console.error("שגיאה בטעינת נתוני משתמש:", error);
       }
     }
     
-    // טעינת חיילים - כאן חשוב לוודא שהשם נכון
-    console.log("מגדיר מאזין לאוסף soldiers...");
-    unsubscribeSoldiers = onSnapshot(
-      collection(db, "soldiers"), // שם הקולקציה צריך להיות זהה לשם ב-Firebase
-      (snapshot) => {
-        console.log(`התקבלו ${snapshot.docs.length} חיילים מהמסד`);
-        soldiers = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-        
-        // הדפסת פרטי החיילים לצורך דיבוג
-        soldiers.forEach(soldier => {
-          console.log(`חייל ${soldier.id}: ${soldier.firstName} ${soldier.lastName}, תפקיד: ${soldier.role}`);
-        });
-        
-        // עדכון מאגר השמות הגלובלי מיד לאחר טעינת החיילים
-        loadSoldierNamesMap();
-        console.log("מאגר שמות החיילים עודכן לאחר שינוי בנתוני החיילים");
-        
-        // רינדור החיילים עם התחשבות במצב העריכה הנוכחי
-        renderSoldiers();
-        
-        // הגדרה מחדש של אירועי גרירה אם המשתמש במצב עריכה
-        if (userRole === 'admin') {
-          setTimeout(() => {
-            setupDragAndDrop();
-            console.log("הוגדרו מחדש אירועי גרירה לאחר טעינת חיילים");
-          }, 100);
+    // עדכון הממשק לפי המצב השמור לפני טעינת הנתונים
+    updateInterfaceForRole();
+    
+    // הגדרת Promise לטעינת חיילים
+    const loadSoldiersPromise = new Promise((resolve, reject) => {
+      console.log("מגדיר מאזין לאוסף soldiers...");
+      unsubscribeSoldiers = onSnapshot(
+        collection(db, "soldiers"),
+        (snapshot) => {
+          console.log(`התקבלו ${snapshot.docs.length} חיילים מהמסד`);
+          
+          // נרמול כל המזהים של החיילים
+          soldiers = snapshot.docs.map(doc => ({
+            id: normalizeId(doc.id),
+            ...doc.data()
+          }));
+          
+          // עדכון מאגר השמות הגלובלי
+          loadSoldierNamesMap();
+          
+          // שליחת אירוע מערכת שהחיילים נטענו
+          const event = new CustomEvent('soldiersLoaded');
+          document.dispatchEvent(event);
+          
+          resolve(soldiers);
+        },
+        (error) => {
+          console.error("שגיאה בטעינת חיילים:", error);
+          showNotification('אירעה שגיאה בטעינת נתוני החיילים: ' + error.message, 'error');
+          reject(error);
         }
-        
-        // טעינת משימות רק לאחר טעינת החיילים
-        loadTasks();
-      },
-      (error) => {
-        console.error("שגיאה בטעינת חיילים:", error);
-        showNotification('אירעה שגיאה בטעינת נתוני החיילים: ' + error.message, 'error');
-      }
-    );
+      );
+    });
+    
+    // המתנה לטעינת החיילים לפני המשך
+    await loadSoldiersPromise;
+    
+    // רינדור החיילים
+    renderSoldiers();
+    
+    // טעינת משימות לאחר שהחיילים כבר נטענו
+    loadTasks();
+    
   } catch (error) {
     console.error("שגיאה בטעינת נתונים:", error);
     showNotification('אירעה שגיאה בטעינת הנתונים: ' + error.message, 'error');
   }
 }
 
-// פונקציה לטעינת משימות
+// שיפור פונקציית טעינת משימות
 function loadTasks() {
   console.log("מגדיר מאזין לאוסף משימות...");
-  try {
-    unsubscribeTasks = onSnapshot(
-      collection(db, "tasks"), 
-      (snapshot) => {
-        console.log(`התקבלו ${snapshot.docs.length} משימות מהמסד`);
-        tasks = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-        
-        // הדפסת פרטי המשימות לצורך דיבוג
-        tasks.forEach(task => {
-          console.log(`משימה ${task.id}: ${task.name}`);
-        });
-        
-        // טעינת שיבוצים רק לאחר טעינת המשימות
-        loadAssignments();
-      },
-      (error) => {
-        console.error("שגיאה בטעינת משימות:", error);
-        showNotification('אירעה שגיאה בטעינת נתוני המשימות: ' + error.message, 'error');
-      }
-    );
-  } catch (error) {
-    console.error("שגיאה בטעינת משימות:", error);
-    showNotification('אירעה שגיאה בטעינת נתוני המשימות: ' + error.message, 'error');
-  }
+  
+  return new Promise((resolve, reject) => {
+    try {
+      unsubscribeTasks = onSnapshot(
+        collection(db, "tasks"),
+        (snapshot) => {
+          console.log(`התקבלו ${snapshot.docs.length} משימות מהמסד`);
+          
+          // נרמול מזהי המשימות
+          tasks = snapshot.docs.map(doc => ({
+            id: normalizeId(doc.id),
+            ...doc.data()
+          }));
+          
+          // שליחת אירוע מערכת שהמשימות נטענו
+          const event = new CustomEvent('tasksLoaded');
+          document.dispatchEvent(event);
+          
+          resolve(tasks);
+          
+          // טעינת שיבוצים רק לאחר טעינת המשימות
+          loadAssignments();
+        },
+        (error) => {
+          console.error("שגיאה בטעינת משימות:", error);
+          showNotification('אירעה שגיאה בטעינת נתוני המשימות: ' + error.message, 'error');
+          reject(error);
+        }
+      );
+    } catch (error) {
+      console.error("שגיאה בהגדרת מאזין למשימות:", error);
+      reject(error);
+    }
+  });
 }
 
-// פונקציה לטעינת שיבוצים
+// שיפור פונקציית טעינת שיבוצים
 function loadAssignments() {
   console.log("מגדיר מאזין לאוסף שיבוצים...");
-  try {
-    unsubscribeAssignments = onSnapshot(
-      collection(db, "assignments"), // וודא שהשם זהה לשם הקולקציה ב-Firebase
-      (snapshot) => {
-        console.log(`התקבלו ${snapshot.docs.length} שיבוצים מהמסד`);
-        
-        // יצירת מפה של חיילים לפי ID לבדיקת תקינות
-        const soldiersMap = new Map(soldiers.map(soldier => [soldier.id, soldier]));
-        console.log("מפת חיילים:", [...soldiersMap.keys()]);
-        
-        // עדכון השיבוצים מהשרת
-        const newAssignments = snapshot.docs.map(doc => {
-          const data = doc.data();
-          console.log(`שיבוץ ${doc.id} מהשרת:`, data);
+  
+  return new Promise((resolve, reject) => {
+    try {
+      unsubscribeAssignments = onSnapshot(
+        collection(db, "assignments"),
+        (snapshot) => {
+          console.log(`התקבלו ${snapshot.docs.length} שיבוצים מהמסד`);
           
-          // בדיקה שיש מערך soldierIds
-          if (!data.soldierIds) {
-            console.error("שגיאה: חסר מערך soldierIds בשיבוץ מהשרת", doc.id, data);
-            data.soldierIds = [];
-          }
+          // נרמול כל השיבוצים
+          assignments = snapshot.docs.map(doc => {
+            const data = doc.data();
+            return normalizeAssignment({
+              id: normalizeId(doc.id),
+              ...data
+            });
+          });
           
-          // וידוא שהמערך הוא אכן מערך
-          if (!Array.isArray(data.soldierIds)) {
-            console.error("שגיאה: soldierIds אינו מערך", doc.id, data);
-            data.soldierIds = Array.isArray(data.soldierIds) ? data.soldierIds : [];
-          }
+          // שליחת אירוע מערכת שהשיבוצים נטענו
+          const event = new CustomEvent('assignmentsLoaded');
+          document.dispatchEvent(event);
           
-          // תיקון סוגי המזהים של החיילים (לוודא שהם מחרוזות)
-          if (data.soldierIds.length > 0) {
-            data.soldierIds = data.soldierIds.map(id => String(id));
-          }
-
-          return {
-            id: doc.id,
-            ...data
-          };
-        });
-        
-        // עדכון המערך הגלובלי
-        assignments = newAssignments;
-        
-        console.log("עדכון מספר השיבוצים:", assignments.length);
-        
-        // בדיקות נוספות של תאריכים ושיבוצים
-        const uniqueDates = [...new Set(assignments.map(a => a.date))].sort();
-        console.log(`יש שיבוצים ל-${uniqueDates.length} תאריכים שונים:`, uniqueDates);
-        
-        // בדיקת כמה חיילים משובצים לכל שיבוץ
-        let totalSoldiers = 0;
-        assignments.forEach(a => {
-          if (a.soldierIds && Array.isArray(a.soldierIds)) {
-            totalSoldiers += a.soldierIds.length;
-          }
-        });
-        console.log(`סה"כ ${totalSoldiers} שיבוצי חיילים (בממוצע ${(totalSoldiers/assignments.length).toFixed(1)} חיילים לכל שיבוץ)`);
-        
-        // רינדור לוח השנה רק לאחר טעינת כל הנתונים
-        renderCalendar();
-        
-        // עדכון מאגר השמות
-        loadSoldierNamesMap();
-        
-        // וידוא שהממשק מעודכן לפי מצב העריכה הנוכחי
-        console.log("מצב עריכה נוכחי אחרי טעינת כל הנתונים:", userRole);
-        
-        // הגדרה מחדש של אירועי גרירה אם המשתמש במצב עריכה
-        if (userRole === 'admin') {
-          setTimeout(() => {
-            setupDragAndDrop();
-            console.log("הוגדרו מחדש אירועי גרירה לאחר טעינת כל הנתונים");
-          }, 100);
+          // עדכון מאגר השמות
+          loadSoldierNamesMap();
+          
+          // רינדור לוח השנה רק לאחר טעינת כל הנתונים
+          renderCalendar();
+          
+          resolve(assignments);
+        },
+        (error) => {
+          console.error("שגיאה בטעינת שיבוצים:", error);
+          showNotification('אירעה שגיאה בטעינת נתוני השיבוצים: ' + error.message, 'error');
+          reject(error);
         }
-      },
-      (error) => {
-        console.error("שגיאה בטעינת שיבוצים:", error);
-        showNotification('אירעה שגיאה בטעינת נתוני השיבוצים: ' + error.message, 'error');
-      }
-    );
-  } catch (error) {
-    console.error("שגיאה בטעינת שיבוצים:", error);
-    showNotification('אירעה שגיאה בטעינת נתוני השיבוצים: ' + error.message, 'error');
-  }
+      );
+    } catch (error) {
+      console.error("שגיאה בהגדרת מאזין לשיבוצים:", error);
+      reject(error);
+    }
+  });
+}
+// פונקציה לנרמול כל המזהים למחרוזות
+function normalizeId(id) {
+  if (id === null || id === undefined) return null;
+  return String(id);
 }
 
+// פונקציה לנרמול מערך מזהים
+function normalizeIds(ids) {
+  if (!Array.isArray(ids)) return [];
+  return ids.map(id => normalizeId(id)).filter(id => id !== null);
+}
+
+// פונקציה לנרמול שיבוץ
+function normalizeAssignment(assignment) {
+  if (!assignment) return null;
+  
+  const normalizedAssignment = {...assignment};
+  
+  // וידוא שהמזהה של המשימה הוא מחרוזת
+  if (normalizedAssignment.taskId) {
+    normalizedAssignment.taskId = normalizeId(normalizedAssignment.taskId);
+  }
+  
+  // וידוא שמערך המזהים של החיילים מכיל רק מחרוזות
+  if (normalizedAssignment.soldierIds) {
+    normalizedAssignment.soldierIds = normalizeIds(normalizedAssignment.soldierIds);
+  }
+  
+  return normalizedAssignment;
+}
 // פונקציה להסרת מאזינים של Firestore
 function removeFirestoreListeners() {
   if (unsubscribeSoldiers) {
@@ -5316,13 +5305,15 @@ function removeFirestoreListeners() {
 }
 
 // מאגר גלובלי של שמות חיילים לשימוש בדוחות
-let soldierNamesMap = {};
+// מאגר גלובלי משופר של שמות חיילים
+let soldierNamesMap = new Map();
 
+// פונקציה משופרת לטעינת מאגר שמות חיילים
 function loadSoldierNamesMap() {
-  console.log("טוען מאגר שמות חיילים גלובלי");
+  console.log("טוען מאגר שמות חיילים");
   
   // איפוס המאגר
-  soldierNamesMap = {};
+  soldierNamesMap = new Map();
   
   // בדיקה שיש חיילים
   if (!soldiers || !Array.isArray(soldiers) || soldiers.length === 0) {
@@ -5339,56 +5330,90 @@ function loadSoldierNamesMap() {
       return;
     }
     
-    // יצירת השם המלא
-    const fullName = `${soldier.firstName || ''} ${soldier.lastName || ''}`.trim();
+    // יצירת השם המלא עם התחשבות בערכי null או undefined
+    const firstName = soldier.firstName || '';
+    const lastName = soldier.lastName || '';
+    const fullName = `${firstName} ${lastName}`.trim();
+    
     if (!fullName) {
       console.warn(`חייל עם ID ${soldier.id} חסר שם!`);
       return;
     }
     
-    // שמירה בכל הפורמטים האפשריים
-    const stringId = String(soldier.id);
-    const numId = Number(soldier.id);
-    
-    soldierNamesMap[soldier.id] = fullName;
-    soldierNamesMap[stringId] = fullName;
-    
-    if (!isNaN(numId)) {
-      soldierNamesMap[numId] = fullName;
-    }
+    // שימוש במבנה Map במקום אובייקט רגיל
+    const normalizedId = normalizeId(soldier.id);
+    soldierNamesMap.set(normalizedId, {
+      name: fullName,
+      role: soldier.role || '',
+      firstName: firstName,
+      lastName: lastName
+    });
   });
   
-  console.log(`נטענו ${Object.keys(soldierNamesMap).length} שמות חיילים למאגר הגלובלי`);
-  
-  // בדיקת תקינות על מדגם מהשיבוצים
-  if (assignments && assignments.length > 0) {
-    let sampleSize = Math.min(5, assignments.length);
-    let foundCount = 0;
-    let totalCount = 0;
-    
-    for (let i = 0; i < sampleSize; i++) {
-      const assignment = assignments[i];
-      if (assignment && assignment.soldierIds && Array.isArray(assignment.soldierIds)) {
-        assignment.soldierIds.forEach(id => {
-          totalCount++;
-          if (soldierNamesMap[id] || soldierNamesMap[String(id)]) {
-            foundCount++;
-          } else {
-            console.warn(`לא נמצא שם לחייל עם ID ${id} בשיבוץ ${i + 1}`);
-          }
-        });
-      }
-    }
-    
-    if (totalCount > 0) {
-      const successRate = (foundCount / totalCount * 100).toFixed(1);
-      console.log(`בדיקת תקינות המאגר: נמצאו ${foundCount} מתוך ${totalCount} חיילים (${successRate}%)`);
-    }
-  }
+  console.log(`נטענו ${soldierNamesMap.size} שמות חיילים למאגר`);
   
   return soldierNamesMap;
 }
 
+// פונקציה משופרת לקבלת שם חייל 
+function getSoldierName(soldierId) {
+  if (!soldierId) return 'שם לא זמין';
+  
+  // המרה למחרוזת של ה-ID
+  const normalizedId = normalizeId(soldierId);
+  
+  // חיפוש במאגר השמות
+  const soldierInfo = soldierNamesMap.get(normalizedId);
+  if (soldierInfo) {
+    return soldierInfo.name;
+  }
+  
+  // אם לא נמצא, חיפוש ישיר במערך החיילים
+  const soldier = soldiers.find(s => normalizeId(s.id) === normalizedId);
+  if (soldier) {
+    const fullName = `${soldier.firstName || ''} ${soldier.lastName || ''}`.trim();
+    // עדכון המאגר עם השם שמצאנו
+    soldierNamesMap.set(normalizedId, {
+      name: fullName,
+      role: soldier.role || '',
+      firstName: soldier.firstName || '',
+      lastName: soldier.lastName || ''
+    });
+    
+    return fullName;
+  }
+  
+  return 'שם לא זמין';
+}
+
+// פונקציה משופרת להצגת שם חייל עם עיצוב HTML
+function getSoldierNameSpan(soldierId) {
+  if (!soldierId) return '';
+  
+  const normalizedId = normalizeId(soldierId);
+  const soldierInfo = soldierNamesMap.get(normalizedId);
+  
+  if (soldierInfo) {
+    return `<span class="${soldierInfo.role || ''}">${soldierInfo.name}</span>`;
+  }
+  
+  // אם לא נמצא במאגר, חיפוש ישיר
+  const soldier = soldiers.find(s => normalizeId(s.id) === normalizedId);
+  if (soldier) {
+    const fullName = `${soldier.firstName || ''} ${soldier.lastName || ''}`.trim();
+    return `<span class="${soldier.role || ''}">${fullName}</span>`;
+  }
+  
+  return '';
+}
+
+// פונקציה להחזרת אובייקט חייל לפי מזהה
+function getSoldierById(soldierId) {
+  if (!soldierId) return null;
+  
+  const normalizedId = normalizeId(soldierId);
+  return soldiers.find(s => normalizeId(s.id) === normalizedId) || null;
+}
 // פונקציית דיבוג מיוחדת לבדיקת מאגר השמות
 function testReportSoldiers() {
   console.log("=== בדיקת מאגר שמות החיילים ===");

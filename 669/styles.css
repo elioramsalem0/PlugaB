@@ -1,0 +1,2593 @@
+/* סגנון מקצועי ויוקרתי עם אפקטים מודרניים */
+:root {
+  /* פלטת צבעים ראשית */
+  --primary-color: #2C3E50; /* כחול-אפור כהה יוקרתי */
+  --primary-light: #34495E;
+  --primary-dark: #1A2530;
+  
+  /* צבעים משניים */
+  --accent-color: #3498DB; /* כחול מודרני */
+  --bg-color: #F8F9FA;
+  --bg-alt: #F0F2F5;
+  --border-color: #E2E8F0;
+  
+  /* צבעי טקסט */
+  --text-dark: #1E293B;
+  --text-medium: #475569;
+  --text-light: #64748B;
+  --text-white: #FFFFFF;
+  
+  /* צבעי תפקידים כפי שהתבקשו */
+  --doctor-color: #333333; /* שחור מרוכך */
+  --paramedic-color: #E67E22; /* כתום מעודן */
+  --trainee-color: #E74C3C; /* אדום מעודן */
+  --mentor-color: #27AE60; /* ירוק מעודן */
+  
+  /* צבעי רקע עדינים לתפקידים */
+  --doctor-bg: #F1F1F1;
+  --paramedic-bg: #FEF5EB;
+  --trainee-bg: #FDEDEB;
+  --mentor-bg: #EAFAF1;
+  
+  /* צבעי דגשים נוספים */
+  --success-color: #27AE60;
+  --warning-color: #F39C12;
+  --error-color: #E74C3C;
+  --info-color: #3498DB;
+  
+  /* מרווחים עקביים */
+  --space-xxs: 0.125rem; /* 2px */
+  --space-xs: 0.25rem;   /* 4px */
+  --space-sm: 0.5rem;    /* 8px */
+  --space-md: 0.75rem;   /* 12px */
+  --space-lg: 1rem;      /* 16px */
+  --space-xl: 1.5rem;    /* 24px */
+  --space-xxl: 2rem;     /* 32px */
+  
+  /* רדיוסים */
+  --radius-sm: 0.25rem;  /* 4px */
+  --radius-md: 0.375rem; /* 6px */
+  --radius-lg: 0.5rem;   /* 8px */
+  --radius-xl: 0.75rem;  /* 12px */
+  --radius-full: 9999px; /* עיגול מלא */
+  
+  /* צללים */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-inner: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
+  --shadow-outline: 0 0 0 3px rgba(66, 153, 225, 0.5);
+  
+  /* זמני מעבר */
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
+  --transition-slow: 350ms ease;
+  
+  /* גרדיאנטים */
+  --gradient-primary: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+  --gradient-doctor: linear-gradient(135deg, #333333, #555555);
+  --gradient-paramedic: linear-gradient(135deg, #E67E22, #F39C12);
+  --gradient-trainee: linear-gradient(135deg, #E74C3C, #C0392B);
+  --gradient-mentor: linear-gradient(135deg, #27AE60, #2ECC71);
+}
+
+/* טיפוגרפיה יוקרתית */
+@import url('https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;500;600;700&family=Heebo:wght@300;400;500;600;700&display=swap');
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  transition: color var(--transition-fast), background-color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+}
+
+body {
+  font-family: 'Assistant', 'Heebo', sans-serif;
+  background-color: var(--bg-color);
+  padding: 0;
+  direction: rtl;
+  color: var(--text-medium);
+  overflow: hidden;
+  height: 100vh;
+  line-height: 1.5;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* קלאסים כלליים וגריד מודרני */
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.flex-wrap { flex-wrap: wrap; }
+.gap-1 { gap: var(--space-xs); }
+.gap-2 { gap: var(--space-sm); }
+.gap-4 { gap: var(--space-lg); }
+.justify-between { justify-content: space-between; }
+.justify-center { justify-content: center; }
+.items-center { align-items: center; }
+.bg-white { background-color: white; }
+.bg-gray-100 { background-color: var(--bg-alt); }
+.bg-gray-200 { background-color: #E5E7EB; }
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+.flex-1 { flex: 1; }
+.relative { position: relative; }
+.absolute { position: absolute; }
+.right-2 { right: 0.5rem; }
+.top-1\.5 { top: 0.375rem; }
+.overflow-hidden { overflow: hidden; }
+.overflow-auto { overflow: auto; }
+.overflow-x-auto { overflow-x: auto; }
+.overflow-y-auto { overflow-y: auto; }
+.w-full { width: 100%; }
+.h-full { height: 100%; }
+.h-screen { height: 100vh; }
+.rounded { border-radius: var(--radius-sm); }
+.rounded-md { border-radius: var(--radius-md); }
+.rounded-lg { border-radius: var(--radius-lg); }
+.rounded-xl { border-radius: var(--radius-xl); }
+.rounded-full { border-radius: var(--radius-full); }
+.shadow { box-shadow: var(--shadow-sm); }
+.shadow-md { box-shadow: var(--shadow-md); }
+.shadow-lg { box-shadow: var(--shadow-lg); }
+.cursor-move { cursor: grab; }
+.cursor-ns-resize { cursor: ns-resize; }
+.border { border: 1px solid var(--border-color); }
+.border-b { border-bottom: 1px solid var(--border-color); }
+.hidden { display: none; }
+
+/* טיפוגרפיה */
+.text-sm { font-size: 0.875rem; }
+.text-xs { font-size: 0.75rem; }
+.text-lg { font-size: 1.125rem; }
+.text-xl { font-size: 1.25rem; }
+.text-2xl { font-size: 1.5rem; }
+.font-bold { font-weight: 700; }
+.font-medium { font-weight: 500; }
+.text-dark { color: var(--text-dark); }
+.text-medium { color: var(--text-medium); }
+.text-light { color: var(--text-light); }
+.text-white { color: var(--text-white); }
+
+/* לייאאוט ראשי */
+.main-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  position: relative;
+  background-color: var(--bg-color);
+  animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* מסך התחברות */
+.login-container {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  animation: fadeIn 0.5s ease-out;
+}
+
+.login-box {
+  width: 90%;
+  max-width: 400px;
+  background: white;
+  padding: var(--space-xxl);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  text-align: center;
+  border: 1px solid var(--border-color);
+  animation: scaleIn 0.4s ease-out;
+  overflow: hidden;
+  position: relative;
+}
+
+/* אפקט גרדיאנט לתיבת התחברות */
+.login-box::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--gradient-primary);
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.login-box h2 {
+  margin-bottom: var(--space-xl);
+  color: var(--primary-color);
+  font-weight: 600;
+  font-size: 1.75rem;
+}
+
+.login-logo {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto var(--space-xl);
+  background: var(--gradient-primary);
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  box-shadow: var(--shadow-md);
+  position: relative;
+  overflow: hidden;
+}
+
+/* אפקט הילה לוגו */
+.login-logo::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, transparent 70%);
+  opacity: 0;
+  transform: scale(0.8);
+  transition: opacity 0.5s, transform 0.5s;
+  pointer-events: none;
+}
+
+.login-logo:hover::after {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.login-form input {
+  width: 100%;
+  padding: 12px 16px;
+  margin-bottom: var(--space-lg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-family: 'Assistant', 'Heebo', sans-serif;
+  font-size: 14px;
+  background-color: white;
+  transition: all var(--transition-normal);
+}
+
+.login-form input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.25);
+  transform: translateY(-1px);
+}
+
+.login-form button {
+  width: 100%;
+  padding: 12px;
+  background: var(--gradient-primary);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+  transition: all var(--transition-normal);
+}
+
+/* אפקט גלים לכפתור */
+.login-form button::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 150px;
+  height: 150px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  opacity: 0;
+  transition: transform 0.5s, opacity 0.3s;
+}
+
+.login-form button:active::after {
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+  transition: 0s;
+}
+
+.login-form button:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.login-form button:active {
+  transform: translateY(0);
+}
+
+.login-error {
+  color: var(--error-color);
+  margin-bottom: var(--space-lg);
+  font-size: 14px;
+  animation: shake 0.5s ease-in-out;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-5px); }
+  40%, 80% { transform: translateX(5px); }
+}
+
+/* תוכן ראשי */
+.main-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+  padding: var(--space-lg);
+}
+
+/* לוח שיבוץ */
+.scheduler-container {
+  display: flex;
+  flex: 1;
+  margin-bottom: var(--space-lg);
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background-color: white;
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--border-color);
+  transition: all var(--transition-normal);
+  position: relative;
+}
+
+/* אפקט הילת לוח */
+.scheduler-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--gradient-primary);
+  opacity: 0;
+  transition: opacity var(--transition-normal);
+}
+
+.scheduler-container:hover::before {
+  opacity: 1;
+}
+
+.scheduler-container:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-1px);
+}
+
+.calendar-panel {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+}
+
+/* מותאם לגלילה יפה */
+.calendar-panel::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.calendar-panel::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 8px;
+}
+
+.calendar-panel::-webkit-scrollbar-thumb {
+  background: #c9c9c9;
+  border-radius: 8px;
+}
+
+.calendar-panel::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+.calendar-container {
+  background: white;
+  border-radius: var(--radius-lg);
+}
+
+/* פאנל חיילים */
+.soldiers-panel {
+  height: 220px;
+  min-height: 120px; 
+  max-height: 50vh;
+  background: white;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+  margin-top: var(--space-lg);
+  position: relative;
+  border: 1px solid var(--border-color);
+  transition: all var(--transition-normal);
+}
+
+.soldiers-panel:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-1px);
+}
+
+.soldiers-panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--gradient-primary);
+  opacity: 0;
+  transition: opacity var(--transition-normal);
+}
+
+.soldiers-panel:hover::before {
+  opacity: 1;
+}
+
+.resize-handle {
+  height: 6px;
+  background-color: var(--bg-alt);
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  cursor: ns-resize;
+  transition: background-color var(--transition-fast);
+  z-index: 10;
+}
+
+.resize-handle:hover {
+  background-color: var(--accent-color);
+}
+
+.resize-handle::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 50%;
+  width: 30px;
+  height: 2px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 2px;
+  transform: translateX(-50%);
+}
+
+.soldiers-list {
+  overflow-y: auto;
+  height: calc(100% - 48px);
+  padding: var(--space-md) var(--space-lg);
+}
+
+.soldiers-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.soldiers-list::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 8px;
+}
+
+.soldiers-list::-webkit-scrollbar-thumb {
+  background: #c9c9c9;
+  border-radius: 8px;
+}
+
+.soldiers-list::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* כרטיסי חיילים - עם אפקטים */
+.soldier-card {
+  border: 1px solid var(--border-color);
+  border-right-width: 3px;
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+  cursor: grab;
+  margin-bottom: var(--space-sm);
+  display: inline-flex;
+  align-items: center;
+  margin-right: var(--space-sm);
+  position: relative;
+  background-color: white;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-normal);
+  overflow: hidden;
+}
+
+.soldier-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 3px;
+  transition: all var(--transition-normal);
+}
+
+.soldier-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px) scale(1.01);
+}
+
+.soldier-card:active {
+  cursor: grabbing;
+}
+
+.soldier-card.dragging {
+  opacity: 0.7;
+  cursor: grabbing;
+  box-shadow: var(--shadow-lg);
+  transform: rotate(1deg) scale(1.02);
+}
+
+/* כרטיסים עם צבעי תפקידים */
+.soldier-card.doctor::before { background-color: var(--doctor-color); }
+.soldier-card.paramedic::before { background-color: var(--paramedic-color); }
+.soldier-card.trainee::before { background-color: var(--trainee-color); }
+.soldier-card.mentor::before { background-color: var(--mentor-color); }
+
+.soldier-editing {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  background-color: white;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-md);
+  box-shadow: var(--shadow-md);
+}
+
+/* כותרת לוח שנה */
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--gradient-primary);
+  position: sticky;
+  top: 0;
+  color: white;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  z-index: 10;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.sticky {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+/* הוספת סגנון חדש לקונטיינר של הכפתורים */
+.calendar-header .header-buttons {
+  display: flex;
+  gap: 8px;
+  margin-right: auto; /* מזיז את הכפתורים לצד שמאל */
+  padding-right: 16px; /* מרווח מהתוכן במרכז */
+}
+
+/* טבלת הלוח - עם אפקטים מודרניים */
+table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  position: relative;
+}
+
+td, th {
+  position: relative;
+  z-index: auto;
+  border-bottom: 1px solid var(--border-color);
+  border-right: 1px solid var(--border-color);
+  transition: background-color var(--transition-fast);
+}
+
+th {
+  background-color: var(--bg-alt);
+  font-weight: 600;
+  color: var(--text-dark);
+  padding: var(--space-sm);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  box-shadow: 0 1px 0 var(--border-color);
+}
+
+th:first-child {
+  z-index: 6;
+  left: 0;
+}
+
+tr:nth-child(even) {
+  background-color: rgba(248, 249, 250, 0.5);
+}
+
+/* סגנון ליום חג */
+.holiday {
+  background-color: #FFF9E6;
+  position: relative;
+}
+
+.holiday::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 8px 8px 0;
+  border-color: transparent #F39C12 transparent transparent;
+}
+
+.holiday-name {
+  font-size: 0.75rem;
+  color: var(--warning-color);
+  font-weight: bold;
+}
+
+.holiday-cell {
+  background-color: rgba(255, 249, 230, 0.4);
+}
+
+/* תא משימה - עם אפקטים אינטראקטיביים */
+.task-cell {
+  min-height: 42px;
+  height: auto !important;
+  max-height: none !important;
+  vertical-align: top;
+  padding: var(--space-sm);
+  transition: all var(--transition-normal);
+  overflow: visible !important;
+  position: relative;
+  z-index: 1;
+}
+
+.task-cell:hover {
+  background-color: rgba(52, 152, 219, 0.05);
+}
+
+/* שם משימה - עם אפקטים */
+.task-name {
+  font-weight: 600;
+  color: white;
+  background: var(--gradient-primary);
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-sm);
+  font-size: 13px;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
+}
+
+/* אפקט הילה בתוך שם משימה */
+.task-name::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%);
+  opacity: 0;
+  transform: scale(0.8);
+  transition: opacity 0.5s, transform 0.5s;
+  pointer-events: none;
+}
+
+.task-name:hover::after {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* מיכל שיבוץ */
+.assignment-container {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-xs);
+  min-height: fit-content;
+  height: auto !important;
+  max-height: none !important;
+  padding: var(--space-xs);
+  background-color: rgba(247, 248, 249, 0.7);
+  border-radius: var(--radius-md);
+  overflow: visible !important;
+  position: relative;
+  z-index: 2;
+  transition: all var(--transition-normal);
+  border: 1px dashed transparent;
+}
+
+.task-cell:hover .assignment-container {
+  background-color: rgba(247, 248, 249, 0.9);
+  border: 1px dashed var(--border-color);
+}
+
+/* תגית חייל - צבעי תפקידים ואפקטים */
+.soldier-tag {
+  display: flex;
+  align-items: center;
+  padding: 4px 12px; /* הגדלת הפדינג */
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  white-space: nowrap;
+  box-shadow: var(--shadow-sm);
+  width: 100%;
+  border: 1px solid transparent;
+  direction: rtl;
+  gap: 12px; /* הגדלת המרווח בין האלמנטים */
+  cursor: pointer;
+  position: relative;
+  margin: 2px 0;
+  z-index: 3;
+  justify-content: space-between;
+  transition: all var(--transition-normal);
+}
+
+.soldier-tag .remove-btn {
+  margin: 0;
+  opacity: 0.7;
+  transition: all var(--transition-normal);
+  font-size: 0.75rem;
+  line-height: 1;
+  width: 20px; /* הגדלת הרוחב */
+  height: 20px; /* הגדלת הגובה */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-medium);
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 50%;
+  flex-shrink: 0;
+  order: -1;
+  position: relative;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.soldier-tag .remove-btn::before,
+.soldier-tag .remove-btn::after {
+  content: '';
+  position: absolute;
+  width: 8px;
+  height: 1.5px;
+  background-color: currentColor;
+  border-radius: 1px;
+  transition: all var(--transition-normal);
+}
+
+.soldier-tag .remove-btn::before {
+  transform: rotate(45deg);
+}
+
+.soldier-tag .remove-btn::after {
+  transform: rotate(-45deg);
+}
+
+.soldier-tag .remove-btn:hover {
+  opacity: 1;
+  color: var(--error-color);
+  transform: rotate(90deg);
+}
+
+.soldier-tag .soldier-name {
+  display: inline-block;
+  text-align: right;
+  flex: 1;
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 12px;
+  transition: all var(--transition-normal);
+}
+
+/* תגיות חיילים עם צבעי תפקידים */
+.soldier-tag.doctor {
+  background-color: var(--doctor-bg);
+  color: var(--doctor-color);
+  border-color: #D1D1D1;
+}
+
+.soldier-tag.paramedic {
+  background-color: var(--paramedic-bg);
+  color: var(--paramedic-color);
+  border-color: #FBDDB3;
+}
+
+.soldier-tag.trainee {
+  background-color: var(--trainee-bg);
+  color: var(--trainee-color);
+  border-color: #F9C6C1;
+}
+
+.soldier-tag.mentor {
+  background-color: var(--mentor-bg);
+  color: var(--mentor-color);
+  border-color: #A7E8C3;
+}
+
+/* אפקט ריחוף תגיות */
+.soldier-tag:hover {
+  transform: translateY(-2px) scale(1.01);
+  box-shadow: var(--shadow-md);
+}
+
+/* כפתורים מודרניים עם אפקטים */
+.button {
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 8px 16px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  font-family: 'Assistant', 'Heebo', sans-serif;
+  transition: all var(--transition-normal);
+  font-weight: 500;
+  gap: 8px;
+  font-size: 14px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+/* אפקט הילה לכפתורים */
+.button::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 150px;
+  height: 150px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  opacity: 0;
+  transition: transform 0.5s, opacity 0.3s;
+}
+
+.button:active::after {
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+  transition: 0s;
+}
+
+.button:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.button:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
+}
+
+.button-blue {
+  background: var(--gradient-primary);
+  color: white;
+}
+
+.button-gray {
+  background-color: var(--text-medium);
+  color: white;
+}
+
+.button-gray:hover {
+  background-color: var(--text-dark);
+}
+
+.button-green {
+  background: var(--gradient-mentor);
+  color: white;
+}
+
+.button-accent {
+  background: var(--gradient-paramedic);
+  color: white;
+}
+
+/* כפתורי אייקון עם אפקטים */
+.icon-button {
+  background: white;
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-medium);
+  transition: all var(--transition-normal);
+  padding: 6px;
+  border-radius: var(--radius-md);
+  width: 28px;
+  height: 28px;
+  position: relative;
+  overflow: hidden;
+}
+
+.icon-button::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 35px;
+  height: 35px;
+  background: rgba(0, 0, 0, 0.08);
+  border-radius: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  opacity: 0;
+  transition: transform 0.4s, opacity 0.3s;
+}
+
+.icon-button:active::after {
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+  transition: 0s;
+}
+
+.icon-button:hover {
+  color: var(--accent-color);
+  border-color: var(--accent-color);
+  background-color: rgba(52, 152, 219, 0.05);
+  transform: translateY(-1px);
+}
+
+.delete-icon:hover {
+  color: var(--error-color);
+  border-color: var(--error-color);
+  background-color: rgba(231, 76, 60, 0.05);
+}
+
+/* שדות קלט עם אפקטים */
+input, select {
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-family: 'Assistant', 'Heebo', sans-serif;
+  font-size: 14px;
+  transition: all var(--transition-normal);
+  background-color: white;
+}
+
+input:focus, select:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+  transform: translateY(-1px);
+}
+
+/* מיכל דוח - עם אפקטים */
+.report-container {
+  flex: 1;
+  overflow: auto;
+  background: white;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-lg);
+  display: block;
+  width: 100%;
+  position: relative;
+  border: 1px solid var(--border-color);
+  animation: fadeIn 0.3s ease-out;
+  transition: all var(--transition-normal);
+}
+
+.report-container:hover {
+  box-shadow: var(--shadow-lg);
+}
+
+/* אפקט גרדיאנט למיכל דוח */
+.report-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--gradient-primary);
+  opacity: 0;
+  transition: opacity var(--transition-normal);
+}
+
+.report-container:hover::before {
+  opacity: 1;
+}
+
+.report-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.report-container::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 8px;
+}
+
+.report-container::-webkit-scrollbar-thumb {
+  background: #c9c9c9;
+  border-radius: 8px;
+}
+
+.report-container::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+.report-container.hidden {
+  display: none !important;
+}
+
+.report-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-lg);
+  padding-bottom: var(--space-sm);
+  border-bottom: 1px solid var(--border-color);
+  width: 100%;
+}
+
+.report-controls {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: center;
+}
+
+.report-content {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.space-y-6 {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+}
+
+.space-y-6 > * {
+  width: 100%;
+}
+
+.report-item {
+  border-bottom: 1px solid var(--border-color);
+  padding: var(--space-md) 0;
+  transition: all var(--transition-normal);
+}
+
+.report-item:hover {
+  background-color: rgba(52, 152, 219, 0.03);
+  border-radius: var(--radius-sm);
+  padding-right: var(--space-sm);
+  transform: translateY(-1px);
+}
+
+/* כפתורי דוחות */
+.report-buttons-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+/* כפתור הוספת משימה עם אפקטים */
+.add-task-button {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  background: var(--gradient-mentor);
+  color: white;
+  padding: 10px 16px;
+  border-radius: var(--radius-full);
+  box-shadow: 0 3px 10px rgba(39, 174, 96, 0.3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all var(--transition-normal);
+  z-index: 50;
+  font-weight: 500;
+  overflow: hidden;
+}
+
+/* אפקט לחיצה לכפתור הוספה */
+.add-task-button::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 150px;
+  height: 150px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  opacity: 0;
+  transition: transform 0.5s, opacity 0.3s;
+}
+
+.add-task-button:active::after {
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+  transition: 0s;
+}
+
+.add-task-button:hover {
+  transform: translateY(-3px) scale(1.03);
+  box-shadow: 0 5px 15px rgba(39, 174, 96, 0.4);
+}
+
+.add-task-button:active {
+  transform: translateY(-1px) scale(1.01);
+}
+
+.add-task-button .icon {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+/* תמיכה בגרירה במובייל */
+.mobile-drag-indicator {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  background-color: var(--primary-color);
+  color: white;
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  pointer-events: none;
+  opacity: 0;
+  transition: all var(--transition-normal);
+  z-index: 100;
+  transform: translateY(-10px);
+}
+
+.mobile-drag-indicator.visible {
+  opacity: 0.95;
+  transform: translateY(0);
+}
+
+/* אייקונים */
+.icon {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.icon-sm {
+  width: 16px;
+  height: 16px;
+}
+
+.icon-xs {
+  width: 14px;
+  height: 14px;
+}
+
+/* אייקון חיפוש עם אפקטים */
+.search-icon-container {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-light);
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-normal);
+}
+
+.search-icon-container .icon {
+  width: 18px;
+  height: 18px;
+}
+
+#searchInput {
+  padding-right: 36px;
+  transition: all var(--transition-normal);
+}
+
+#searchInput:focus {
+  padding-right: 40px;
+}
+
+#searchInput:focus + .search-icon-container {
+  color: var(--accent-color);
+  transform: translateY(-50%) scale(1.1);
+}
+
+/* אייקון מחיקה */
+.trash-icon {
+  width: 14px;
+  height: 14px;
+  stroke: var(--error-color);
+  cursor: pointer;
+  margin-left: var(--space-xs);
+  margin-right: var(--space-xs);
+  display: inline-block;
+  vertical-align: middle;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.7;
+  transition: all var(--transition-normal);
+}
+
+.trash-icon:hover {
+  stroke: var(--error-color);
+  opacity: 1;
+  transform: rotate(15deg) scale(1.2);
+}
+
+/* התראות מקפיצות עם אפקטים */
+.notification {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  z-index: 1000;
+  min-width: 300px;
+  box-shadow: var(--shadow-lg);
+  animation: slideInUp 0.3s ease-out forwards;
+  direction: rtl;
+  text-align: right;
+  font-weight: 500;
+  border-right: 3px solid transparent;
+}
+
+.notification-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+@keyframes slideInUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.notification-error {
+  background-color: var(--error-color);
+  color: white;
+  border-color: #C0392B;
+}
+
+.notification-success {
+  background-color: var(--success-color);
+  color: white;
+  border-color: #219653;
+}
+
+.notification-warning {
+  background-color: var(--warning-color);
+  color: white;
+  border-color: #E67E22;
+}
+
+.notification-info {
+  background-color: var(--info-color);
+  color: white;
+  border-color: #2980B9;
+}
+
+.notification .icon {
+  width: 22px;
+  height: 22px;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+  margin-left: 10px;
+}
+
+/* דיאלוגים - עם אפקטים מודרניים */
+.quick-add-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: white;
+  padding: var(--space-lg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  z-index: 50;
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+  animation: dialogEnter 0.4s ease-out;
+}
+
+@keyframes dialogEnter {
+  from { transform: translate(-50%, -50%) scale(0.9); opacity: 0; }
+  to { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+
+/* סגנונות כלליים לדיאלוגים */
+.dialog-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  direction: rtl;
+  background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(5px);
+  animation: fadeIn 0.3s ease-out;
+}
+
+.dialog-container.hidden {
+  display: none !important;
+}
+
+.dialog-box {
+  background-color: white;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  width: 90%;
+  max-width: 500px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  z-index: 1001;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  animation: dialogEnter 0.4s ease-out;
+}
+
+/* כותרת דיאלוג עם אפקטים */
+.dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-md);
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-color);
+  position: relative;
+}
+
+.dialog-header::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 50px;
+  height: 2px;
+  background: var(--gradient-primary);
+}
+
+.dialog-title {
+  font-weight: 600;
+  font-size: 18px;
+  color: var(--text-dark);
+}
+
+.dialog-content {
+  padding: 16px;
+  overflow-y: auto;
+  flex-grow: 1;
+}
+
+.dialog-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.dialog-content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 8px;
+}
+
+.dialog-content::-webkit-scrollbar-thumb {
+  background: #c9c9c9;
+  border-radius: 8px;
+}
+
+.dialog-content::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+.dialog-footer {
+  padding: 16px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* כפתור סגירה עם אפקטים */
+.close-button {
+  background: transparent;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  color: var(--text-medium);
+  transition: all var(--transition-normal);
+  position: relative;
+  overflow: hidden;
+}
+
+.close-button::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 35px;
+  height: 35px;
+  background: rgba(0, 0, 0, 0.08);
+  border-radius: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  opacity: 0;
+  transition: transform 0.4s, opacity 0.3s;
+}
+
+.close-button:active::after {
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+  transition: 0s;
+}
+
+.close-button:hover {
+  background-color: rgba(231, 76, 60, 0.1);
+  color: var(--error-color);
+  transform: rotate(90deg);
+}
+
+/* סגנונות לדיאלוג הוספת משימה */
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: var(--text-dark);
+  font-size: 14px;
+}
+
+.form-control {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-family: 'Assistant', 'Heebo', sans-serif;
+  transition: all var(--transition-normal);
+}
+
+.form-control:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+  transform: translateY(-1px);
+}
+
+/* סגנונות לדיאלוג הוספה מהירה */
+.available-soldiers {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 8px;
+  background-color: var(--bg-color);
+  transition: all var(--transition-normal);
+}
+
+.available-soldiers:focus-within {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+.available-soldiers::-webkit-scrollbar {
+  width: 8px;
+}
+
+.available-soldiers::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 8px;
+}
+
+.available-soldiers::-webkit-scrollbar-thumb {
+  background: #c9c9c9;
+  border-radius: 8px;
+}
+
+.available-soldiers::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+.soldier-checkbox {
+  margin-bottom: 8px;
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-normal);
+  display: flex;
+  align-items: center;
+}
+
+.soldier-checkbox:hover {
+  background-color: rgba(52, 152, 219, 0.05);
+  transform: translateX(-3px);
+}
+
+.soldier-checkbox input {
+  margin-left: 8px;
+}
+
+/* סגנונות לדיאלוג בחירת סוג שיבוץ */
+.assignment-type-dialog {
+  background-color: white;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  width: 90%;
+  max-width: 400px;
+  padding: 20px;
+  border: 1px solid var(--border-color);
+  animation: dialogEnter 0.4s ease-out;
+}
+
+.assignment-type-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.assignment-type-options label {
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  transition: all var(--transition-normal);
+  cursor: pointer;
+  border: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.assignment-type-options label:hover {
+  background-color: var(--bg-alt);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.assignment-type-options input:checked + label {
+  background-color: rgba(52, 152, 219, 0.1);
+  border-color: var(--accent-color);
+  box-shadow: var(--shadow-sm);
+}
+
+/* סגנונות להערות שבועיות */
+.weekly-notes-container {
+  background-color: white;
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  margin-top: 16px;
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--border-color);
+  transition: all var(--transition-normal);
+  position: relative;
+  overflow: hidden;
+}
+
+/* אפקט גרדיאנט להערות שבועיות */
+.weekly-notes-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  bottom: 0;
+  background: var(--gradient-primary);
+  opacity: 0.7;
+}
+
+.weekly-notes-container:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+}
+
+.weekly-notes-display {
+  min-height: 90px;
+  white-space: pre-wrap;
+  line-height: 1.6;
+  padding: 12px;
+  background-color: var(--bg-color);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  transition: all var(--transition-normal);
+}
+
+.weekly-notes-display:hover {
+  background-color: white;
+  border-color: var(--accent-color);
+}
+
+.weekly-notes-display.empty {
+  color: var(--text-light);
+  font-style: italic;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.weekly-notes-form textarea {
+  resize: vertical;
+  min-height: 110px;
+  font-family: 'Assistant', 'Heebo', sans-serif;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  width: 100%;
+  font-size: 14px;
+  transition: all var(--transition-normal);
+}
+
+.weekly-notes-form textarea:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+  transform: translateY(-1px);
+}
+
+/* דיאלוג הערה */
+.note-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: white;
+  padding: 20px;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  z-index: 1000;
+  width: 90%;
+  max-width: 420px;
+  border: 1px solid var(--border-color);
+  animation: dialogEnter 0.4s ease-out;
+}
+
+.note-dialog textarea {
+  width: 100%;
+  min-height: 110px;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  margin: 12px 0;
+  font-family: 'Assistant', 'Heebo', sans-serif;
+  resize: vertical;
+  font-size: 14px;
+  transition: all var(--transition-normal);
+}
+
+.note-dialog textarea:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+  transform: translateY(-1px);
+}
+
+.note-dialog-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.note-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(5px);
+  z-index: 999;
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* טיפ הערה (tooltip) */
+.soldier-tag[data-note]::after {
+  content: attr(data-note);
+  position: absolute;
+  bottom: 125%;
+  right: 0;
+  background: rgba(44, 62, 80, 0.9);
+  color: white;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  min-width: 180px;
+  max-width: 250px;
+  z-index: 10;
+  font-size: 12px;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(5px);
+  transition: all var(--transition-normal);
+  white-space: normal;
+  backdrop-filter: blur(5px);
+  border-right: 3px solid var(--accent-color);
+}
+
+.soldier-tag[data-note]:hover::after {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* סגנונות לתפריט נפתח */
+.dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.dropdown-content {
+  position: absolute;
+  top: calc(100% + 5px);
+  right: 0;
+  background-color: white;
+  min-width: 180px;
+  box-shadow: var(--shadow-lg);
+  border-radius: var(--radius-md);
+  z-index: 1000;
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+  animation: dropdownEnter 0.3s ease-out;
+  transform-origin: top right;
+}
+
+@keyframes dropdownEnter {
+  from { transform: translateY(-5px) scale(0.95); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+.dropdown-content.hidden {
+  display: none;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  width: 100%;
+  text-align: right;
+  border: none;
+  background: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--transition-normal);
+  color: var(--text-dark);
+  font-size: 14px;
+  position: relative;
+  overflow: hidden;
+}
+
+.dropdown-item::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 200px;
+  height: 200px;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  opacity: 0;
+  transition: transform 0.5s, opacity 0.3s;
+  pointer-events: none;
+}
+
+.dropdown-item:active::after {
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+  transition: 0s;
+}
+
+.dropdown-item:hover {
+  background-color: var(--bg-alt);
+  color: var(--accent-color);
+  padding-right: 20px;
+}
+
+.dropdown-item .icon {
+  width: 16px;
+  height: 16px;
+  color: var(--text-medium);
+  transition: all var(--transition-normal);
+}
+
+.dropdown-item:hover .icon {
+  color: var(--accent-color);
+  transform: scale(1.1);
+}
+
+#reportsDropdownBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#reportsDropdownBtn .icon:last-child {
+  width: 12px;
+  height: 12px;
+  margin-right: 4px;
+  transition: all var(--transition-normal);
+}
+
+#reportsDropdownBtn.active .icon:last-child {
+  transform: rotate(180deg);
+}
+
+/* התאמות למובייל */
+@media (max-width: 768px) {
+  body {
+    padding: 0;
+  }
+  
+  .main-content {
+    padding: 12px;
+  }
+  
+  .calendar-panel {
+    min-height: 40vh;
+  }
+  
+  .soldiers-panel {
+    height: 40vh;
+  }
+  
+  th, td {
+    padding: 6px;
+  }
+  
+  .text-2xl {
+    font-size: 20px;
+  }
+  
+  /* חלוקת כפתורי דוחות לעמודה במסכים קטנים */
+  .report-buttons-group {
+    flex-direction: column;
+  }
+  
+  .calendar-header {
+    padding: 10px 12px;
+  }
+  
+  .calendar-header .header-buttons {
+    padding-right: 8px;
+  }
+  
+  .soldier-tag {
+    padding: 4px 8px;
+    gap: 8px;
+  }
+  
+  .soldier-tag .remove-btn {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+/* התאמה למסכים קטנים מאוד */
+@media (max-width: 640px) {
+  .quick-add-dialog, .dialog-box, .note-dialog {
+    width: 95%;
+    padding: 16px;
+  }
+  
+  .dialog-header, .dialog-content, .dialog-footer {
+    padding: 12px;
+  }
+  
+  .dialog-title {
+    font-size: 16px;
+  }
+  
+  .notification {
+    min-width: auto;
+    width: calc(100% - 40px);
+    padding: 12px 16px;
+  }
+  
+  .button {
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+  
+  .add-task-button {
+    bottom: 16px;
+    left: 16px;
+    padding: 8px 12px;
+  }
+  
+  .main-container {
+    height: 100vh;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+  
+  .calendar-header {
+    padding: 8px 12px;
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .task-name {
+    font-size: 12px;
+    padding: 4px 8px;
+  }
+  
+  input, select {
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+  
+  th:not(:first-child) {
+    font-size: 12px;
+  }
+  
+  .quick-add-dialog {
+    padding: 12px;
+  }
+  
+  /* עיצוב תחתית המסך למובייל */
+  .mobile-bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: white;
+    display: flex;
+    justify-content: space-around;
+    padding: 8px;
+    box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.1);
+    z-index: 40;
+    border-top: 1px solid var(--border-color);
+  }
+  
+  .mobile-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    color: var(--text-medium);
+    font-size: 10px;
+    padding: 4px;
+    border-radius: 4px;
+    transition: all var(--transition-normal);
+  }
+  
+  .mobile-nav-item:hover, .mobile-nav-item.active {
+    color: var(--accent-color);
+    background-color: rgba(52, 152, 219, 0.1);
+  }
+  
+  .mobile-nav-item .icon {
+    width: 20px;
+    height: 20px;
+  }
+  
+  /* שינוי מיקום כפתור הוספת משימה במובייל */
+  .add-task-button {
+    bottom: 60px; /* מעל ניווט תחתון */
+  }
+  
+  /* סגנונות גרירה במובייל */
+  .mobile-device .soldier-card {
+    touch-action: none;
+  }
+  
+  .assignment-container {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 4px;
+    padding: 4px;
+  }
+  
+  .soldier-tag {
+    font-size: 11px;
+    padding: 3px 6px;
+    gap: 4px;
+  }
+  
+  .soldier-tag .remove-btn {
+    width: 14px;
+    height: 14px;
+  }
+
+  .soldier-tag .remove-btn::before,
+  .soldier-tag .remove-btn::after {
+    width: 7px;
+  }
+  
+  .weekly-notes-container {
+    padding: 12px;
+  }
+  
+  .weekly-notes-form textarea {
+    min-height: 80px;
+    padding: 8px;
+  }
+  
+  .soldier-tag[data-note]:hover::after {
+    max-width: 180px;
+    font-size: 11px;
+    padding: 6px 10px;
+  }
+}
+
+/* אפקטים מתקדמים, צללים ניאומורפיים ואלמנטים מגניבים */
+
+/* כפתורים עם אפקט ניאומורפיזם */
+.button-neomorphic {
+  background-color: var(--bg-color);
+  box-shadow: 8px 8px 16px #d1d9e6, -8px -8px 16px #ffffff;
+  border: none;
+  border-radius: 12px;
+  padding: 10px 16px;
+  transition: all 0.3s ease;
+}
+
+.button-neomorphic:hover {
+  box-shadow: 6px 6px 12px #d1d9e6, -6px -6px 12px #ffffff;
+}
+
+.button-neomorphic:active {
+  box-shadow: inset 4px 4px 8px #d1d9e6, inset -4px -4px 8px #ffffff;
+}
+
+/* כרטיסים עם אפקט גלסמורפיזם */
+.card-glassmorphism {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.card-glassmorphism:hover {
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.15);
+  transform: translateY(-5px);
+}
+
+/* כרטיסים עם צבעי תפקידים וגרדיאנטים */
+.task-card {
+  position: relative;
+  border-radius: var(--radius-md);
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow-md);
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.task-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 4px;
+  transition: all 0.3s ease;
+}
+
+.task-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
+}
+
+.task-card.doctor {
+  background-color: var(--doctor-bg);
+}
+
+.task-card.doctor::before {
+  background: var(--gradient-doctor);
+}
+
+.task-card.paramedic {
+  background-color: var(--paramedic-bg);
+}
+
+.task-card.paramedic::before {
+  background: var(--gradient-paramedic);
+}
+
+.task-card.trainee {
+  background-color: var(--trainee-bg);
+}
+
+.task-card.trainee::before {
+  background: var(--gradient-trainee);
+}
+
+.task-card.mentor {
+  background-color: var(--mentor-bg);
+}
+
+.task-card.mentor::before {
+  background: var(--gradient-mentor);
+}
+
+/* תגים לתפקידים */
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 600;
+  margin-right: 4px;
+  transition: all 0.3s ease;
+}
+
+.role-badge.doctor {
+  background-color: var(--doctor-bg);
+  color: var(--doctor-color);
+  border: 1px solid rgba(51, 51, 51, 0.2);
+}
+
+.role-badge.paramedic {
+  background-color: var(--paramedic-bg);
+  color: var(--paramedic-color);
+  border: 1px solid rgba(230, 126, 34, 0.2);
+}
+
+.role-badge.trainee {
+  background-color: var(--trainee-bg);
+  color: var(--trainee-color);
+  border: 1px solid rgba(231, 76, 60, 0.2);
+}
+
+.role-badge.mentor {
+  background-color: var(--mentor-bg);
+  color: var(--mentor-color);
+  border: 1px solid rgba(39, 174, 96, 0.2);
+}
+
+.role-badge:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+  padding: 4px 12px;
+}
+
+/* שדות טפסים עם אפקטים יפים */
+.input-animated {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  font-family: 'Assistant', 'Heebo', sans-serif;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  background-color: white;
+  position: relative;
+}
+
+.input-animated::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 50%;
+  width: 0;
+  height: 2px;
+  background: var(--gradient-primary);
+  transition: all 0.3s ease;
+  transform: translateX(-50%);
+}
+
+.input-animated:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+  transform: translateY(-1px);
+}
+
+.input-animated:focus::after {
+  width: 100%;
+}
+
+/* כפתורים מעוצבים כמו סוויצ'ים */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 46px;
+  height: 24px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: all 0.3s ease;
+  border-radius: 24px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: all 0.3s ease;
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-color: var(--accent-color);
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 1px var(--accent-color);
+}
+
+input:checked + .slider:before {
+  transform: translateX(22px);
+}
+
+/* כפתורים אינטראקטיביים עם אייקון */
+.button-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  border: none;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  background-color: var(--bg-alt);
+  color: var(--text-dark);
+}
+
+.button-icon .icon {
+  transition: all 0.3s ease;
+}
+
+.button-icon:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.button-icon:hover .icon {
+  transform: scale(1.15);
+}
+
+/* היררכיית צבעי לוח שיבוץ */
+.scheduler-colors .doctor {
+  background-color: var(--doctor-bg);
+  color: var(--doctor-color);
+  border-left: 4px solid var(--doctor-color);
+}
+
+.scheduler-colors .paramedic {
+  background-color: var(--paramedic-bg);
+  color: var(--paramedic-color);
+  border-left: 4px solid var(--paramedic-color);
+}
+
+.scheduler-colors .trainee {
+  background-color: var(--trainee-bg);
+  color: var(--trainee-color);
+  border-left: 4px solid var(--trainee-color);
+}
+
+.scheduler-colors .mentor {
+  background-color: var(--mentor-bg);
+  color: var(--mentor-color);
+  border-left: 4px solid var(--mentor-color);
+}
+
+/* נתונים מוצגים בקרוסלה עם אפקטים */
+.stats-carousel {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 16px 0;
+  scrollbar-width: none;
+}
+
+.stats-carousel::-webkit-scrollbar {
+  display: none;
+}
+
+.stat-card {
+  flex: 0 0 auto;
+  width: 180px;
+  padding: 16px;
+  border-radius: var(--radius-md);
+  background-color: white;
+  box-shadow: var(--shadow-md);
+  text-align: center;
+  transition: all 0.3s ease;
+  border-top: 3px solid transparent;
+}
+
+.stat-card:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--shadow-lg);
+}
+
+.stat-card.doctor {
+  border-top-color: var(--doctor-color);
+}
+
+.stat-card.paramedic {
+  border-top-color: var(--paramedic-color);
+}
+
+.stat-card.trainee {
+  border-top-color: var(--trainee-color);
+}
+
+.stat-card.mentor {
+  border-top-color: var(--mentor-color);
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 8px 0;
+}
+
+.stat-label {
+  font-size: 13px;
+  color: var(--text-medium);
+}
+
+/* אנימציות לאלמנטים בטעינת הדף */
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-30px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(30px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slideInUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-slide-left {
+  animation: slideInLeft 0.6s ease-out forwards;
+}
+
+.animate-slide-right {
+  animation: slideInRight 0.6s ease-out forwards;
+}
+
+.animate-slide-up {
+  animation: slideInUp 0.6s ease-out forwards;
+}
+
+/* אייקונים מעוצבים עם אפקטים */
+.icon-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background-color: var(--bg-alt);
+  transition: all 0.3s ease;
+}
+
+.icon-box:hover {
+  transform: rotate(15deg);
+  background-color: white;
+  box-shadow: var(--shadow-md);
+}
+
+.icon-box.doctor {
+  background-color: var(--doctor-bg);
+  color: var(--doctor-color);
+}
+
+.icon-box.paramedic {
+  background-color: var(--paramedic-bg);
+  color: var(--paramedic-color);
+}
+
+.icon-box.trainee {
+  background-color: var(--trainee-bg);
+  color: var(--trainee-color);
+}
+
+.icon-box.mentor {
+  background-color: var(--mentor-bg);
+  color: var(--mentor-color);
+}
+/* הוספת קלאס להסתרת חלונית התחברות */
+.login-container.hidden {
+  display: none !important;
+}
+
+/* וודא שהקלאס hidden עובד עבור כל האלמנטים */
+.hidden {
+  display: none !important;
+}
+
+/* עדכון חלונית התחברות - יפתור את בעיית האנימציה שעלולה להשאיר את החלונית */
+.login-container {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  animation: fadeIn 0.5s ease-out;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.login-container.fade-out {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* קונטיינר לכפתורי ניווט של הלוח */
+.calendar-nav-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* קונטיינר לכפתורי דוחות ועריכה */
+.calendar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 16px;
+}
+
+/* קונטיינר לכפתורי התחברות והתנתקות */
+.auth-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: absolute;
+  top: 12px;
+  left: 16px;
+}
+
+.user-email {
+  margin-left: 8px;
+  color: white;
+  font-size: 14px;
+}
+
+/* כפתור הוספת משימה */
+.add-task-button {
+  padding: 4px 8px;
+  font-size: 12px;
+  margin-top: 4px;
+  margin-right: auto;
+  background: var(--gradient-mentor);
+  color: white;
+  border-radius: var(--radius-md);
+  box-shadow: 0 2px 4px rgba(39, 174, 96, 0.2);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all var(--transition-normal);
+}
+
+.add-task-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 6px rgba(39, 174, 96, 0.3);
+}
+
+.add-task-button .icon {
+  width: 14px;
+  height: 14px;
+}
+
+/* התאמות למובייל */
+@media (max-width: 768px) {
+  .calendar-actions {
+    margin-right: 12px;
+  }
+
+  .auth-buttons {
+    top: 8px;
+    left: 12px;
+  }
+
+  .user-email {
+    font-size: 12px;
+  }
+
+  .add-task-button {
+    padding: 3px 6px;
+    font-size: 11px;
+  }
+
+  .add-task-button .icon {
+    width: 12px;
+    height: 12px;
+  }
+}
+
+@media (max-width: 640px) {
+  .calendar-actions {
+    margin-right: 8px;
+  }
+
+  .auth-buttons {
+    top: 6px;
+    left: 10px;
+  }
+
+  .user-email {
+    display: none; /* מסתיר את המייל במסך קטן */
+  }
+
+  .add-task-button {
+    padding: 2px 4px;
+    font-size: 10px;
+  }
+
+  .add-task-button .icon {
+    width: 10px;
+    height: 10px;
+  }
+}
