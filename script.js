@@ -36,7 +36,7 @@ const soldiers = {
     "מחלקה 2": ["אליהו ברקלי", "אוהד מאיר", "אלכסנדר ליטבין", "אסיף יו סבאג", "דביר יעקב", "דניאל זוקובסקי", "חן בן צבי", "ערן יופה", "רפאל אביטבול", "תומר צביון", "עליסיה טרשצנקו"],
     "מחלקה 3": ["דניאל יונתן", "אביבה קללאו", "אופיר מזרחי", "דקל חן", "ולדיסלב שבצ'נקו", "ליז קוקישווילי", "מאור גבאי", "נועם גזית", "עידן מלול", "רקפת זיו", "שיר דקלו"],
     "מפלג": ["אלי מור", "אליאור אמסלם", "ג'סי שלו", "הגר שוקר", "מיקי ביתן", "עומר אנטמן", "עמית שחר", "רועי דנינו", "רן בן טוב", "שקד קסלר", "ג'קי מוקמל", "איתי מלטבשי"],
-    "מסופחים": ["אופיר אלזרט","הגר אלון","שושנה מולר","מנחם קורל ג׳קי","יובל שלום","שחר בלוך"]
+    "מסופחים": ["אופיר אלזרט","הגר אלון","שושנה מולר","מנחם קרול ג׳קי","יובל שלום","שחר בלוך"]
 };
 
 // בדיקת סטטוס התחברות בעת טעינת הדף
@@ -80,44 +80,68 @@ auth.onAuthStateChanged(function(user) {
 
 // פונקציית אתחול החלון המודאלי
 function initModal() {
-    const modal = document.getElementById('absence-reason-modal');
-    const closeModal = document.getElementsByClassName('close-modal')[0];
-    const saveBtn = document.getElementById('save-reason-btn');
+    const modal = document.getElementById("absence-reason-modal");
+    const closeBtn = document.querySelector(".close-modal");
+    const saveBtn = document.getElementById("save-reason-btn");
+    const customReasonContainer = document.getElementById("custom-reason-container");
+    const reasonRadios = document.querySelectorAll('input[name="absence-reason"]');
     
-    // סגירת החלון בלחיצה על X
-    closeModal.onclick = function() {
+    // סגירת המודל באמצעות כפתור הסגירה
+    closeBtn.addEventListener("click", function() {
         modal.style.display = "none";
-    };
+    });
     
-    // סגירת החלון בלחיצה מחוץ לו
-    window.onclick = function(event) {
+    // סגירת המודל בלחיצה מחוץ לתוכן
+    window.addEventListener("click", function(event) {
         if (event.target === modal) {
             modal.style.display = "none";
         }
-    };
+    });
     
-    // שמירת סיבת ההיעדרות
-    saveBtn.onclick = function() {
-        const soldierName = document.getElementById('current-soldier-name').textContent;
-        const reasonRadios = document.getElementsByName('absence-reason');
-        let selectedReason = "בבית"; // ברירת מחדל
+    // טיפול בבחירת סיבה מותאמת אישית
+    reasonRadios.forEach(radio => {
+        radio.addEventListener("change", function() {
+            if (this.value === "אחר") {
+                customReasonContainer.style.display = "block";
+            } else {
+                customReasonContainer.style.display = "none";
+            }
+        });
+    });
+    
+    // שמירת הסיבה שנבחרה
+    saveBtn.addEventListener("click", function() {
+        const soldierName = document.getElementById("current-soldier-name").textContent;
+        let reasonValue = document.querySelector('input[name="absence-reason"]:checked').value;
         
-        for (let i = 0; i < reasonRadios.length; i++) {
-            if (reasonRadios[i].checked) {
-                selectedReason = reasonRadios[i].value;
-                break;
+        // אם נבחר "אחר", השתמש בערך שהוזן
+        if (reasonValue === "אחר") {
+            const customReason = document.getElementById("custom-reason").value.trim();
+            if (customReason) {
+                reasonValue = customReason;
+            } else {
+                alert("אנא הזן סיבה מותאמת אישית");
+                return;
             }
         }
         
-        // שמירת הסיבה באובייקט החיילים החסרים
-        absentSoldiers[soldierName] = selectedReason;
+        // שמירת החייל ברשימת החסרים
+        if (!absentSoldiers[soldierName]) {
+            absentSoldiers[soldierName] = reasonValue;
+        } else {
+            absentSoldiers[soldierName] = reasonValue;
+        }
         
-        // עדכון תצוגת החיילים החסרים
+        // עדכון תצוגת החיילים הנבחרים
         updateSelectedSoldiers();
         
-        // סגירת החלון
+        // איפוס שדה הסיבה המותאמת אישית
+        document.getElementById("custom-reason").value = "";
+        customReasonContainer.style.display = "none";
+        
+        // סגירת המודל
         modal.style.display = "none";
-    };
+    });
 }
 
 // פונקציות התחברות והרשמה
@@ -526,8 +550,110 @@ function submitForm() {
         if (!confirm("כבר קיים דוח לתאריך, שעה ומחלקה אלו. האם ברצונך לעדכן את הדוח הקיים?")) {
             return;
         }
+        
+        // מזהה הדוח הקיים
+        const existingReportId = `${selectedDate}_${selectedTime}_${selectedUnit}`.replace(/[\s:]/g, '_');
+        const existingReport = reports[existingReportId];
+        
+        // עדכון דוח קיים במקום להחליף אותו לחלוטין
+        const currentUserRef = database.ref('users/' + auth.currentUser.uid);
+        currentUserRef.once('value')
+            .then(snapshot => {
+                const userData = snapshot.val() || {};
+                const firstName = userData.firstName || '';
+                const lastName = userData.lastName || '';
+                const fullName = firstName && lastName ? `${firstName} ${lastName}` : auth.currentUser.email;
+                
+                // יצירת מבנה נתונים עבור החיילים החסרים החדשים
+                const updatedAbsentData = [...existingReport.absent || []];
+                
+                // מיפוי החיילים הקיימים לפי שם
+                const existingAbsentMap = {};
+                updatedAbsentData.forEach((soldier, index) => {
+                    if (typeof soldier === 'object' && soldier.hasOwnProperty('name')) {
+                        existingAbsentMap[soldier.name] = index;
+                    } else if (typeof soldier === 'string') {
+                        existingAbsentMap[soldier] = index;
+                    }
+                });
+                
+                // הוספת או עדכון חיילים חסרים
+                for (const [soldier, reason] of Object.entries(absentSoldiers)) {
+                    if (existingAbsentMap.hasOwnProperty(soldier)) {
+                        // עדכון סיבת היעדרות של חייל קיים
+                        const index = existingAbsentMap[soldier];
+                        if (typeof updatedAbsentData[index] === 'object') {
+                            updatedAbsentData[index].reason = reason;
+                        } else {
+                            // המרת רשומה ישנה לפורמט החדש
+                            updatedAbsentData[index] = {
+                                name: soldier,
+                                reason: reason
+                            };
+                        }
+                    } else {
+                        // הוספת חייל חדש
+                        updatedAbsentData.push({
+                            name: soldier,
+                            reason: reason
+                        });
+                    }
+                }
+                
+                // עדכון חותמת זמן העדכון
+                const updatedTimestamp = new Date().toISOString();
+                
+                // עדכון אובייקט הדוח
+                const updatedReportData = { 
+                    ...existingReport,
+                    absent: updatedAbsentData,
+                    lastUpdated: updatedTimestamp,
+                    updatedBy: fullName
+                };
+                
+                // עדכון המשתנה הגלובלי
+                reports[existingReportId] = updatedReportData;
+                
+                // ניסיון לשמור ב-Firebase
+                database.ref('reports/' + existingReportId).set(updatedReportData)
+                    .then(() => {
+                        // שמירת הדוחות לאחסון מקומי כגיבוי
+                        localStorage.setItem('attendanceReports', JSON.stringify(reports));
+                        
+                        alert("הדיווח עודכן בהצלחה!");
+                        
+                        // ניקוי הטופס
+                        document.querySelectorAll(".soldier-list label.selected").forEach(label => {
+                            label.classList.remove("selected");
+                        });
+                        
+                        // איפוס אובייקט החיילים החסרים
+                        absentSoldiers = {};
+                        updateSelectedSoldiers();
+                        
+                        // עדכון הסטטיסטיקות
+                        updateGlobalStats();
+                        
+                        // מעבר ללשונית הדוחות
+                        switchTab('reports');
+                        
+                        // עדכון רשימת הדוחות
+                        renderReportList();
+                    })
+                    .catch(error => {
+                        console.error("שגיאה בשמירת נתונים ב-Firebase:", error);
+                        alert("אירעה שגיאה בעדכון הדיווח: " + error.message);
+                    });
+            })
+            .catch(error => {
+                console.error("שגיאה בקבלת מידע המשתמש:", error);
+                alert("אירעה שגיאה בקבלת פרטי המשתמש: " + error.message);
+            });
+            
+        return;
     }
     
+    // המשך הפעולה הרגילה עבור דוח חדש
     // יצירת מזהה ייחודי לדוח
     const reportId = `${selectedDate}_${selectedTime}_${selectedUnit}`.replace(/[\s:]/g, '_');
     
@@ -592,6 +718,8 @@ function submitForm() {
                     
                     // שמירת הדוחות לאחסון מקומי בכל מקרה
                     localStorage.setItem('attendanceReports', JSON.stringify(reports));
+                    renderReportList();
+                    updateGlobalStats();
                     
                     alert("הדיווח נשמר באופן מקומי, אך התרחשה שגיאה בשמירה בענן: " + error.message);
                     
@@ -711,17 +839,26 @@ function renderReportList() {
             createdByText = `<small>נוצר ע"י: ${data.createdBy}</small>`;
         }
         
+        let updatedByText = "";
+        if (data.updatedBy && data.lastUpdated) {
+            const updateDate = new Date(data.lastUpdated);
+            const formattedUpdateDate = `${updateDate.getDate()}/${updateDate.getMonth() + 1}/${updateDate.getFullYear()} ${updateDate.getHours()}:${String(updateDate.getMinutes()).padStart(2, '0')}`;
+            updatedByText = `<small class="update-info">עודכן לאחרונה ע"י: ${data.updatedBy} (${formattedUpdateDate})</small>`;
+        }
+        
         reportCard.innerHTML = `
             <h3>${data.unit} - ${formattedDate} ${data.time}</h3>
             <p><strong>מספר חיילים חסרים:</strong> ${data.absent ? data.absent.length : 0}</p>
             ${createdByText}
+            ${updatedByText}
         `;
         
         // בדיקה אם יש חיילים חסרים ובאיזה פורמט (מערך רגיל או מבנה נתונים מורחב)
         if (data.absent && data.absent.length > 0) {
             // בדיקה אם המבנה החדש (עם סיבות)
             if (typeof data.absent[0] === 'object' && data.absent[0].hasOwnProperty('name')) {
-                reportCard.innerHTML += `<div class="absent-soldiers-list">`;
+                const absentListDiv = document.createElement('div');
+                absentListDiv.classList.add("absent-soldiers-list");
                 
                 // מיון לפי סיבת היעדרות
                 const groupedByReason = {};
@@ -729,19 +866,54 @@ function renderReportList() {
                     if (!groupedByReason[item.reason]) {
                         groupedByReason[item.reason] = [];
                     }
-                    groupedByReason[item.reason].push(item.name);
+                    groupedByReason[item.reason].push(item);
                 });
                 
                 // הצגת החיילים לפי סיבה
                 for (const [reason, soldiers] of Object.entries(groupedByReason)) {
-                    reportCard.innerHTML += `
-                        <div class="reason-group">
-                            <strong>${reason}:</strong> ${soldiers.join(", ")}
-                        </div>
-                    `;
+                    const reasonGroup = document.createElement('div');
+                    reasonGroup.classList.add("reason-group");
+                    reasonGroup.innerHTML = `<strong>${reason}:</strong> `;
+                    
+                    soldiers.forEach((soldierItem, index) => {
+                        const soldierSpan = document.createElement('span');
+                        soldierSpan.classList.add('soldier-with-actions');
+                        
+                        // טקסט החייל עם אפשרויות עריכה ומחיקה
+                        soldierSpan.innerHTML = `
+                            <span class="soldier-name">${soldierItem.name}</span>
+                            <span class="soldier-actions">
+                                <button class="edit-soldier-btn" title="ערוך סטטוס">✏️</button>
+                                <button class="delete-soldier-btn" title="הסר מהדיווח">❌</button>
+                            </span>
+                        `;
+                        
+                        // טיפול באירוע לחיצה על כפתור המחיקה
+                        const deleteBtn = soldierSpan.querySelector('.delete-soldier-btn');
+                        deleteBtn.addEventListener('click', function() {
+                            if (confirm(`האם אתה בטוח שברצונך להסיר את ${soldierItem.name} מהדיווח?`)) {
+                                removeSoldierFromReport(reportId, soldierItem.name);
+                            }
+                        });
+                        
+                        // טיפול באירוע לחיצה על כפתור העריכה
+                        const editBtn = soldierSpan.querySelector('.edit-soldier-btn');
+                        editBtn.addEventListener('click', function() {
+                            editSoldierStatus(reportId, soldierItem.name, soldierItem.reason);
+                        });
+                        
+                        reasonGroup.appendChild(soldierSpan);
+                        
+                        // הוספת פסיק בין החיילים, למעט האחרון
+                        if (index < soldiers.length - 1) {
+                            reasonGroup.appendChild(document.createTextNode(', '));
+                        }
+                    });
+                    
+                    absentListDiv.appendChild(reasonGroup);
                 }
                 
-                reportCard.innerHTML += `</div>`;
+                reportCard.appendChild(absentListDiv);
             } else {
                 // תמיכה במבנה הישן (ללא סיבות)
                 reportCard.innerHTML += `<p><strong>חיילים חסרים:</strong> ${data.absent.join(", ")}</p>`;
@@ -761,6 +933,226 @@ function renderReportList() {
         
         reportListDiv.appendChild(reportCard);
     });
+}
+
+// פונקציה להסרת חייל מדוח קיים
+function removeSoldierFromReport(reportId, soldierName) {
+    if (!reports[reportId]) {
+        alert("הדוח לא נמצא.");
+        return;
+    }
+    
+    const report = reports[reportId];
+    
+    if (!report.absent || report.absent.length === 0) {
+        alert("אין חיילים חסרים בדוח זה.");
+        return;
+    }
+    
+    // חיפוש החייל במערך החסרים
+    const updatedAbsent = report.absent.filter(item => {
+        if (typeof item === 'object' && item.hasOwnProperty('name')) {
+            return item.name !== soldierName;
+        }
+        return item !== soldierName;
+    });
+    
+    // עדכון המשתנה הגלובלי
+    report.absent = updatedAbsent;
+    
+    // מידע על המשתמש שביצע את השינוי
+    const fullName = auth.currentUser ? (auth.currentUser.displayName || auth.currentUser.email) : "משתמש לא מזוהה";
+    
+    // עדכון חותמת זמן עדכון
+    report.lastUpdated = new Date().toISOString();
+    report.updatedBy = fullName;
+    
+    // עדכון הדוח בפיירבייס
+    database.ref('reports/' + reportId).set(report)
+        .then(() => {
+            // שמירת הדוחות לאחסון מקומי כגיבוי
+            localStorage.setItem('attendanceReports', JSON.stringify(reports));
+            alert(`${soldierName} הוסר בהצלחה מהדיווח.`);
+            renderReportList();
+        })
+        .catch(error => {
+            console.error("שגיאה בעדכון הדוח:", error);
+            alert("אירעה שגיאה בהסרת החייל מהדיווח: " + error.message);
+        });
+}
+
+// פונקציה לעריכת סטטוס חייל
+function editSoldierStatus(reportId, soldierName, currentReason) {
+    // פתיחת חלון מודאלי לבחירת סיבת היעדרות
+    const modal = document.getElementById("absence-reason-modal");
+    const currentSoldierNameEl = document.getElementById("current-soldier-name");
+    
+    if (!modal || !currentSoldierNameEl) {
+        alert("שגיאה בטעינת חלון העריכה");
+        return;
+    }
+    
+    // מילוי שם החייל בחלון המודאלי
+    currentSoldierNameEl.textContent = soldierName;
+    
+    // בחירת הסיבה הנוכחית במודל
+    const reasonOptions = document.getElementsByName("absence-reason");
+    let customReasonInput = document.getElementById("custom-reason");
+    let customReasonContainer = document.getElementById("custom-reason-container");
+    
+    // ברירת מחדל - ללא בחירה
+    let reasonSelected = false;
+    
+    // בדיקת הסיבה הנוכחית והגדרתה בטופס
+    for (const option of reasonOptions) {
+        if (option.value === currentReason) {
+            option.checked = true;
+            reasonSelected = true;
+            
+            // הצגת הטקסט המותאם אישית אם נבחרה האפשרות 'אחר'
+            if (option.value === "אחר" && customReasonContainer) {
+                customReasonContainer.style.display = "block";
+                
+                if (customReasonInput) {
+                    customReasonInput.value = currentReason === "אחר" ? "" : currentReason;
+                }
+            }
+            
+            break;
+        }
+    }
+    
+    // אם לא נמצאה התאמה, זוהי סיבה מותאמת אישית
+    if (!reasonSelected && reasonOptions.length > 0) {
+        // בחירת האפשרות 'אחר'
+        for (const option of reasonOptions) {
+            if (option.value === "אחר") {
+                option.checked = true;
+                
+                if (customReasonContainer) {
+                    customReasonContainer.style.display = "block";
+                }
+                
+                if (customReasonInput) {
+                    customReasonInput.value = currentReason;
+                }
+                
+                break;
+            }
+        }
+    }
+    
+    // אירוע לחיצה על כפתור שמירה
+    const saveButton = document.getElementById("save-reason-btn");
+    if (saveButton) {
+        // הסרת אירועים קודמים אם קיימים
+        const newSaveButton = saveButton.cloneNode(true);
+        saveButton.parentNode.replaceChild(newSaveButton, saveButton);
+        
+        newSaveButton.addEventListener("click", function() {
+            // קבלת הסיבה שנבחרה
+            let selectedReason = "";
+            for (const option of reasonOptions) {
+                if (option.checked) {
+                    selectedReason = option.value;
+                    break;
+                }
+            }
+            
+            // אם נבחר 'אחר', בדיקה אם הוזן טקסט
+            if (selectedReason === "אחר" && customReasonInput && customReasonInput.value.trim() !== "") {
+                selectedReason = customReasonInput.value.trim();
+            }
+            
+            // עדכון הסטטוס בדוח
+            updateSoldierStatus(reportId, soldierName, selectedReason);
+            
+            // סגירת המודאל
+            modal.style.display = "none";
+        });
+    }
+    
+    // הצגת החלון המודאלי
+    modal.style.display = "block";
+    
+    // סגירת המודאל בלחיצה על X
+    const closeButton = modal.querySelector(".close-modal");
+    if (closeButton) {
+        closeButton.onclick = function() {
+            modal.style.display = "none";
+        };
+    }
+    
+    // סגירת המודאל בלחיצה מחוץ לחלון
+    window.onclick = function(event) {
+        if (event.target === modal) {
+            modal.style.display = "none";
+        }
+    };
+}
+
+// פונקציה לעדכון סטטוס חייל
+function updateSoldierStatus(reportId, soldierName, newReason) {
+    if (!reports[reportId]) {
+        alert("הדוח לא נמצא.");
+        return;
+    }
+    
+    const report = reports[reportId];
+    
+    if (!report.absent || report.absent.length === 0) {
+        alert("אין חיילים חסרים בדוח זה.");
+        return;
+    }
+    
+    // עדכון סיבת ההיעדרות
+    let updated = false;
+    
+    for (let i = 0; i < report.absent.length; i++) {
+        const item = report.absent[i];
+        
+        if ((typeof item === 'object' && item.name === soldierName) || 
+            (typeof item === 'string' && item === soldierName)) {
+            
+            // עדכון או המרה למבנה החדש
+            if (typeof item === 'object') {
+                report.absent[i].reason = newReason;
+            } else {
+                report.absent[i] = {
+                    name: soldierName,
+                    reason: newReason
+                };
+            }
+            
+            updated = true;
+            break;
+        }
+    }
+    
+    if (!updated) {
+        alert(`לא נמצא החייל ${soldierName} בדוח.`);
+        return;
+    }
+    
+    // מידע על המשתמש שביצע את השינוי
+    const fullName = auth.currentUser ? (auth.currentUser.displayName || auth.currentUser.email) : "משתמש לא מזוהה";
+    
+    // עדכון חותמת זמן עדכון
+    report.lastUpdated = new Date().toISOString();
+    report.updatedBy = fullName;
+    
+    // עדכון הדוח בפיירבייס
+    database.ref('reports/' + reportId).set(report)
+        .then(() => {
+            // שמירת הדוחות לאחסון מקומי כגיבוי
+            localStorage.setItem('attendanceReports', JSON.stringify(reports));
+            alert(`הסטטוס של ${soldierName} עודכן בהצלחה ל-${newReason}.`);
+            renderReportList();
+        })
+        .catch(error => {
+            console.error("שגיאה בעדכון הדוח:", error);
+            alert("אירעה שגיאה בעדכון סטטוס החייל: " + error.message);
+        });
 }
 
 function updateGlobalStats() {
@@ -971,265 +1363,424 @@ function exportToExcel() {
     }
     
     try {
-        // יצירת HTML עם פונט Arial
-        let htmlContent = `
-            <!DOCTYPE html>
-            <html dir="rtl" lang="he">
-            <head>
-                <meta charset="UTF-8">
-                <title>דוח נוכחות</title>
-                <style>
-                    body {
-                        font-family: Arial, sans-serif;
-                        direction: rtl;
-                        text-align: right;
-                    }
-                    table {
-                        border-collapse: collapse;
-                        width: 100%;
-                        margin-bottom: 20px;
-                        font-family: Arial, sans-serif;
-                    }
-                    th, td {
-                        border: 1px solid #ddd;
-                        padding: 8px;
-                        font-family: Arial, sans-serif;
-                    }
-                    th {
-                        background-color: #f2f2f2;
-                        font-weight: bold;
-                    }
-                    h1, h2, h3 {
-                        font-family: Arial, sans-serif;
-                    }
-                    .report-header {
-                        margin-top: 20px;
-                        margin-bottom: 10px;
-                        font-weight: bold;
-                        font-size: 16px;
-                    }
-                    .subtitle {
-                        margin-bottom: 15px;
-                        color: #555;
-                    }
-                </style>
-            </head>
-            <body>
-                <h1>דוח נוכחות</h1>
-        `;
+        // הודעה למשתמש שהייצוא מתבצע
+        alert("מכין דוח לייצוא, הקובץ יורד בקרוב...");
         
-        // מיון הדוחות לפי תאריך (מהחדש לישן)
-        const sortedReports = Object.values(reports).sort((a, b) => {
-            const dateA = new Date(`${a.date}T${a.time}`);
-            const dateB = new Date(`${b.date}T${b.time}`);
-            return dateB - dateA;
+        // ארגון הדוחות לפי תאריכים
+        const reportsByDate = {};
+        
+        // מיון הדוחות לפי תאריך
+        Object.values(reports).forEach(report => {
+            if (!reportsByDate[report.date]) {
+                reportsByDate[report.date] = [];
+            }
+            reportsByDate[report.date].push(report);
         });
         
-        // יצירת אובייקט לאיסוף נתונים על חיילים חסרים
-        const allAbsentSoldiers = {};
+        // מיון התאריכים מהחדש לישן
+        const sortedDates = Object.keys(reportsByDate).sort().reverse();
         
-        // מעבר על כל הדוחות ויצירת הנתונים
-        sortedReports.forEach(report => {
-            const dateObj = new Date(report.date);
+        // יצירת שם קובץ
+        const today = new Date();
+        const formattedToday = `${today.getDate()}-${today.getMonth() + 1}-${today.getFullYear()}`;
+        const fileName = `דוח_נוכחות_${formattedToday}.xls`;
+        
+        // יצירת תוכן ה-XML עבור הקובץ
+        let xlsContent = `<?xml version="1.0" encoding="UTF-8"?><?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:html="http://www.w3.org/TR/REC-html40">
+ <DocumentProperties xmlns="urn:schemas-microsoft-com:office:office">
+  <Author>מערכת דיווח נוכחות</Author>
+  <Created>${new Date().toISOString()}</Created>
+ </DocumentProperties>
+ <OfficeDocumentSettings xmlns="urn:schemas-microsoft-com:office:office">
+  <AllowPNG/>
+ </OfficeDocumentSettings>
+ <ExcelWorkbook xmlns="urn:schemas-microsoft-com:office:excel">
+  <WindowHeight>9000</WindowHeight>
+  <WindowWidth>13860</WindowWidth>
+  <WindowTopX>0</WindowTopX>
+  <WindowTopY>0</WindowTopY>
+  <ProtectStructure>False</ProtectStructure>
+  <ProtectWindows>False</ProtectWindows>
+ </ExcelWorkbook>
+ <Styles>
+  <Style ss:ID="Default" ss:Name="Normal">
+   <Alignment ss:Vertical="Bottom" ss:Horizontal="Right"/>
+   <Borders/>
+   <Font ss:FontName="Arial" x:Family="Swiss" ss:Size="11" ss:Color="#000000"/>
+   <Interior/>
+   <NumberFormat/>
+   <Protection/>
+  </Style>
+  <Style ss:ID="s62">
+   <Alignment ss:Horizontal="Center" ss:Vertical="Bottom"/>
+   <Font ss:FontName="Arial" x:Family="Swiss" ss:Size="14" ss:Color="#000000" ss:Bold="1"/>
+  </Style>
+  <Style ss:ID="s63">
+   <Alignment ss:Horizontal="Right" ss:Vertical="Bottom"/>
+   <Font ss:FontName="Arial" x:Family="Swiss" ss:Size="12" ss:Color="#000000" ss:Bold="1"/>
+   <Interior ss:Color="#F2F2F2" ss:Pattern="Solid"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/>
+   </Borders>
+  </Style>
+  <Style ss:ID="s64">
+   <Alignment ss:Horizontal="Right" ss:Vertical="Bottom"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/>
+   </Borders>
+  </Style>
+  <Style ss:ID="s65">
+   <Alignment ss:Horizontal="Right" ss:Vertical="Bottom"/>
+   <Font ss:FontName="Arial" x:Family="Swiss" ss:Size="12" ss:Color="#000000" ss:Bold="1"/>
+  </Style>
+  <Style ss:ID="s66">
+   <Alignment ss:Horizontal="Right" ss:Vertical="Bottom"/>
+   <Font ss:FontName="Arial" x:Family="Swiss" ss:Size="12" ss:Color="#000000"/>
+   <Interior ss:Color="#E6E6E6" ss:Pattern="Solid"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/>
+   </Borders>
+  </Style>
+ </Styles>`;
+        
+        // הוספת הגיליונות לקובץ
+        sortedDates.forEach((date, index) => {
+            const dateObj = new Date(date);
             const formattedDate = `${dateObj.getDate()}.${dateObj.getMonth() + 1}.${dateObj.getFullYear()}`;
+            const dailyReports = reportsByDate[date];
             
-            // הוספת כותרת לדוח
-            htmlContent += `
-                <div class="report-header">דוח נוכחות - ${formattedDate} ${report.time}</div>
-                <div class="subtitle">מחלקה: ${report.unit}</div>
-            `;
+            // לכל תאריך נוסיף גיליון נפרד
+            xlsContent += `
+ <Worksheet ss:Name="דוח ${formattedDate}">
+  <Table ss:ExpandedColumnCount="10" ss:ExpandedRowCount="1000" x:FullColumns="1" x:FullRows="1" ss:DefaultColumnWidth="70" ss:DefaultRowHeight="15">
+   <Column ss:Width="120"/>
+   <Column ss:Width="100"/>
+   <Column ss:Width="150"/>
+   <Row ss:Height="30">
+    <Cell ss:StyleID="s62" ss:MergeAcross="9"><Data ss:Type="String">דוח נוכחות - ${formattedDate}</Data></Cell>
+   </Row>
+   <Row ss:Height="5">
+    <Cell ss:MergeAcross="9"><Data ss:Type="String"></Data></Cell>
+   </Row>`;
             
-            // רשימת חיילים חסרים
-            if (report.absent && report.absent.length > 0) {
-                htmlContent += `
-                    <h3>חיילים חסרים:</h3>
-                    <table>
-                        <tr>
-                            <th>שם החייל</th>
-                            <th>סיבת היעדרות</th>
-                        </tr>
-                `;
+            // אובייקט לאיסוף נתונים על חיילים חסרים ביום זה
+            const dailyAbsentSoldiers = {};
+            
+            // הוספת הדוחות של היום הנוכחי
+            let currentRow = 3; // התחלנו מ-3 בגלל הכותרת וההפרדה
+            
+            dailyReports.forEach(report => {
+                // כותרת לדוח
+                xlsContent += `
+   <Row ss:Index="${currentRow}">
+    <Cell ss:StyleID="s65" ss:MergeAcross="9"><Data ss:Type="String">שעה: ${report.time} - מחלקה: ${report.unit}</Data></Cell>
+   </Row>`;
+                currentRow++;
                 
-                // בדיקה אם מבנה חדש (עם סיבות)
-                if (typeof report.absent[0] === 'object' && report.absent[0].hasOwnProperty('name')) {
-                    report.absent.forEach(item => {
-                        // תיקון הטקסט "משוחרר" ל"משוחרר משמפ"
-                        let reason = item.reason || "לא צוין";
-                        if (reason === "משוחרר") {
-                            reason = "משוחרר משמפ";
-                        }
-                        
-                        // הוספה לסיכום הכללי
-                        if (!allAbsentSoldiers[item.name]) {
-                            allAbsentSoldiers[item.name] = {
-                                unit: report.unit,
-                                reasons: {}
-                            };
-                        }
-                        
-                        if (!allAbsentSoldiers[item.name].reasons[reason]) {
-                            allAbsentSoldiers[item.name].reasons[reason] = 0;
-                        }
-                        allAbsentSoldiers[item.name].reasons[reason]++;
-                        
-                        // הוספה ל-HTML
-                        htmlContent += `
-                            <tr>
-                                <td>${item.name}</td>
-                                <td>${reason}</td>
-                            </tr>
-                        `;
-                    });
+                // כותרות הטבלה
+                xlsContent += `
+   <Row ss:Index="${currentRow}">
+    <Cell ss:StyleID="s63"><Data ss:Type="String">שם החייל</Data></Cell>
+    <Cell ss:StyleID="s63"><Data ss:Type="String">סיבת היעדרות</Data></Cell>
+   </Row>`;
+                currentRow++;
+                
+                // רשימת חיילים חסרים
+                if (report.absent && report.absent.length > 0) {
+                    // בדיקה אם מבנה חדש (עם סיבות)
+                    if (typeof report.absent[0] === 'object' && report.absent[0].hasOwnProperty('name')) {
+                        report.absent.forEach(item => {
+                            // תיקון הטקסט "משוחרר" ל"משוחרר משמפ"
+                            let reason = item.reason || "לא צוין";
+                            if (reason === "משוחרר") {
+                                reason = "משוחרר משמפ";
+                            }
+                            
+                            // הוספת החייל לרשימת החסרים היומית
+                            if (!dailyAbsentSoldiers[item.name]) {
+                                dailyAbsentSoldiers[item.name] = {
+                                    unit: report.unit,
+                                    reasons: []
+                                };
+                            }
+                            
+                            if (!dailyAbsentSoldiers[item.name].reasons.includes(reason)) {
+                                dailyAbsentSoldiers[item.name].reasons.push(reason);
+                            }
+                            
+                            xlsContent += `
+   <Row ss:Index="${currentRow}">
+    <Cell ss:StyleID="s64"><Data ss:Type="String">${item.name}</Data></Cell>
+    <Cell ss:StyleID="s64"><Data ss:Type="String">${reason}</Data></Cell>
+   </Row>`;
+                            currentRow++;
+                        });
+                    } else {
+                        // תמיכה במבנה ישן
+                        report.absent.forEach(name => {
+                            const reason = "לא צוין";
+                            
+                            // הוספת החייל לרשימת החסרים היומית
+                            if (!dailyAbsentSoldiers[name]) {
+                                dailyAbsentSoldiers[name] = {
+                                    unit: report.unit,
+                                    reasons: ["לא צוין"]
+                                };
+                            }
+                            
+                            xlsContent += `
+   <Row ss:Index="${currentRow}">
+    <Cell ss:StyleID="s64"><Data ss:Type="String">${name}</Data></Cell>
+    <Cell ss:StyleID="s64"><Data ss:Type="String">${reason}</Data></Cell>
+   </Row>`;
+                            currentRow++;
+                        });
+                    }
                 } else {
-                    // תמיכה במבנה ישן
-                    report.absent.forEach(name => {
-                        const reason = "לא צוין";
+                    xlsContent += `
+   <Row ss:Index="${currentRow}">
+    <Cell ss:MergeAcross="1" ss:StyleID="s64"><Data ss:Type="String">אין חיילים חסרים</Data></Cell>
+   </Row>`;
+                    currentRow++;
+                }
+                
+                // רווח בין הדוחות
+                xlsContent += `
+   <Row ss:Index="${currentRow}">
+    <Cell ss:MergeAcross="9"><Data ss:Type="String"></Data></Cell>
+   </Row>`;
+                currentRow++;
+            });
+            
+            // הוספת סיכום יומי
+            xlsContent += `
+   <Row ss:Index="${currentRow}">
+    <Cell ss:StyleID="s65" ss:MergeAcross="9"><Data ss:Type="String">סיכום יומי - ${formattedDate}</Data></Cell>
+   </Row>`;
+            currentRow++;
+            
+            if (Object.keys(dailyAbsentSoldiers).length === 0) {
+                xlsContent += `
+   <Row ss:Index="${currentRow}">
+    <Cell ss:MergeAcross="2" ss:StyleID="s64"><Data ss:Type="String">אין חיילים חסרים ביום זה</Data></Cell>
+   </Row>`;
+                currentRow++;
+            } else {
+                // כותרות הטבלה
+                xlsContent += `
+   <Row ss:Index="${currentRow}">
+    <Cell ss:StyleID="s63"><Data ss:Type="String">שם החייל</Data></Cell>
+    <Cell ss:StyleID="s63"><Data ss:Type="String">מחלקה</Data></Cell>
+    <Cell ss:StyleID="s63"><Data ss:Type="String">סיבות היעדרות</Data></Cell>
+   </Row>`;
+                currentRow++;
+                
+                // מיון החיילים לפי שם
+                const sortedAbsentSoldiers = Object.keys(dailyAbsentSoldiers).sort();
+                
+                sortedAbsentSoldiers.forEach(soldierName => {
+                    const soldierData = dailyAbsentSoldiers[soldierName];
+                    const reasonsText = soldierData.reasons.join(', ');
+                    
+                    xlsContent += `
+   <Row ss:Index="${currentRow}">
+    <Cell ss:StyleID="s64"><Data ss:Type="String">${soldierName}</Data></Cell>
+    <Cell ss:StyleID="s64"><Data ss:Type="String">${soldierData.unit}</Data></Cell>
+    <Cell ss:StyleID="s64"><Data ss:Type="String">${reasonsText}</Data></Cell>
+   </Row>`;
+                    currentRow++;
+                });
+            }
+            
+            // רווח אחרי הסיכום
+            xlsContent += `
+   <Row ss:Index="${currentRow}">
+    <Cell ss:MergeAcross="9"><Data ss:Type="String"></Data></Cell>
+   </Row>`;
+            currentRow++;
+            
+            // מידע על כל המחלקות ביום הנוכחי
+            const units = ["מחלקה 1", "מחלקה 2", "מחלקה 3", "מפלג", "מסופחים"];
+            
+            xlsContent += `
+   <Row ss:Index="${currentRow}">
+    <Cell ss:StyleID="s65" ss:MergeAcross="9"><Data ss:Type="String">פירוט מצבה יומית</Data></Cell>
+   </Row>`;
+            currentRow++;
+            
+            xlsContent += `
+   <Row ss:Index="${currentRow}">
+    <Cell ss:StyleID="s63"><Data ss:Type="String">מחלקה</Data></Cell>
+    <Cell ss:StyleID="s63"><Data ss:Type="String">נוכחים</Data></Cell>
+    <Cell ss:StyleID="s63"><Data ss:Type="String">חסרים</Data></Cell>
+    <Cell ss:StyleID="s63"><Data ss:Type="String">סה"כ</Data></Cell>
+   </Row>`;
+            currentRow++;
+            
+            let totalPresent = 0;
+            let totalAbsent = 0;
+            let totalSoldiers = 0;
+            
+            units.forEach(unit => {
+                // חיילים ביחידה
+                const unitSoldiers = soldiers[unit] || [];
+                const unitSoldiersCount = unitSoldiers.length;
+                
+                // מספר החיילים החסרים ביחידה
+                let absentCount = 0;
+                Object.keys(dailyAbsentSoldiers).forEach(name => {
+                    if (dailyAbsentSoldiers[name].unit === unit) {
+                        absentCount++;
+                    }
+                });
+                
+                // מספר החיילים הנוכחים
+                const presentCount = unitSoldiersCount - absentCount;
+                
+                // הוספת נתונים לסיכום הכללי
+                totalPresent += presentCount;
+                totalAbsent += absentCount;
+                totalSoldiers += unitSoldiersCount;
+                
+                xlsContent += `
+   <Row ss:Index="${currentRow}">
+    <Cell ss:StyleID="s64"><Data ss:Type="String">${unit}</Data></Cell>
+    <Cell ss:StyleID="s64"><Data ss:Type="Number">${presentCount}</Data></Cell>
+    <Cell ss:StyleID="s64"><Data ss:Type="Number">${absentCount}</Data></Cell>
+    <Cell ss:StyleID="s64"><Data ss:Type="Number">${unitSoldiersCount}</Data></Cell>
+   </Row>`;
+                currentRow++;
+            });
+            
+            // סיכום כללי
+            xlsContent += `
+   <Row ss:Index="${currentRow}">
+    <Cell ss:StyleID="s66"><Data ss:Type="String">סה"כ</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">${totalPresent}</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">${totalAbsent}</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">${totalSoldiers}</Data></Cell>
+   </Row>`;
+            currentRow++;
+            
+            // רווח אחרי הסיכום
+            xlsContent += `
+   <Row ss:Index="${currentRow}">
+    <Cell ss:MergeAcross="9"><Data ss:Type="String"></Data></Cell>
+   </Row>`;
+            currentRow++;
+            
+            // תצוגת סטטוס של כל החיילים
+            xlsContent += `
+   <Row ss:Index="${currentRow}">
+    <Cell ss:StyleID="s65" ss:MergeAcross="9"><Data ss:Type="String">רשימת סטטוס חיילים ליום ${formattedDate}</Data></Cell>
+   </Row>`;
+            currentRow++;
+            
+            units.forEach(unit => {
+                // כותרת מחלקה
+                xlsContent += `
+   <Row ss:Index="${currentRow}">
+    <Cell ss:StyleID="s65" ss:MergeAcross="1"><Data ss:Type="String">מחלקה: ${unit}</Data></Cell>
+   </Row>`;
+                currentRow++;
+                
+                // רשימת כל החיילים במחלקה
+                const unitSoldiers = soldiers[unit] || [];
+                if (unitSoldiers.length === 0) {
+                    xlsContent += `
+   <Row ss:Index="${currentRow}">
+    <Cell ss:MergeAcross="1" ss:StyleID="s64"><Data ss:Type="String">אין חיילים רשומים במחלקה זו</Data></Cell>
+   </Row>`;
+                    currentRow++;
+                } else {
+                    // כותרות הטבלה
+                    xlsContent += `
+   <Row ss:Index="${currentRow}">
+    <Cell ss:StyleID="s63"><Data ss:Type="String">שם החייל</Data></Cell>
+    <Cell ss:StyleID="s63"><Data ss:Type="String">סטטוס</Data></Cell>
+   </Row>`;
+                    currentRow++;
+                    
+                    unitSoldiers.sort().forEach(soldier => {
+                        let status = "נוכח";
                         
-                        // הוספה לסיכום הכללי
-                        if (!allAbsentSoldiers[name]) {
-                            allAbsentSoldiers[name] = {
-                                unit: report.unit,
-                                reasons: { "לא צוין": 0 }
-                            };
+                        // בדיקה אם החייל מופיע ברשימת החסרים
+                        if (dailyAbsentSoldiers[soldier]) {
+                            status = dailyAbsentSoldiers[soldier].reasons.join(', ');
                         }
-                        allAbsentSoldiers[name].reasons["לא צוין"]++;
                         
-                        // הוספה ל-HTML
-                        htmlContent += `
-                            <tr>
-                                <td>${name}</td>
-                                <td>${reason}</td>
-                            </tr>
-                        `;
+                        xlsContent += `
+   <Row ss:Index="${currentRow}">
+    <Cell ss:StyleID="s64"><Data ss:Type="String">${soldier}</Data></Cell>
+    <Cell ss:StyleID="s64"><Data ss:Type="String">${status}</Data></Cell>
+   </Row>`;
+                        currentRow++;
                     });
                 }
                 
-                htmlContent += `</table>`;
-            } else {
-                htmlContent += `<p>אין חיילים חסרים</p>`;
-            }
-            
-            htmlContent += `<hr>`;
-        });
-        
-        // הוספת סיכום כללי
-        htmlContent += `
-            <h2>סיכום נוכחות כללי</h2>
-            
-            <h3>חיילים חסרים - סיכום</h3>
-        `;
-        
-        if (Object.keys(allAbsentSoldiers).length === 0) {
-            htmlContent += `<p>אין חיילים חסרים בתקופה זו</p>`;
-        } else {
-            htmlContent += `
-                <table>
-                    <tr>
-                        <th>שם החייל</th>
-                        <th>מחלקה</th>
-                        <th>סיבות היעדרות</th>
-                    </tr>
-            `;
-            
-            // מיון החיילים לפי שם
-            const sortedAbsentSoldiers = Object.keys(allAbsentSoldiers).sort();
-            
-            sortedAbsentSoldiers.forEach(soldierName => {
-                const soldierData = allAbsentSoldiers[soldierName];
-                const reasonsText = Object.entries(soldierData.reasons)
-                    .map(([reason, count]) => {
-                        // תיקון הטקסט "משוחרר" ל"משוחרר משמפ"
-                        if (reason === "משוחרר") {
-                            reason = "משוחרר משמפ";
-                        }
-                        // הסרת מספר הפעמים כפי שביקש המשתמש
-                        return reason;
-                    })
-                    .join(', ');
-                    
-                htmlContent += `
-                    <tr>
-                        <td>${soldierName}</td>
-                        <td>${soldierData.unit}</td>
-                        <td>${reasonsText}</td>
-                    </tr>
-                `;
+                // רווח בין המחלקות
+                xlsContent += `
+   <Row ss:Index="${currentRow}">
+    <Cell ss:MergeAcross="9"><Data ss:Type="String"></Data></Cell>
+   </Row>`;
+                currentRow++;
             });
             
-            htmlContent += `</table>`;
-        }
-        
-        // מידע על כל המחלקות
-        const units = ["מחלקה 1", "מחלקה 2", "מחלקה 3", "מפלג", "מסופחים"];
-        
-        units.forEach(unit => {
-            htmlContent += `
-                <h3>מחלקה: ${unit}</h3>
-            `;
-            
-            // רשימת כל החיילים במחלקה
-            const unitSoldiers = soldiers[unit] || [];
-            if (unitSoldiers.length === 0) {
-                htmlContent += `<p>אין חיילים רשומים במחלקה זו</p>`;
-            } else {
-                htmlContent += `
-                    <table>
-                        <tr>
-                            <th>שם החייל</th>
-                            <th>סטטוס</th>
-                        </tr>
-                `;
-                
-                unitSoldiers.sort().forEach(soldier => {
-                    let status = "נוכח";
-                    
-                    // בדיקה אם החייל מופיע ברשימת החסרים
-                    if (allAbsentSoldiers[soldier]) {
-                        const reasonsText = Object.entries(allAbsentSoldiers[soldier].reasons)
-                            .map(([reason, count]) => {
-                                // תיקון הטקסט "משוחרר" ל"משוחרר משמפ"
-                                if (reason === "משוחרר") {
-                                    reason = "משוחרר משמפ";
-                                }
-                                // הסרת מספר הפעמים כפי שביקש המשתמש
-                                return reason;
-                            })
-                            .join(', ');
-                        status = reasonsText;
-                    }
-                    
-                    htmlContent += `
-                        <tr>
-                            <td>${soldier}</td>
-                            <td>${status}</td>
-                        </tr>
-                    `;
-                });
-                
-                htmlContent += `</table>`;
-            }
+            // סיום הגיליון
+            xlsContent += `
+  </Table>
+  <WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel">
+   <PageSetup>
+    <Header x:Margin="0.3"/>
+    <Footer x:Margin="0.3"/>
+    <PageMargins x:Bottom="0.75" x:Left="0.7" x:Right="0.7" x:Top="0.75"/>
+   </PageSetup>
+   <Unsynced/>
+   <Print>
+    <ValidPrinterInfo/>
+    <PaperSizeIndex>9</PaperSizeIndex>
+    <HorizontalResolution>600</HorizontalResolution>
+    <VerticalResolution>600</VerticalResolution>
+   </Print>
+   <Selected/>
+   <Panes>
+    <Pane>
+     <Number>3</Number>
+     <ActiveRow>1</ActiveRow>
+     <ActiveCol>1</ActiveCol>
+    </Pane>
+   </Panes>
+   <ProtectObjects>False</ProtectObjects>
+   <ProtectScenarios>False</ProtectScenarios>
+   <x:PageLayoutZoom>0</x:PageLayoutZoom>
+   <x:Print>True</x:Print>
+  </WorksheetOptions>
+ </Worksheet>`;
         });
         
-        // סגירת תגי ה-HTML
-        htmlContent += `
-            </body>
-            </html>
-        `;
+        // סגירת קובץ ה-XML
+        xlsContent += `
+</Workbook>`;
         
-        // יצירת שם קובץ תקין
-        const today = new Date();
-        const formattedDate = `${today.getDate()}-${today.getMonth() + 1}-${today.getFullYear()}`;
-        const fileName = `דוח_נוכחות_${formattedDate}.html`;
-        
-        // יצירת Blob עם תוכן HTML
-        const blob = new Blob([htmlContent], { 
-            type: 'text/html;charset=utf-8' 
+        // יצירת Blob והורדה
+        const blob = new Blob([xlsContent], { 
+            type: 'application/vnd.ms-excel;charset=utf-8' 
         });
-        
-        // יצירת URL לקובץ
         const url = URL.createObjectURL(blob);
-        
-        // יצירת קישור להורדה ולחיצה עליו
         const link = document.createElement("a");
         link.href = url;
         link.download = fileName;
@@ -1240,10 +1791,9 @@ function exportToExcel() {
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
         
-        console.log("קובץ HTML נוצר בהצלחה");
-        alert("דוח נוצר בפורמט HTML עם פונט Arial. אפשר לפתוח אותו ישירות בדפדפן או באקסל.");
+        console.log("קובץ Excel נוצר בהצלחה");
     } catch (error) {
-        console.error("שגיאה בייצוא ל-HTML:", error);
+        console.error("שגיאה בייצוא לאקסל:", error);
         alert("אירעה שגיאה בייצוא לקובץ. אנא נסה שנית.");
     }
 }

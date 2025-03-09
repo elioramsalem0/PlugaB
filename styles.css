@@ -235,6 +235,8 @@ button:active {
 }
 
 .reason-group {
+    margin-bottom: 8px;
+    line-height: 1.5;
     margin: 8px 0;
     padding: 10px;
     border-radius: 8px;
@@ -644,4 +646,50 @@ button:active {
         padding: 10px;
         font-size: 14px;
     }
+}
+
+/* סגנון עבור רשימת החיילים החסרים עם אפשרויות עריכה */
+.soldier-with-actions {
+    display: inline-flex;
+    align-items: center;
+    margin-right: 3px;
+    position: relative;
+}
+
+.soldier-actions {
+    display: none;
+    margin-right: 5px;
+}
+
+.soldier-with-actions:hover .soldier-actions {
+    display: inline-flex;
+}
+
+.edit-soldier-btn, .delete-soldier-btn {
+    background: none;
+    border: none;
+    font-size: 14px;
+    cursor: pointer;
+    padding: 2px;
+    margin: 0 2px;
+    transition: transform 0.2s ease;
+}
+
+.edit-soldier-btn:hover, .delete-soldier-btn:hover {
+    transform: scale(1.2);
+}
+
+.edit-soldier-btn {
+    color: #007bff;
+}
+
+.delete-soldier-btn {
+    color: #dc3545;
+}
+
+.update-info {
+    display: block;
+    margin-top: 5px;
+    color: #6c757d;
+    font-style: italic;
 }

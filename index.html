@@ -95,26 +95,6 @@
                     <div id="selected-soldiers"></div>
                 </div>
                 
-                <!-- חלון מודאלי לבחירת סיבת היעדרות -->
-                <div id="absence-reason-modal" class="modal">
-                    <div class="modal-content">
-                        <span class="close-modal">&times;</span>
-                        <h3>בחר סיבת היעדרות עבור <span id="current-soldier-name"></span></h3>
-                        <div class="reason-options">
-                            <label>
-                                <input type="radio" name="absence-reason" value="בבית" checked> בבית
-                            </label>
-                            <label>
-                                <input type="radio" name="absence-reason" value="גימלים"> גימלים
-                            </label>
-                            <label>
-                                <input type="radio" name="absence-reason" value="משוחרר"> משוחרר משמפ
-                            </label>
-                        </div>
-                        <button id="save-reason-btn" class="save-btn">שמור</button>
-                    </div>
-                </div>
-                
                 <button onclick="submitForm()">שלח דיווח</button>
             </div>
             
@@ -132,6 +112,32 @@
                 </div>
                 <div id="report-list"></div>
             </div>
+        </div>
+    </div>
+
+    <!-- חלון מודאלי לבחירת סיבת היעדרות -->
+    <div id="absence-reason-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h3>בחר סיבת היעדרות עבור <span id="current-soldier-name"></span></h3>
+            <div class="reason-options">
+                <label>
+                    <input type="radio" name="absence-reason" value="בבית" checked> בבית
+                </label>
+                <label>
+                    <input type="radio" name="absence-reason" value="גימלים"> גימלים
+                </label>
+                <label>
+                    <input type="radio" name="absence-reason" value="משוחרר"> משוחרר משמפ
+                </label>
+                <label>
+                    <input type="radio" name="absence-reason" value="אחר"> אחר
+                </label>
+            </div>
+            <div id="custom-reason-container" style="display: none; margin-top: 10px;">
+                <input type="text" id="custom-reason" placeholder="הזן סיבה מותאמת אישית" maxlength="50">
+            </div>
+            <button id="save-reason-btn" class="save-btn">שמור</button>
         </div>
     </div>
 
