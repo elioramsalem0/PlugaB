@@ -4,125 +4,306 @@ body {
     text-align: center;
     padding: 20px;
     direction: rtl;
+    margin: 0;
+    background: linear-gradient(135deg, #f5f7fa 0%, #e4eaec 100%);
+    min-height: 100vh;
 }
 
 .container {
     max-width: 600px;
     background: white;
     padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-    margin: auto;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    margin: 0 auto;
     text-align: right;
+    position: relative;
+    overflow: hidden;
+}
+
+.container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 5px;
+    width: 100%;
+    background: linear-gradient(to left, #007bff, #6610f2);
 }
 
 select, input, button {
     width: 100%;
-    padding: 10px;
-    margin: 5px 0;
-    border: 1px solid #ccc;
-    border-radius: 5px;
+    padding: 12px;
+    margin: 8px 0;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 16px;
+    transition: all 0.3s ease;
+}
+
+select:focus, input:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+    outline: none;
 }
 
 button {
-    background-color: #007bff;
+    background: linear-gradient(to left, #007bff, #0069d9);
     color: white;
     border: none;
     cursor: pointer;
-    margin-bottom: 10px;
+    margin-bottom: 15px;
+    font-weight: bold;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
 button:hover {
-    background-color: #0056b3;
+    background: linear-gradient(to left, #0069d9, #005cbf);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+}
+
+button:active {
+    transform: translateY(1px);
 }
 
 .soldier-list {
     max-height: 250px;
     overflow-y: auto;
-    border: 1px solid #ccc;
-    padding: 10px;
+    border: 1px solid #ddd;
+    padding: 15px;
     text-align: right;
-    margin-bottom: 10px;
+    margin-bottom: 15px;
+    border-radius: 10px;
+    box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.05);
+    scrollbar-width: thin;
+}
+
+.soldier-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+.soldier-list::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+.soldier-list::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 10px;
+}
+
+.soldier-list::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
 }
 
 .soldier-list label {
     display: block;
     cursor: pointer;
-    padding: 5px;
-    border-radius: 5px;
+    padding: 10px 15px;
+    border-radius: 8px;
+    margin: 5px 0;
+    transition: all 0.2s ease;
+    font-size: 16px;
+}
+
+.soldier-list label:hover {
+    background-color: #f0f8ff;
+    transform: translateX(-5px);
 }
 
 .soldier-list label.selected {
-    background-color: #007bff;
+    background: linear-gradient(to left, #007bff, #0069d9);
     color: white;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 
 .report-section {
-    margin-top: 20px;
+    margin-top: 25px;
 }
 
 .summary {
-    margin: 10px 0;
-    padding: 10px;
-    background-color: #f0f8ff;
-    border-radius: 5px;
+    margin: 15px 0;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    border-right: 4px solid #007bff;
 }
 
 .stats-summary {
-    margin: 10px 0;
-    padding: 10px;
-    background-color: #fffaf0;
-    border-radius: 5px;
+    margin: 15px 0;
+    padding: 15px;
+    background-color: #fff4e5;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
     border-right: 4px solid #ffa500;
 }
 
+/* סגנון חדש לתגי חיילים */
+.soldier-badge {
+    display: inline-flex;
+    align-items: center;
+    background-color: #f0f0f0;
+    border-radius: 50px;
+    padding: 5px 15px;
+    margin: 5px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+    animation: fadeIn 0.4s;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.soldier-badge:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    transform: translateY(-2px);
+}
+
+.badge-name {
+    font-weight: bold;
+    margin-right: 8px;
+}
+
+.badge-reason {
+    background: linear-gradient(to left, #007bff, #0069d9);
+    color: white;
+    border-radius: 50px;
+    padding: 3px 10px;
+    font-size: 0.85em;
+    margin: 0 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.badge-remove {
+    cursor: pointer;
+    color: #dc3545;
+    margin-right: 8px;
+    font-weight: bold;
+    font-size: 1.2em;
+    transition: all 0.2s;
+}
+
+.badge-remove:hover {
+    color: #a71d2a;
+    transform: scale(1.2);
+}
+
+/* סגנון ישן לתגים (לתאימות אחורה) */
 .badge {
     display: inline-block;
-    padding: 3px 8px;
-    border-radius: 10px;
-    background-color: #dc3545;
+    padding: 5px 10px;
+    border-radius: 50px;
+    background: linear-gradient(to left, #dc3545, #c82333);
     color: white;
-    font-size: 0.8em;
-    margin-right: 5px;
-    margin-bottom: 5px;
+    font-size: 0.85em;
+    margin-right: 8px;
+    margin-bottom: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .report-card {
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    padding: 10px;
-    margin-bottom: 10px;
+    border: none;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
     background-color: #fff;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+    transition: all 0.3s ease;
+}
+
+.report-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.12);
 }
 
 .report-card h3 {
     margin-top: 0;
+    padding-bottom: 10px;
+    color: #2c3e50;
+    border-bottom: 2px solid #f1f1f1;
+    font-size: 18px;
+}
+
+/* סגנון לרשימת חיילים חסרים בדוח */
+.absent-soldiers-list {
+    margin-top: 15px;
+}
+
+.reason-group {
+    margin: 8px 0;
+    padding: 10px;
+    border-radius: 8px;
+    background-color: #f8f9fa;
+    border-right: 3px solid #007bff;
+    animation: slideInRight 0.4s;
+}
+
+@keyframes slideInRight {
+    from { opacity: 0; transform: translateX(20px); }
+    to { opacity: 1; transform: translateX(0); }
 }
 
 .search-box {
-    margin-bottom: 10px;
+    margin-bottom: 18px;
+    position: relative;
+}
+
+.search-box input {
+    padding-right: 40px;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%23007bff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>');
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 20px;
+    transition: all 0.3s;
+}
+
+.search-box input:focus {
+    background-position: right 15px center;
 }
 
 .tab-buttons {
     display: flex;
-    margin-bottom: 15px;
+    margin-bottom: 20px;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
 
 .tab-button {
     flex: 1;
-    padding: 10px;
+    padding: 12px;
     border: none;
-    background-color: #ddd;
+    background-color: #f0f0f0;
     cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: bold;
+    font-size: 16px;
+}
+
+.tab-button:first-child {
+    border-top-right-radius: 10px;
+    border-bottom-right-radius: 10px;
+}
+
+.tab-button:last-child {
+    border-top-left-radius: 10px;
+    border-bottom-left-radius: 10px;
 }
 
 .tab-button.active {
-    background-color: #007bff;
+    background: linear-gradient(to left, #007bff, #0069d9);
     color: white;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
 }
 
 .tab-content {
     display: none;
+    animation: fadeIn 0.5s;
 }
 
 .tab-content.active {
@@ -132,64 +313,335 @@ button:hover {
 #login-container {
     max-width: 400px;
     background: white;
-    padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
     margin: 50px auto;
     text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+#login-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 5px;
+    width: 100%;
+    background: linear-gradient(to left, #007bff, #6610f2);
+}
+
+#login-container h2 {
+    margin-bottom: 25px;
+    color: #2c3e50;
 }
 
 .error-message {
     color: #dc3545;
     font-size: 0.9em;
-    margin-top: 5px;
+    margin-top: 8px;
+    padding: 5px;
+    border-radius: 5px;
+    background-color: rgba(220, 53, 69, 0.1);
+    display: none; /* מוצג רק כשיש תוכן */
+}
+
+.error-message:not(:empty) {
+    display: block;
+    animation: shake 0.5s;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+    20%, 40%, 60%, 80% { transform: translateX(5px); }
 }
 
 .login-action {
-    margin-top: 15px;
-    font-size: 0.9em;
+    margin-top: 18px;
+    font-size: 0.95em;
 }
 
 .login-action a {
     color: #007bff;
     text-decoration: none;
     cursor: pointer;
+    transition: all 0.3s;
+    font-weight: bold;
+}
+
+.login-action a:hover {
+    color: #0056b3;
+    text-decoration: underline;
 }
 
 .user-info {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 15px;
+    margin-bottom: 20px;
+    font-size: 0.95em;
+    background-color: #f8f9fa;
+    padding: 10px 15px;
+    border-radius: 10px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+#user-fullname {
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+#logout-button {
+    background: linear-gradient(to left, #dc3545, #c82333);
+    margin: 0;
+    padding: 8px 15px;
     font-size: 0.9em;
+    width: auto;
+    border-radius: 50px;
+}
+
+#logout-button:hover {
+    background: linear-gradient(to left, #c82333, #bd2130);
 }
 
 /* עיצוב כפתורי פעולה בלשונית הדוחות */
 .action-buttons {
     display: flex;
-    gap: 10px;
-    margin-bottom: 15px;
+    gap: 12px;
+    margin-bottom: 20px;
 }
 
 .action-buttons button {
     flex: 1;
     margin: 0;
-    padding: 8px;
-    font-size: 0.9em;
+    padding: 12px;
+    font-size: 0.95em;
+    border-radius: 10px;
+    position: relative;
+    overflow: hidden;
+    z-index: 1;
+}
+
+.action-buttons button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255,255,255,0.1);
+    transform: translateX(-100%);
+    transition: transform 0.3s;
+    z-index: -1;
+}
+
+.action-buttons button:hover::before {
+    transform: translateX(0);
 }
 
 .action-buttons button:nth-child(1) {
-    background-color: #28a745; /* ירוק לכפתור הייצוא */
+    background: linear-gradient(to left, #28a745, #218838);
 }
 
 .action-buttons button:nth-child(2) {
-    background-color: #17a2b8; /* תכלת לכפתור הגיבוי */
+    background: linear-gradient(to left, #17a2b8, #138496);
 }
 
 .action-buttons button:nth-child(3) {
-    background-color: #6f42c1; /* סגול לכפתור השחזור */
+    background: linear-gradient(to left, #6f42c1, #6610f2);
 }
 
-.action-buttons button:hover {
-    opacity: 0.9;
+/* חלון מודאלי לבחירת סיבת היעדרות */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+    backdrop-filter: blur(5px);
+    animation: fadeIn 0.3s;
+}
+
+.modal-content {
+    background-color: white;
+    margin: 20% auto 0;
+    padding: 25px;
+    border-radius: 15px;
+    box-shadow: 0 15px 30px rgba(0,0,0,0.2);
+    max-width: 400px;
+    text-align: center;
+    animation: slideUp 0.4s;
+    position: relative;
+}
+
+@keyframes slideUp {
+    from { transform: translateY(30px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.close-modal {
+    color: #aaa;
+    float: left;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: absolute;
+    top: 15px;
+    left: 20px;
+}
+
+.close-modal:hover {
+    color: #333;
+    transform: scale(1.1);
+}
+
+.modal h3 {
+    margin-top: 5px;
+    margin-bottom: 20px;
+    color: #2c3e50;
+    font-size: 18px;
+}
+
+.reason-options {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    margin: 20px 0;
+    text-align: right;
+}
+
+.reason-options label {
+    margin: 8px 0;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    padding: 8px 10px;
+    width: 100%;
+    border-radius: 8px;
+    transition: all 0.2s;
+}
+
+.reason-options label:hover {
+    background-color: #f0f8ff;
+}
+
+.reason-options label input {
+    margin-left: 12px;
+    width: auto;
+    accent-color: #007bff;
+}
+
+.save-btn {
+    background: linear-gradient(to left, #28a745, #218838);
+    padding: 12px 25px;
+    width: auto;
+    margin: 0 auto;
+    display: block;
+    border-radius: 50px;
+    font-weight: bold;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.save-btn:hover {
+    background: linear-gradient(to left, #218838, #1e7e34);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 8px rgba(0,0,0,0.15);
+}
+
+.save-btn:active {
+    transform: translateY(1px);
+}
+
+/* תגובה למסכים קטנים */
+@media (max-width: 768px) {
+    body {
+        padding: 10px;
+    }
+    
+    .container {
+        padding: 15px;
+        margin: 0 10px;
+        border-radius: 10px;
+    }
+    
+    #login-container {
+        padding: 20px;
+        margin: 30px 10px;
+    }
+    
+    select, input, button {
+        padding: 14px;
+        font-size: 16px;
+        border-radius: 10px;
+    }
+    
+    .tab-button {
+        padding: 14px;
+        font-size: 16px;
+    }
+    
+    .soldier-list {
+        max-height: 200px;
+    }
+    
+    .soldier-list label {
+        padding: 12px;
+        font-size: 16px;
+    }
+    
+    .action-buttons {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .modal-content {
+        width: 90%;
+        margin: 30% auto 0;
+        padding: 20px;
+    }
+    
+    /* מספיק מקום לאצבעות בנייד */
+    .badge-remove, .close-modal {
+        padding: 8px;
+    }
+    
+    .soldier-badge {
+        margin: 8px 4px;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    
+    .badge-name, .badge-reason, .badge-remove {
+        margin: 4px;
+    }
+}
+
+/* מצב אופקי למכשירים קטנים */
+@media (max-height: 600px) and (orientation: landscape) {
+    .modal-content {
+        margin: 10% auto 0;
+    }
+    
+    .container {
+        margin-bottom: 20px;
+    }
+}
+
+/* התאמה נוספת למסכים קטנים מאוד */
+@media (max-width: 320px) {
+    .container {
+        padding: 10px;
+    }
+    
+    select, input, button, 
+    .soldier-list label {
+        padding: 10px;
+        font-size: 14px;
+    }
 }
