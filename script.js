@@ -28,7 +28,7 @@ let absentSoldiers = {};
 const SPECIAL_ACCESS_CODE = "plugab2025";
 
 // סיבות היעדרות אפשריות
-const ABSENCE_REASONS = ["בבית", "גימלים", "משוחרר משמפ"];
+const ABSENCE_REASONS = ["בבית", "גימלים", "יום אחרון לשמפ", "משוחרר משמפ"];
 
 // רשימת החיילים במחלקות
 const soldiers = {
@@ -1165,6 +1165,7 @@ function updateGlobalStats() {
     let absentByReason = {
         "בבית": 0,
         "גימלים": 0,
+        "יום אחרון לשמפ": 0,
         "משוחרר משמפ": 0
     };
     let mostRecentDate = "";
