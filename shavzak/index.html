@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>מערכת שבצ"ק</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header>
+            <h1>שבצ"ק <span id="current-view-title">יומי</span></h1>
+            <div class="header-actions">
+                <button id="admin-btn" class="icon-btn"><i class="fas fa-cog"></i></button>
+                <button id="login-btn" class="icon-btn"><i class="fas fa-user"></i></button>
+                <button id="filter-btn" class="icon-btn"><i class="fas fa-filter"></i></button>
+            </div>
+        </header>
+
+        <!-- Login Modal -->
+        <div id="login-modal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>התחברות</h2>
+                <form id="login-form">
+                    <div class="form-group">
+                        <label for="email">אימייל</label>
+                        <input type="email" id="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">סיסמה</label>
+                        <input type="password" id="password" required>
+                    </div>
+                    <button type="submit" class="btn primary-btn">התחבר</button>
+                </form>
+                <div id="login-status"></div>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <main>
+            <!-- Calendar Navigation -->
+            <div class="calendar-nav">
+                <button id="prev-btn" class="icon-btn"><i class="fas fa-chevron-right"></i></button>
+                <h2 id="calendar-title">טוען...</h2>
+                <button id="next-btn" class="icon-btn"><i class="fas fa-chevron-left"></i></button>
+            </div>
+            
+            <!-- Today Button -->
+            <div class="today-button-container">
+                <button id="today-btn" class="btn primary-btn"><i class="fas fa-calendar-day"></i> חזרה להיום</button>
+            </div>
+
+            <!-- View Selector -->
+            <div class="view-selector">
+                <button data-view="day" class="view-btn active">יום</button>
+                <button data-view="week" class="view-btn">שבוע</button>
+                <button data-view="month" class="view-btn">חודש</button>
+            </div>
+
+            <!-- Calendar Container -->
+            <div id="calendar-container"></div>
+        </main>
+
+        <!-- Assignment Modal -->
+        <div id="assignment-modal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2 id="assignment-modal-title">שיבוץ משימה</h2>
+                <form id="assignment-form">
+                    <input type="hidden" id="assignment-date">
+                    <input type="hidden" id="assignment-id">
+                    
+                    <div class="form-group">
+                        <label for="task-type">סוג משימה</label>
+                        <select id="task-type" required>
+                            <option value="">בחר משימה</option>
+                            <option value="shag">ש"ג</option>
+                            <option value="patrol">סיור</option>
+                            <option value="carmelA">כרמל א'</option>
+                            <option value="carmelB">כרמל ב'</option>
+                            <option value="shaz">ש"ז</option>
+                            <option value="commander">מפקד גזרה</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group" id="shift-group" style="display: none;">
+                        <label for="shift-type">משמרת</label>
+                        <select id="shift-type">
+                            <option value="morning">בוקר (06:00-14:00)</option>
+                            <option value="afternoon">צהריים (14:00-22:00)</option>
+                            <option value="night">לילה (22:00-06:00)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group" id="hours-group" style="display: none;">
+                        <label for="start-time">שעת התחלה</label>
+                        <input type="time" id="start-time">
+                        
+                        <label for="end-time">שעת סיום</label>
+                        <input type="time" id="end-time">
+                        
+                        <div class="time-presets">
+                            <label>אפשרויות חיתוך:</label>
+                            <div class="interval-options">
+                                <label class="interval-option"><input type="radio" name="hour-interval" value="2" data-hours="2"> 2 שעות</label>
+                                <label class="interval-option"><input type="radio" name="hour-interval" value="4" data-hours="4"> 4 שעות</label>
+                                <label class="interval-option"><input type="radio" name="hour-interval" value="8" data-hours="8"> 8 שעות</label>
+                            </div>
+                            
+                            <div class="time-slots time-slots-2h" style="display: none;">
+                                <label><input type="checkbox" name="time-slot" value="00:00-02:00"> 00:00-02:00</label>
+                                <label><input type="checkbox" name="time-slot" value="02:00-04:00"> 02:00-04:00</label>
+                                <label><input type="checkbox" name="time-slot" value="04:00-06:00"> 04:00-06:00</label>
+                                <label><input type="checkbox" name="time-slot" value="06:00-08:00"> 06:00-08:00</label>
+                                <label><input type="checkbox" name="time-slot" value="08:00-10:00"> 08:00-10:00</label>
+                                <label><input type="checkbox" name="time-slot" value="10:00-12:00"> 10:00-12:00</label>
+                                <label><input type="checkbox" name="time-slot" value="12:00-14:00"> 12:00-14:00</label>
+                                <label><input type="checkbox" name="time-slot" value="14:00-16:00"> 14:00-16:00</label>
+                                <label><input type="checkbox" name="time-slot" value="16:00-18:00"> 16:00-18:00</label>
+                                <label><input type="checkbox" name="time-slot" value="18:00-20:00"> 18:00-20:00</label>
+                                <label><input type="checkbox" name="time-slot" value="20:00-22:00"> 20:00-22:00</label>
+                                <label><input type="checkbox" name="time-slot" value="22:00-00:00"> 22:00-00:00</label>
+                            </div>
+                            
+                            <div class="time-slots time-slots-4h" style="display: none;">
+                                <label><input type="checkbox" name="time-slot" value="00:00-04:00"> 00:00-04:00</label>
+                                <label><input type="checkbox" name="time-slot" value="04:00-08:00"> 04:00-08:00</label>
+                                <label><input type="checkbox" name="time-slot" value="08:00-12:00"> 08:00-12:00</label>
+                                <label><input type="checkbox" name="time-slot" value="12:00-16:00"> 12:00-16:00</label>
+                                <label><input type="checkbox" name="time-slot" value="16:00-20:00"> 16:00-20:00</label>
+                                <label><input type="checkbox" name="time-slot" value="20:00-00:00"> 20:00-00:00</label>
+                            </div>
+                            
+                            <div class="time-slots time-slots-8h" style="display: none;">
+                                <label><input type="checkbox" name="time-slot" value="00:00-08:00"> 00:00-08:00</label>
+                                <label><input type="checkbox" name="time-slot" value="08:00-16:00"> 08:00-16:00</label>
+                                <label><input type="checkbox" name="time-slot" value="16:00-00:00"> 16:00-00:00</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="soldier-select">חייל</label>
+                        <div class="search-container">
+                            <input type="text" id="soldier-search" placeholder="חפש חייל...">
+                            <select id="soldier-select" required size="5" multiple>
+                                <!-- Will be populated from Firebase -->
+                            </select>
+                            <div class="select-help-message">לחץ על שם כדי לסמן, לחיצה נוספת תבטל את הסימון</div>
+                        </div>
+                        <div class="selected-soldiers-container">
+                            <label>חיילים שנבחרו:</label>
+                            <div id="selected-soldiers-list"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="notes">הערות</label>
+                        <textarea id="notes"></textarea>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="submit" class="btn primary-btn">שמור</button>
+                        <button type="button" id="delete-assignment" class="btn danger-btn" style="display: none;">מחק</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Filter Modal -->
+        <div id="filter-modal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>סינון תצוגה</h2>
+                <form id="filter-form">
+                    <div class="form-group">
+                        <label>סוגי משימות</label>
+                        <div class="checkbox-group">
+                            <label><input type="checkbox" name="task-filter" value="shag" checked> ש"ג</label>
+                            <label><input type="checkbox" name="task-filter" value="patrol" checked> סיור</label>
+                            <label><input type="checkbox" name="task-filter" value="carmelA" checked> כרמל א'</label>
+                            <label><input type="checkbox" name="task-filter" value="carmelB" checked> כרמל ב'</label>
+                            <label><input type="checkbox" name="task-filter" value="shaz" checked> ש"ז</label>
+                            <label><input type="checkbox" name="task-filter" value="commander" checked> מפקד גזרה</label>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="soldier-filter">סינון לפי חייל</label>
+                        <select id="soldier-filter">
+                            <option value="">הכל</option>
+                            <!-- Will be populated from Firebase -->
+                        </select>
+                    </div>
+                    
+                    <button type="submit" class="btn primary-btn">החל סינון</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Admin Tools Modal -->
+        <div id="admin-modal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>ניהול מערכת</h2>
+                <div class="admin-tabs">
+                    <button class="admin-tab active" data-tab="soldiers">חיילים</button>
+                    <button class="admin-tab" data-tab="tasks">משימות</button>
+                    <button class="admin-tab" data-tab="templates">תבניות</button>
+                </div>
+                
+                <div id="soldiers-tab" class="admin-tab-content active">
+                    <button id="add-soldier-btn" class="btn primary-btn">הוסף חייל</button>
+                    <div id="soldiers-list" class="admin-list">
+                        <!-- Will be populated from Firebase -->
+                    </div>
+                </div>
+                
+                <div id="tasks-tab" class="admin-tab-content">
+                    <h3>הגדרות משימות</h3>
+                    <form id="task-settings-form">
+                        <div class="form-group">
+                            <h4>סוגי משימות</h4>
+                            <div class="task-type-settings">
+                                <div class="setting-item">
+                                    <label>ש"ג</label>
+                                    <label class="color-picker">
+                                        <span>צבע:</span>
+                                        <input type="color" name="shag-color" id="shag-color" value="#4285f4">
+                                    </label>
+                                    <div class="display-options">
+                                        <label class="radio-option">
+                                            <input type="radio" name="shag-display" value="regular" checked>
+                                            <span>רגיל</span>
+                                        </label>
+                                        <label class="radio-option">
+                                            <input type="radio" name="shag-display" value="shifts">
+                                            <span>משמרות</span>
+                                        </label>
+                                        <label class="radio-option">
+                                            <input type="radio" name="shag-display" value="hours">
+                                            <span>שעתי</span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="setting-item">
+                                    <label>סיור</label>
+                                    <label class="color-picker">
+                                        <span>צבע:</span>
+                                        <input type="color" name="patrol-color" id="patrol-color" value="#34a853">
+                                    </label>
+                                    <div class="display-options">
+                                        <label class="radio-option">
+                                            <input type="radio" name="patrol-display" value="regular" checked>
+                                            <span>רגיל</span>
+                                        </label>
+                                        <label class="radio-option">
+                                            <input type="radio" name="patrol-display" value="shifts">
+                                            <span>משמרות</span>
+                                        </label>
+                                        <label class="radio-option">
+                                            <input type="radio" name="patrol-display" value="hours">
+                                            <span>שעתי</span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="setting-item">
+                                    <label>כרמל א'</label>
+                                    <label class="color-picker">
+                                        <span>צבע:</span>
+                                        <input type="color" name="carmelA-color" id="carmelA-color" value="#2ecc71">
+                                    </label>
+                                    <div class="display-options">
+                                        <label class="radio-option">
+                                            <input type="radio" name="carmelA-display" value="regular" checked>
+                                            <span>רגיל</span>
+                                        </label>
+                                        <label class="radio-option">
+                                            <input type="radio" name="carmelA-display" value="shifts">
+                                            <span>משמרות</span>
+                                        </label>
+                                        <label class="radio-option">
+                                            <input type="radio" name="carmelA-display" value="hours">
+                                            <span>שעתי</span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="setting-item">
+                                    <label>כרמל ב'</label>
+                                    <label class="color-picker">
+                                        <span>צבע:</span>
+                                        <input type="color" name="carmelB-color" id="carmelB-color" value="#27ae60">
+                                    </label>
+                                    <div class="display-options">
+                                        <label class="radio-option">
+                                            <input type="radio" name="carmelB-display" value="regular" checked>
+                                            <span>רגיל</span>
+                                        </label>
+                                        <label class="radio-option">
+                                            <input type="radio" name="carmelB-display" value="shifts">
+                                            <span>משמרות</span>
+                                        </label>
+                                        <label class="radio-option">
+                                            <input type="radio" name="carmelB-display" value="hours">
+                                            <span>שעתי</span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="setting-item">
+                                    <label>ש"ז</label>
+                                    <label class="color-picker">
+                                        <span>צבע:</span>
+                                        <input type="color" name="shaz-color" id="shaz-color" value="#fbbc05">
+                                    </label>
+                                    <div class="display-options">
+                                        <label class="radio-option">
+                                            <input type="radio" name="shaz-display" value="regular">
+                                            <span>רגיל</span>
+                                        </label>
+                                        <label class="radio-option">
+                                            <input type="radio" name="shaz-display" value="shifts">
+                                            <span>משמרות</span>
+                                        </label>
+                                        <label class="radio-option">
+                                            <input type="radio" name="shaz-display" value="hours" checked>
+                                            <span>שעתי</span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="setting-item">
+                                    <label>מפקד גזרה</label>
+                                    <label class="color-picker">
+                                        <span>צבע:</span>
+                                        <input type="color" name="commander-color" id="commander-color" value="#e67e22">
+                                    </label>
+                                    <div class="display-options">
+                                        <label class="radio-option">
+                                            <input type="radio" name="commander-display" value="regular" checked>
+                                            <span>רגיל</span>
+                                        </label>
+                                        <label class="radio-option">
+                                            <input type="radio" name="commander-display" value="shifts">
+                                            <span>משמרות</span>
+                                        </label>
+                                        <label class="radio-option">
+                                            <input type="radio" name="commander-display" value="hours">
+                                            <span>שעתי</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn primary-btn" id="save-task-settings-btn"><i class="fas fa-save"></i> שמור הגדרות</button>
+                    </form>
+                </div>
+                
+                <div id="templates-tab" class="admin-tab-content">
+                    <h3>תבניות שיבוץ</h3>
+                    <button id="save-template-btn" class="btn primary-btn">שמור תבנית נוכחית</button>
+                    <div id="templates-list" class="admin-list">
+                        <!-- Will be populated from Firebase -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Soldiers List Modal -->
+        <div id="soldiers-list-modal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>רשימת חיילים</h2>
+                
+                <div class="search-and-filter">
+                    <div class="form-group">
+                        <input type="text" id="soldiers-search-input" placeholder="חפש חייל לפי שם או מספר אישי...">
+                    </div>
+                    <div class="form-group">
+                        <select id="soldiers-department-filter">
+                            <option value="">כל המחלקות</option>
+                            <option value="maflag">מפל"ג</option>
+                            <option value="hamal">חמ"ל</option>
+                            <option value="unit1">מחלקה 1</option>
+                            <option value="unit2">מחלקה 2</option>
+                            <option value="unit3">מחלקה 3</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="soldiers-table-container">
+                    <table id="soldiers-table" class="soldiers-table">
+                        <thead>
+                            <tr>
+                                <th>שם מלא</th>
+                                <th>מספר אישי</th>
+                                <th>טלפון</th>
+                                <th>מחלקה</th>
+                                <th>תגים</th>
+                                <th>פעולות</th>
+                            </tr>
+                        </thead>
+                        <tbody id="soldiers-table-body">
+                            <!-- Will be populated from Firebase -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add/Edit Soldier Modal -->
+        <div id="soldier-modal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2 id="soldier-modal-title">הוסף חייל</h2>
+                <form id="soldier-form">
+                    <input type="hidden" id="soldier-id">
+                    
+                    <div class="form-group">
+                        <label for="soldier-name">שם מלא</label>
+                        <input type="text" id="soldier-name" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="soldier-id-number">מספר אישי</label>
+                        <input type="text" id="soldier-id-number">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="soldier-phone">טלפון</label>
+                        <input type="tel" id="soldier-phone">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="soldier-department">מחלקה</label>
+                        <select id="soldier-department">
+                            <option value="">בחר מחלקה</option>
+                            <option value="maflag">מפל"ג</option>
+                            <option value="hamal">חמ"ל</option>
+                            <option value="unit1">מחלקה 1</option>
+                            <option value="unit2">מחלקה 2</option>
+                            <option value="unit3">מחלקה 3</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>תגים</label>
+                        <div class="checkbox-group">
+                            <label><input type="checkbox" name="soldier-tag" value="officer"> קצין</label>
+                            <label><input type="checkbox" name="soldier-tag" value="sergeant"> מ"כ</label>
+                            <label><input type="checkbox" name="soldier-tag" value="corporal"> סמל</label>
+                            <label><input type="checkbox" name="soldier-tag" value="warrior"> לוחם</label>
+                            <label><input type="checkbox" name="soldier-tag" value="medic"> חובש</label>
+                            <label><input type="checkbox" name="soldier-tag" value="engineer"> מהנדס</label>
+                            <label><input type="checkbox" name="soldier-tag" value="driver"> נהג</label>
+                            <label><input type="checkbox" name="soldier-tag" value="comm"> קשר</label>
+                        </div>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="submit" class="btn primary-btn">שמור</button>
+                        <button type="button" id="delete-soldier" class="btn danger-btn" style="display: none;">מחק</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav">
+            <button data-tab="calendar" class="nav-btn active"><i class="fas fa-calendar-alt"></i><span>לוח שנה</span></button>
+            <button data-tab="soldiers-list" class="nav-btn"><i class="fas fa-users"></i><span>רשימת חיילים</span></button>
+            <button data-tab="admin" class="nav-btn admin-only" style="display: none;"><i class="fas fa-cog"></i><span>ניהול</span></button>
+        </nav>
+    </div>
+
+    <!-- Firebase -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.19.1/firebase-app-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.19.1/firebase-auth-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.19.1/firebase-firestore-compat.min.js"></script>
+    
+    <!-- Application Scripts -->
+    <script src="firebase-config.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

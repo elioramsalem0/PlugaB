@@ -1,0 +1,1379 @@
+:root {
+    /* Color variables */
+    --primary-color: #3e64ff;
+    --primary-light: #5a7bff;
+    --primary-dark: #2a4cc2;
+    --secondary-color: #f0f4ff;
+    --text-color: #2c3e50;
+    --light-text: #7f8c8d;
+    --border-color: #dfe6e9;
+    --danger-color: #ff4757;
+    --success-color: #2ecc71;
+    
+    /* Task type colors */
+    --shag-color: #e74c3c;
+    --patrol-color: #3498db;
+    --carmelA-color: #2ecc71;
+    --carmelB-color: #27ae60;
+    --shaz-color: #9b59b6;
+    --commander-color: #e67e22;
+    
+    /* Shift colors */
+    --morning-color: #f1c40f;
+    --afternoon-color: #e67e22;
+    --night-color: #34495e;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    font-family: 'Rubik', sans-serif;
+    color: var(--text-color);
+    background-color: #f9f9f9;
+    direction: rtl;
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+.app-container {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    max-width: 100%;
+    margin: 0 auto;
+    position: relative;
+}
+
+/* Header */
+header {
+    background-color: var(--primary-color);
+    color: white;
+    padding: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+header h1 {
+    font-size: 1.5rem;
+    font-weight: 500;
+}
+
+.header-actions {
+    display: flex;
+    gap: 10px;
+}
+
+/* Main Content */
+main {
+    flex: 1;
+    padding: 15px;
+    padding-bottom: 80px; /* Space for bottom nav */
+}
+
+/* Calendar */
+.calendar-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.calendar-nav h2 {
+    font-size: 1.2rem;
+    font-weight: 500;
+}
+
+/* כפתורי ניווט בקלנדר */
+#prev-btn, #next-btn {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    width: 40px;
+    height: 40px;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    margin: 0 10px;
+    font-size: 1.2rem;
+}
+
+#prev-btn:hover, #next-btn:hover {
+    background-color: var(--primary-color-dark);
+}
+
+.view-selector {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 15px;
+    border-radius: 8px;
+    overflow: hidden;
+    background-color: var(--secondary-color);
+    border: 1px solid var(--border-color);
+}
+
+.view-btn {
+    flex: 1;
+    border: none;
+    background: none;
+    padding: 8px 15px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+}
+
+.view-btn.active {
+    background-color: var(--primary-color);
+    color: white;
+    font-weight: 500;
+}
+
+#calendar-container {
+    border-radius: 8px;
+    overflow: hidden;
+    background-color: white;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+/* Day View */
+.day-view {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    padding: 10px;
+}
+
+/* Day Header */
+.day-header {
+    text-align: center;
+    font-weight: 500;
+    padding: 12px 15px;
+    margin-bottom: 5px;
+    background-color: var(--primary-light);
+    color: white;
+    border-radius: 5px;
+    font-size: 1.1rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Tasks list container for day view */
+.tasks-list-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+/* Responsive adjustments for different screen sizes */
+@media (max-width: 600px) {
+    .tasks-list-container {
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 10px;
+    }
+    
+    .day-task-item {
+        height: auto;
+        min-height: 100px;
+    }
+    
+    .day-task-header {
+        padding: 8px;
+        font-size: 1rem;
+    }
+    
+    .assigned-soldiers-container {
+        max-height: none;
+    }
+}
+
+@media (min-width: 1200px) {
+    .tasks-list-container {
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    }
+}
+
+/* Task item in day view */
+.day-task-item {
+    background-color: white;
+    border-radius: 10px;
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.12);
+    overflow: hidden;
+    height: auto;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.day-task-item:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 5px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Task header in day view */
+.day-task-header {
+    color: white;
+    padding: 10px 12px;
+    font-weight: 500;
+    font-size: 1.1rem;
+    text-align: center;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* Container for assigned soldiers in day view */
+.assigned-soldiers-container {
+    padding: 8px;
+    flex-grow: 1;
+    overflow-y: visible;
+    max-height: none;
+}
+
+/* Individual soldier item */
+.soldier-item {
+    padding: 10px;
+    border-bottom: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.soldier-item:hover {
+    background-color: var(--secondary-color);
+}
+
+.soldier-item:last-child {
+    border-bottom: none;
+}
+
+/* Soldier name */
+.soldier-name {
+    font-weight: 500;
+    margin-bottom: 3px;
+}
+
+/* Soldier time info */
+.soldier-time {
+    font-size: 0.9rem;
+    color: var(--light-text);
+    margin-bottom: 3px;
+}
+
+/* Soldier notes */
+.soldier-notes {
+    font-size: 0.85rem;
+    color: var(--light-text);
+    font-style: italic;
+}
+
+/* No soldiers message */
+.no-soldiers-msg {
+    padding: 12px;
+    text-align: center;
+    color: var(--light-text);
+    font-style: italic;
+    font-size: 0.9rem;
+}
+
+/* Add task assignment button */
+.add-task-assignment-btn {
+    width: 100%;
+    border-top: 1px solid var(--border-color);
+    border-radius: 0 0 8px 8px;
+    background-color: var(--secondary-color);
+    color: var(--text-color);
+    transition: background-color 0.2s;
+}
+
+.add-task-assignment-btn:hover {
+    background-color: #e5ebff;
+}
+
+/* Time slot styling */
+.time-slot {
+    background-color: white;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.time-slot-header {
+    background-color: var(--secondary-color);
+    padding: 10px 15px;
+    font-weight: 500;
+    border-bottom: 1px solid var(--border-color);
+}
+
+/* Task group styling for day view */
+.task-group {
+    background-color: white;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.task-group-header {
+    color: white;
+    padding: 10px 15px;
+    font-weight: 500;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.task-group-content {
+    padding: 12px 15px;
+}
+
+.individual-assignment {
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    padding: 10px;
+    margin-bottom: 8px;
+    background-color: #fff;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.2s;
+}
+
+.individual-assignment:last-child {
+    margin-bottom: 0;
+}
+
+.individual-assignment:hover {
+    background-color: rgba(0, 0, 0, 0.03);
+    transform: translateY(-2px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.individual-assignment .assignment-soldier,
+.individual-assignment .assignment-time {
+    margin-bottom: 5px;
+}
+
+.individual-assignment .assignment-notes {
+    font-size: 0.9em;
+    color: var(--light-text);
+    margin-top: 5px;
+}
+
+.task-group-content .notes {
+    margin-top: 10px;
+    font-size: 0.9em;
+    color: var(--light-text);
+}
+
+/* Week View */
+.week-view {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+}
+
+.day-column {
+    border-left: 1px solid var(--border-color);
+    min-height: 60vh;
+}
+
+.day-column:last-child {
+    border-left: none;
+}
+
+.day-column-header {
+    padding: 10px;
+    text-align: center;
+    font-weight: 500;
+    background-color: var(--secondary-color);
+    border-bottom: 1px solid var(--border-color);
+    position: sticky;
+    top: 0;
+}
+
+.day-column-header.today {
+    background-color: var(--primary-light);
+    color: white;
+}
+
+.day-column-content {
+    padding: 5px;
+    min-height: 100px;
+}
+
+/* Month View */
+.month-view {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+}
+
+.month-day {
+    border: 1px solid var(--border-color);
+    min-height: 100px;
+    padding: 5px;
+    position: relative;
+}
+
+.month-day.other-month {
+    background-color: #f5f5f5;
+    color: var(--light-text);
+}
+
+.month-day.today {
+    background-color: var(--secondary-color);
+}
+
+.day-number {
+    font-size: 0.9rem;
+    font-weight: 500;
+    margin-bottom: 5px;
+}
+
+/* Assignments */
+.assignment {
+    padding: 8px;
+    border-radius: 5px;
+    margin-bottom: 5px;
+    background-color: var(--primary-light);
+    color: white;
+    font-size: 0.9rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.assignment:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.assignment.shag { background-color: var(--shag-color); }
+.assignment.patrol { background-color: var(--patrol-color); }
+.assignment.carmelA { background-color: var(--carmelA-color); }
+.assignment.carmelB { background-color: var(--carmelB-color); }
+.assignment.shaz { background-color: var(--shaz-color); }
+.assignment.commander { background-color: var(--commander-color); }
+
+.assignment.morning { border-right: 4px solid var(--morning-color); }
+.assignment.afternoon { border-right: 4px solid var(--afternoon-color); }
+.assignment.night { border-right: 4px solid var(--night-color); }
+
+.assignment .time {
+    font-size: 0.8rem;
+    opacity: 0.8;
+}
+
+.assignment .soldier-name {
+    font-weight: 500;
+}
+
+/* Bottom Navigation */
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: white;
+    display: flex;
+    justify-content: space-around;
+    border-top: 1px solid var(--border-color);
+    z-index: 100;
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.nav-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+    border: none;
+    background: none;
+    color: var(--light-text);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.nav-btn i {
+    font-size: 1.2rem;
+    margin-bottom: 5px;
+}
+
+.nav-btn span {
+    font-size: 0.8rem;
+}
+
+.nav-btn.active {
+    color: var(--primary-color);
+}
+
+/* Buttons */
+.btn {
+    padding: 10px 15px;
+    border: none;
+    border-radius: 5px;
+    font-family: inherit;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.primary-btn {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.primary-btn:hover {
+    background-color: var(--primary-dark);
+}
+
+.danger-btn {
+    background-color: var(--danger-color);
+    color: white;
+}
+
+.danger-btn:hover {
+    background-color: #d63031;
+}
+
+.icon-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background-color: rgba(255, 255, 255, 0.2);
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.icon-btn:hover {
+    background-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Modals */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    overflow-y: auto;
+}
+
+.modal-content {
+    background-color: white;
+    margin: 20px;
+    border-radius: 10px;
+    padding: 20px;
+    position: relative;
+    max-width: 500px;
+    margin-left: auto;
+    margin-right: auto;
+    animation: modalFadeIn 0.3s;
+}
+
+@keyframes modalFadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.close {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--light-text);
+}
+
+.modal h2 {
+    margin-bottom: 20px;
+    font-weight: 500;
+}
+
+/* Forms */
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 500;
+}
+
+.form-group input, 
+.form-group select, 
+.form-group textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    font-family: inherit;
+    font-size: 1rem;
+}
+
+.form-group textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+.search-container {
+    position: relative;
+}
+
+#soldier-search {
+    margin-bottom: 5px;
+}
+
+/* Enhance multi-select styling */
+#soldier-select {
+    width: 100%;
+    height: auto;
+    padding: 5px;
+    cursor: pointer;
+}
+
+#soldier-select option {
+    padding: 8px 12px;
+    margin: 2px 0;
+    border-radius: 3px;
+    transition: background-color 0.2s;
+}
+
+#soldier-select option:hover {
+    background-color: var(--secondary-color);
+}
+
+#soldier-select option:checked {
+    background-color: var(--primary-color);
+    color: white;
+    background-image: none;
+    font-weight: 500;
+}
+
+.checkbox-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.checkbox-group label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-weight: normal;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 20px;
+}
+
+/* Admin Tabs */
+.admin-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 15px;
+}
+
+.admin-tab {
+    padding: 10px 15px;
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 1rem;
+}
+
+.admin-tab.active {
+    border-bottom-color: var(--primary-color);
+    color: var(--primary-color);
+    font-weight: 500;
+}
+
+.admin-tab-content {
+    display: none;
+}
+
+.admin-tab-content.active {
+    display: block;
+}
+
+.admin-list {
+    margin-top: 15px;
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+}
+
+.list-item {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: white;
+}
+
+.list-item:last-child {
+    border-bottom: none;
+    border-radius: 0 0 5px 5px;
+    margin-bottom: 5px;
+}
+
+.list-item-info {
+    flex: 1;
+}
+
+.list-item-actions {
+    display: flex;
+    gap: 8px;
+}
+
+/* Loading Spinner */
+.loading-spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: white;
+    animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Tooltip */
+.tooltip {
+    position: relative;
+    display: inline-block;
+}
+
+.tooltip .tooltip-text {
+    visibility: hidden;
+    width: 120px;
+    background-color: #333;
+    color: white;
+    text-align: center;
+    border-radius: 5px;
+    padding: 5px;
+    position: absolute;
+    z-index: 1;
+    bottom: 125%;
+    left: 50%;
+    transform: translateX(-50%);
+    opacity: 0;
+    transition: opacity 0.3s;
+    font-size: 0.8rem;
+}
+
+.tooltip:hover .tooltip-text {
+    visibility: visible;
+    opacity: 1;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .month-view {
+        font-size: 0.9rem;
+    }
+    
+    .month-day {
+        min-height: 80px;
+    }
+    
+    .assignment {
+        padding: 5px;
+        font-size: 0.8rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .month-view {
+        font-size: 0.8rem;
+    }
+    
+    .month-day {
+        min-height: 60px;
+        padding: 3px;
+    }
+    
+    .day-number {
+        font-size: 0.8rem;
+    }
+    
+    .assignment {
+        padding: 4px;
+        margin-bottom: 3px;
+        font-size: 0.75rem;
+    }
+    
+    .modal-content {
+        margin: 10px;
+        padding: 15px;
+    }
+}
+
+/* For offline mode */
+.offline-badge {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    background-color: var(--danger-color);
+    color: white;
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-size: 0.8rem;
+    z-index: 1000;
+}
+
+/* Task settings */
+.task-type-settings {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.setting-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 15px;
+    background-color: #f5f5f5;
+    border-radius: 5px;
+}
+
+.color-picker {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.color-picker input {
+    border: none;
+    width: 40px;
+    height: 30px;
+    padding: 0;
+    cursor: pointer;
+}
+
+.display-options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.radio-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.radio-option input {
+    margin: 0;
+    cursor: pointer;
+}
+
+@media (min-width: 768px) {
+    .setting-item {
+        grid-template-columns: 1fr 1fr 1fr;
+    }
+    
+    .display-options {
+        flex-direction: row;
+        gap: 12px;
+    }
+}
+
+/* Holiday display */
+.holiday-info {
+    font-size: 0.8rem;
+    background-color: #f0e68c;
+    color: #5f4b32;
+    padding: 2px 5px;
+    border-radius: 3px;
+    margin-top: 3px;
+    text-align: center;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.month-holiday {
+    font-size: 0.7rem;
+    line-height: 1.2;
+    max-width: 100%;
+    margin-bottom: 2px;
+}
+
+/* Today Button */
+.today-button-container {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 15px;
+}
+
+#today-btn {
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    padding: 8px 15px;
+    border-radius: 20px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+#today-btn i {
+    margin-left: 6px;
+}
+
+/* Task Settings Form */
+#save-task-settings-btn {
+    font-size: 1.1rem;
+    padding: 12px 25px;
+    margin-top: 20px;
+    background-color: var(--success-color);
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    display: block;
+    width: 100%;
+    max-width: 250px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+#save-task-settings-btn:hover {
+    background-color: #27ae60;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 10px rgba(0, 0, 0, 0.15);
+}
+
+#save-task-settings-btn i {
+    margin-left: 10px;
+}
+
+/* Export button */
+.export-btn {
+    background-color: #2ecc71;
+    color: white;
+    border-radius: 20px;
+    padding: 8px 16px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+}
+
+.export-btn:hover {
+    background-color: #27ae60;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.export-btn i {
+    font-size: 1rem;
+}
+
+/* משמרות שעתיות קבועות */
+.time-presets {
+    margin-top: 15px;
+    border-top: 1px solid var(--border-color);
+    padding-top: 15px;
+}
+
+.time-presets label {
+    display: block;
+    margin-bottom: 10px;
+    font-weight: bold;
+}
+
+.interval-options {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 15px;
+    background-color: var(--secondary-color);
+    padding: 10px;
+    border-radius: 5px;
+}
+
+.interval-option {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    padding: 5px 10px;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+}
+
+.interval-option:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.interval-option input[type="radio"] {
+    margin: 0;
+}
+
+.time-slots {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.time-slots-2h {
+    grid-template-columns: repeat(4, 1fr);
+}
+
+.time-slots-4h, .time-slots-8h {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+.time-slots label {
+    display: flex;
+    align-items: center;
+    font-weight: normal;
+    margin-bottom: 0;
+    padding: 8px;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+    background-color: var(--secondary-color);
+    cursor: pointer;
+}
+
+.time-slots label:hover {
+    background-color: rgba(62, 100, 255, 0.1);
+}
+
+.time-slots input[type="checkbox"] {
+    margin-right: 8px;
+}
+
+/* Responsive adjustments for time slots */
+@media (max-width: 768px) {
+    .time-slots-2h {
+        grid-template-columns: repeat(3, 1fr);
+    }
+    
+    .time-slots-4h, .time-slots-8h {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 480px) {
+    .time-slots {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .time-slots-2h {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .interval-options {
+        flex-direction: column;
+        gap: 8px;
+    }
+}
+
+/* Selected soldiers container */
+.selected-soldiers-container {
+    margin-top: 10px;
+    padding: 10px;
+    background-color: #f7f7f7;
+    border-radius: 5px;
+    max-height: 120px;
+    overflow-y: auto;
+}
+
+.selected-soldiers-container label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 500;
+}
+
+#selected-soldiers-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.soldier-chip {
+    display: flex;
+    align-items: center;
+    background-color: var(--primary-color);
+    color: white;
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+}
+
+.soldier-chip span {
+    margin-right: 5px;
+}
+
+.remove-soldier-btn {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 20px;
+    width: 20px;
+    padding: 0;
+}
+
+.no-selection {
+    color: #999;
+    font-style: italic;
+}
+
+.select-help-message {
+    font-size: 0.85rem;
+    color: #888;
+    margin-top: 5px;
+    font-style: italic;
+    text-align: center;
+}
+
+/* Week View Task Group */
+.week-view .task-group {
+    margin-bottom: 10px;
+    border-radius: 5px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.week-view .task-group-header {
+    padding: 5px 8px;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.week-view .task-group-content {
+    padding: 5px;
+    background-color: white;
+}
+
+.week-view .individual-assignment {
+    padding: 5px 8px;
+    margin-bottom: 5px;
+    font-size: 0.85rem;
+}
+
+.week-view .assignment-soldier,
+.week-view .assignment-time,
+.week-view .assignment-notes {
+    margin-bottom: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.week-view .assignment-notes {
+    font-size: 0.8rem;
+}
+
+/* Time group in day view */
+.time-group {
+    padding: 8px;
+    border-bottom: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.time-group:hover {
+    background-color: var(--secondary-color);
+}
+
+.time-group:last-child {
+    border-bottom: none;
+}
+
+/* Time header */
+.time-header {
+    font-weight: 500;
+    color: var(--text-color);
+    margin-bottom: 4px;
+    font-size: 0.9rem;
+}
+
+/* Soldier list */
+.soldier-list {
+    font-size: 0.85rem;
+    line-height: 1.3;
+}
+
+/* Department header in soldiers list */
+.department-header {
+    background-color: var(--primary-light);
+    color: white;
+    padding: 8px 12px;
+    font-weight: 500;
+    border-radius: 5px 5px 0 0;
+    margin-top: 15px;
+}
+
+.department-header:first-child {
+    margin-top: 0;
+}
+
+/* Responsive styling for department headers and soldiers list */
+@media (max-width: 600px) {
+    .department-header {
+        padding: 6px 10px;
+        font-size: 0.95rem;
+    }
+    
+    .list-item {
+        padding: 8px 10px;
+    }
+    
+    .list-item-info {
+        font-size: 0.9rem;
+    }
+}
+
+/* Soldiers List Modal Styles */
+.search-and-filter {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.search-and-filter .form-group {
+    flex: 1;
+    min-width: 200px;
+}
+
+.soldiers-table-container {
+    max-height: 70vh;
+    overflow-y: auto;
+    margin-top: 20px;
+    border-radius: 5px;
+    border: 1px solid var(--border-color);
+}
+
+.soldiers-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.soldiers-table th, 
+.soldiers-table td {
+    padding: 12px 15px;
+    text-align: right;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.soldiers-table th {
+    background-color: var(--primary-color);
+    color: white;
+    font-weight: 500;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.soldiers-table tbody tr {
+    transition: background-color 0.2s;
+}
+
+.soldiers-table tbody tr:nth-child(even) {
+    background-color: rgba(0, 0, 0, 0.02);
+}
+
+.soldiers-table tbody tr:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.soldiers-table .tag-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.soldiers-table .tag {
+    background-color: var(--primary-light);
+    color: white;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    white-space: nowrap;
+}
+
+.soldiers-table .actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.soldiers-table .action-btn {
+    background: none;
+    border: none;
+    color: var(--primary-color);
+    cursor: pointer;
+    font-size: 1.1rem;
+    transition: color 0.2s;
+}
+
+.soldiers-table .action-btn:hover {
+    color: var(--primary-dark);
+}
+
+.soldiers-table .action-btn.delete {
+    color: var(--danger-color);
+}
+
+.soldiers-table .action-btn.delete:hover {
+    color: #d63031;
+}
+
+@media (max-width: 768px) {
+    .soldiers-table-container {
+        overflow-x: auto;
+    }
+    
+    .soldiers-table th, 
+    .soldiers-table td {
+        padding: 8px 10px;
+        font-size: 0.9rem;
+    }
+    
+    .soldiers-table .tag {
+        padding: 2px 6px;
+        font-size: 0.75rem;
+    }
+}
