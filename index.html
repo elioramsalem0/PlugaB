@@ -74,16 +74,19 @@
                     <option value="מפלג">מפלג</option>
                     <option value="חמליסטים">חמליסטים</option>
                 </select>
-                <br><br>
+                
                 <label>תאריך:</label>
-                <input type="date" id="date" onchange="updateDateWithToday()">
-                <br><br>
+                <div class="date-wrapper">
+                    <input type="date" id="date" onchange="updateDateWithToday()">
+                    <span class="calendar-icon"></span>
+                </div>
+                
                 <label>שעה:</label>
                 <select id="time">
                     <option value="08:00">08:00</option>
                     <option value="18:00">18:00</option>
                 </select>
-                <br><br>
+                
                 <div class="search-box">
                     <input type="text" id="search" placeholder="חפש חיילים..." onkeyup="filterSoldiers()">
                 </div>
