@@ -1,10 +1,7 @@
 // Main application script
 document.addEventListener('DOMContentLoaded', () => {
     // Initialize variables
-    let currentView = 'day'; // Default view
     let currentDate = new Date();
-    let currentWeekStart = getWeekStart(currentDate);
-    let currentMonthStart = getMonthStart(currentDate);
     let soldiers = [];
     let assignments = [];
     let holidays = [];
@@ -227,6 +224,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 // Update view
                 updateView();
+            });
+        });
+        
+        // Add event listener to task type select
+        taskTypeSelect.addEventListener('change', () => {
+            toggleTaskFields(taskTypeSelect.value);
+        });
+        
+        // אירוע לסינון לפי מחלקה
+        const departmentFilter = document.getElementById('department-filter');
+        if (departmentFilter) {
+            departmentFilter.addEventListener('change', () => {
+                populateSoldierSelect(); // עדכון רשימת החיילים לפי המחלקה שנבחרה
+            });
+        }
+        
+        // אירוע לחיפוש חיילים
+        soldierSearch.addEventListener('input', () => {
+            const searchText = soldierSearch.value.trim().toLowerCase();
+            
+            Array.from(soldierSelect.options).forEach(option => {
+                const soldierName = option.text.toLowerCase();
+                if (soldierName.includes(searchText)) {
+                    option.style.display = '';
+                } else {
+                    option.style.display = 'none';
+                }
             });
         });
         
@@ -527,6 +551,95 @@ document.addEventListener('DOMContentLoaded', () => {
             notes
         });
         
+        // חיפוש שיבוצים קיימים לאותו תאריך
+        const dateAssignments = assignments.filter(a => normalizeDateString(a.date) === normalizeDateString(dateStr));
+        console.log('Existing assignments for this date:', dateAssignments);
+        
+        // מערך הודעות אזהרה
+        const warnings = [];
+        
+        // בדיקה האם החיילים שנבחרו כבר משובצים באותו היום
+        const soldiersWithExistingAssignments = [];
+        for (const soldierId of selectedSoldiers) {
+            const soldierAssignments = dateAssignments.filter(a => 
+                (a.soldierIds && a.soldierIds.includes(soldierId)) || 
+                (a.soldierId === soldierId)
+            );
+            
+            if (soldierAssignments.length > 0) {
+                const soldierName = soldiers.find(s => s.id === soldierId)?.name || soldierId;
+                soldiersWithExistingAssignments.push({
+                    soldierId,
+                    soldierName,
+                    assignments: soldierAssignments
+                });
+            }
+        }
+        
+        if (soldiersWithExistingAssignments.length > 0) {
+            for (const soldierData of soldiersWithExistingAssignments) {
+                warnings.push(`החייל ${soldierData.soldierName} משובץ למשימה בהמשך היום`);
+            }
+        }
+        
+        // בדיקה אם כבר קיים שיבוץ לאותה משימה באותו זמן
+        // (אותו סוג משימה, אותו תאריך, אותה משמרת או שעות)
+        let existingAssignment = null;
+        
+        // פונקציה להשוואת זמנים בין שיבוצים
+        const hasSameTime = (a1, a2) => {
+            // אם משימה מסוג משמרות
+            if (taskTypes[taskType].displayMode === 'shifts') {
+                return a1.shiftType === a2.shiftType;
+            } 
+            // אם משימה מסוג שעות
+            else if (taskTypes[taskType].displayMode === 'hours') {
+                return a1.startTime === a2.startTime && a1.endTime === a2.endTime;
+            }
+            // אם משימה מסוג רגיל - אין צורך בהשוואה נוספת
+            return true;
+        };
+
+        // בניית אובייקט לצורך השוואה
+        const newAssignmentForComparison = {
+            taskType,
+            shiftType,
+            startTime,
+            endTime
+        };
+        
+        // חיפוש שיבוץ קיים מתאים
+        existingAssignment = dateAssignments.find(a => 
+            a.taskType === taskType && 
+            hasSameTime(a, newAssignmentForComparison) &&
+            // אם זה לא העריכה של אותו שיבוץ
+            (assignmentId === "" || a.id !== assignmentId)
+        );
+        
+        // בדיקה האם החיילים שנבחרו כבר משובצים לאותה משימה
+        if (existingAssignment) {
+            const existingSoldierIds = existingAssignment.soldierIds || 
+                                     (existingAssignment.soldierId ? [existingAssignment.soldierId] : []);
+            
+            const alreadyAssignedSoldiers = selectedSoldiers.filter(id => existingSoldierIds.includes(id));
+            
+            if (alreadyAssignedSoldiers.length > 0) {
+                const soldierNames = alreadyAssignedSoldiers.map(id => 
+                    soldiers.find(s => s.id === id)?.name || id
+                );
+                
+                warnings.push(`החייל${soldierNames.length > 1 ? 'ים' : ''} ${soldierNames.join(', ')} כבר משובץ למשימה הזאת`);
+            }
+        }
+        
+        // הצגת אזהרות אם יש כאלה
+        if (warnings.length > 0) {
+            const proceed = confirm(warnings.join('\n\n') + '\n\nהאם להמשיך?');
+            if (!proceed) {
+                return;
+            }
+        }
+        
         // Create assignment data
         const assignmentData = {
             date: normalizeDateString(dateStr),
@@ -558,6 +671,40 @@ document.addEventListener('DOMContentLoaded', () => {
                 await updateView();
             } catch (error) {
                 console.error('Error saving assignment:', error);
+                alert('שגיאה: ' + error.message);
+            }
+        } 
+        // אם זו הוספה חדשה, בדוק אם צריך להוסיף לשיבוץ קיים במקום ליצור חדש
+        else if (existingAssignment) {
+            try {
+                // הוסף את החיילים לשיבוץ הקיים
+                const existingSoldierIds = existingAssignment.soldierIds || 
+                                         (existingAssignment.soldierId ? [existingAssignment.soldierId] : []);
+                
+                // מזג את רשימות החיילים והסר כפילויות
+                const mergedSoldierIds = [...new Set([...existingSoldierIds, ...selectedSoldiers])];
+                
+                // עדכן את השיבוץ הקיים עם החיילים החדשים
+                const updatedAssignmentData = {
+                    ...existingAssignment,
+                    soldierIds: mergedSoldierIds,
+                    notes: notes || existingAssignment.notes // שמור על ההערות הקיימות אם לא הוכנסו חדשות
+                };
+                
+                // מחק שדות מיותרים
+                delete updatedAssignmentData.soldierId; // הסר את ה-soldierId הישן אם קיים
+                
+                console.log('Adding soldiers to existing assignment with ID:', existingAssignment.id);
+                await window.firebaseService.updateAssignment(existingAssignment.id, updatedAssignmentData);
+                console.log('Existing assignment updated successfully');
+                
+                // Close modal
+                assignmentModal.style.display = 'none';
+                
+                // Refresh view
+                await updateView();
+            } catch (error) {
+                console.error('Error updating existing assignment:', error);
                 alert('שגיאה: ' + error.message);
             }
         } else {
@@ -832,12 +979,65 @@ document.addEventListener('DOMContentLoaded', () => {
     function populateSoldierSelect() {
         soldierSelect.innerHTML = '';
         
+        // אם יש סינון מחלקה פעיל
+        const departmentFilter = document.getElementById('department-filter');
+        const selectedDepartment = departmentFilter ? departmentFilter.value : '';
+        
+        console.log('Filtering soldiers by department:', selectedDepartment);
+        
         soldiers.forEach(soldier => {
+            // דילוג על חיילים שלא במחלקה הנבחרת (אם יש סינון פעיל)
+            if (selectedDepartment && soldier.department) {
+                // המרה של הערך שהגיע מהמסד לערך שמתאים לסינון
+                let deptValue = soldier.department.toString();
+                
+                // מיפוי ערכים מהמאגר לערכי הסינון
+                if (deptValue === 'unit1') deptValue = '1';
+                if (deptValue === 'unit2') deptValue = '2';
+                if (deptValue === 'unit3') deptValue = '3';
+                if (deptValue === 'hamal') deptValue = 'chamal';
+                
+                if (deptValue !== selectedDepartment) {
+                    console.log('Skipping soldier', soldier.name, 'with department', soldier.department, '≠', selectedDepartment);
+                    return;
+                }
+            }
+            
             const option = document.createElement('option');
             option.value = soldier.id;
             option.textContent = soldier.name;
+            
+            // הוספת מחלקה כמחלקה (אם קיימת)
+            if (soldier.department) {
+                // המרת המחלקה למחרוזת CSS תקינה
+                let deptClass = '';
+                const deptStr = soldier.department.toString();
+                
+                if (['1', '2', '3'].includes(deptStr)) {
+                    deptClass = 'dept-' + deptStr;
+                } else if (deptStr === 'chamal' || deptStr === 'hamal') {
+                    deptClass = 'chamal';
+                } else if (deptStr === 'maflag') {
+                    deptClass = 'maflag';
+                } else if (deptStr === 'unit1') {
+                    deptClass = 'dept-1';
+                } else if (deptStr === 'unit2') {
+                    deptClass = 'dept-2';
+                } else if (deptStr === 'unit3') {
+                    deptClass = 'dept-3';
+                }
+                
+                if (deptClass) {
+                    option.classList.add(deptClass);
+                    // שמירת המחלקה כמאפיין נוסף לשימוש מאוחר יותר
+                    option.dataset.department = soldier.department;
+                }
+            }
+            
             soldierSelect.appendChild(option);
         });
+        
+        console.log('Populated soldier select with', soldierSelect.options.length, 'soldiers');
     }
 
     // Populate soldier filter
@@ -1039,8 +1239,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-        // Update selected soldiers list
-        updateSelectedSoldiersList();
+        // Update selected soldiers list with a short delay to ensure DOM updates
+        setTimeout(() => {
+            updateSelectedSoldiersList();
+            console.log('Delayed update of selected soldiers list completed');
+        }, 100);
         
         document.getElementById('notes').value = assignment && assignment.notes ? assignment.notes : '';
         
@@ -1220,31 +1423,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Navigate to previous period
     function navigatePrev() {
-        if (currentView === 'day') {
-            currentDate.setDate(currentDate.getDate() - 1);
-        } else if (currentView === 'week') {
-            currentDate.setDate(currentDate.getDate() - 7);
-            currentWeekStart = getWeekStart(currentDate);
-        } else if (currentView === 'month') {
-            currentDate.setMonth(currentDate.getMonth() - 1);
-            currentMonthStart = getMonthStart(currentDate);
-        }
-        
+        // תמיד בתצוגה יומית - עבור ליום הקודם
+        currentDate.setDate(currentDate.getDate() - 1);
         updateView();
     }
 
     // Navigate to next period
     function navigateNext() {
-        if (currentView === 'day') {
-            currentDate.setDate(currentDate.getDate() + 1);
-        } else if (currentView === 'week') {
-            currentDate.setDate(currentDate.getDate() + 7);
-            currentWeekStart = getWeekStart(currentDate);
-        } else if (currentView === 'month') {
-            currentDate.setMonth(currentDate.getMonth() + 1);
-            currentMonthStart = getMonthStart(currentDate);
-        }
-        
+        // תמיד בתצוגה יומית - עבור ליום הבא
+        currentDate.setDate(currentDate.getDate() + 1);
         updateView();
     }
 
@@ -1255,21 +1442,12 @@ document.addEventListener('DOMContentLoaded', () => {
         // Set current date to today
         currentDate = new Date();
         
-        // Update week start and month start
-        currentWeekStart = getWeekStart(currentDate);
-        currentMonthStart = getMonthStart(currentDate);
-        
         // Update view
         updateView();
     }
 
     // Update view
     async function updateView() {
-        // Update view title
-        document.getElementById('current-view-title').textContent = 
-            currentView === 'day' ? 'יומי' : 
-            currentView === 'week' ? 'שבועי' : 'חודשי';
-        
         // Update calendar title
         updateCalendarTitle();
         
@@ -1279,60 +1457,31 @@ document.addEventListener('DOMContentLoaded', () => {
         // Load Jewish holidays
         await loadHolidays();
         
-        // Render view
-        if (currentView === 'day') {
-            renderDayView();
-        } else if (currentView === 'week') {
-            renderWeekView();
-        } else if (currentView === 'month') {
-            renderMonthView();
-        }
+        // Render day view only
+        renderDayView();
     }
 
     // Update calendar title
     function updateCalendarTitle() {
-        if (currentView === 'day') {
-            calendarTitle.textContent = formatDate(currentDate);
-        } else if (currentView === 'week') {
-            const weekEnd = new Date(currentWeekStart);
-            weekEnd.setDate(currentWeekStart.getDate() + 6);
-            calendarTitle.textContent = `${formatDate(currentWeekStart)} - ${formatDate(weekEnd)}`;
-        } else if (currentView === 'month') {
-            calendarTitle.textContent = formatMonth(currentDate);
-        }
+        // תמיד בתצוגה יומית
+        document.getElementById('calendar-title').textContent = formatDate(currentDate);
     }
 
     // Load assignments for the current view
     async function loadAssignments() {
         try {
-            let startDate, endDate;
+            // Always load assignments for the current day only, regardless of view
+            const startDate = new Date(currentDate);
+            startDate.setHours(0, 0, 0, 0);
             
-            if (currentView === 'day') {
-                startDate = new Date(currentDate);
-                startDate.setHours(0, 0, 0, 0);
-                
-                endDate = new Date(currentDate);
-                endDate.setHours(23, 59, 59, 999);
-            } else if (currentView === 'week') {
-                startDate = new Date(currentWeekStart);
-                
-                endDate = new Date(currentWeekStart);
-                endDate.setDate(endDate.getDate() + 6);
-                endDate.setHours(23, 59, 59, 999);
-            } else if (currentView === 'month') {
-                startDate = new Date(currentMonthStart);
-                
-                endDate = new Date(currentMonthStart);
-                endDate.setMonth(endDate.getMonth() + 1);
-                endDate.setDate(0);
-                endDate.setHours(23, 59, 59, 999);
-            }
+            const endDate = new Date(currentDate);
+            endDate.setHours(23, 59, 59, 999);
             
             // Format dates for Firestore
             const startDateStr = normalizeDateString(startDate);
             const endDateStr = normalizeDateString(endDate);
             
-            console.log(`DEBUG: Loading assignments from ${startDateStr} to ${endDateStr}`);
+            console.log(`DEBUG: Loading assignments for today only: ${startDateStr}`);
             console.log('DEBUG: Start date object:', startDate);
             console.log('DEBUG: End date object:', endDate);
             
@@ -1738,9 +1887,26 @@ document.addEventListener('DOMContentLoaded', () => {
                         const soldierList = document.createElement('div');
                         soldierList.className = 'soldier-list';
                         
-                        // Add all soldiers in this time group as a comma-separated list
-                        const soldierNames = soldiers.map(s => s.name).join(', ');
-                        soldierList.textContent = soldierNames;
+                        // Add all soldiers in this time group individually with department styling
+                        soldiers.forEach((soldier, index) => {
+                            const soldierSpan = document.createElement('span');
+                            soldierSpan.textContent = soldier.name;
+                            
+                            // Apply department styling if soldier has a department
+                            if (soldier.department) {
+                                const deptClass = getSoldierDepartmentClass(soldier);
+                                if (deptClass) {
+                                    soldierSpan.className = deptClass;
+                                }
+                            }
+                            
+                            soldierList.appendChild(soldierSpan);
+                            
+                            // Add comma separator if not the last soldier
+                            if (index < soldiers.length - 1) {
+                                soldierList.appendChild(document.createTextNode(', '));
+                            }
+                        });
                         
                         timeGroup.appendChild(soldierList);
                         
@@ -1803,15 +1969,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         dayView.appendChild(tasksListContainer);
         
-        // Add new task button
-        const addBtn = document.createElement('button');
-        addBtn.className = 'btn primary-btn add-assignment-btn';
-        addBtn.innerHTML = '<i class="fas fa-plus"></i> הוסף משימה';
-        addBtn.addEventListener('click', () => {
-            showAssignmentModal(currentDate);
-        });
         
-        dayView.appendChild(addBtn);
         
         calendarContainer.appendChild(dayView);
     }
@@ -1890,373 +2048,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return { name: 'חייל לא ידוע' };
     }
 
-    // Render week view
-    function renderWeekView() {
-        calendarContainer.innerHTML = '';
-        
-        const weekView = document.createElement('div');
-        weekView.className = 'week-view';
-        
-        // Debug info
-        console.log('Rendering week view for dates:', 
-            formatDate(currentWeekStart), 'to', 
-            formatDate(new Date(currentWeekStart.getTime() + 6 * 24 * 60 * 60 * 1000)));
-        console.log('Total assignments for this week:', assignments.length);
-        
-        // Create day columns
-        for (let i = 0; i < 7; i++) {
-            const dayDate = new Date(currentWeekStart);
-            dayDate.setDate(dayDate.getDate() + i);
-            
-            const dayColumn = document.createElement('div');
-            dayColumn.className = 'day-column';
-            
-            // Day header
-            const dayHeader = document.createElement('div');
-            dayHeader.className = 'day-column-header';
-            
-            // Check if it's today
-            if (isToday(dayDate)) {
-                dayHeader.classList.add('today');
-            }
-            
-            dayHeader.textContent = `${getDayName(dayDate.getDay())} ${dayDate.getDate()}`;
-            
-            // Add holiday information if available
-            const dayDateString = normalizeDateString(dayDate);
-            const holidaysForDay = holidays.filter(holiday => {
-                const holidayDate = new Date(holiday.date);
-                return normalizeDateString(holidayDate) === dayDateString;
-            });
-            
-            if (holidaysForDay.length > 0) {
-                const holidayInfo = document.createElement('div');
-                holidayInfo.className = 'holiday-info';
-                holidayInfo.textContent = holidaysForDay.map(h => h.title).join(', ');
-                dayHeader.appendChild(holidayInfo);
-            }
-            
-            dayColumn.appendChild(dayHeader);
-            
-            // Day content
-            const dayContent = document.createElement('div');
-            dayContent.className = 'day-column-content';
-            
-            // Add assignments for this day
-            const dayAssignments = assignments.filter(assignment => {
-                const assignmentDateNormalized = normalizeDateString(assignment.date);
-                console.log(`Comparing dates for day ${i}:`, assignmentDateNormalized, dayDateString);
-                return assignmentDateNormalized === dayDateString;
-            });
-            
-            console.log(`Day ${i} (${dayDateString}) has ${dayAssignments.length} assignments`);
-            
-            // Group assignments by task type, shift type, and time
-            const groupedAssignments = {};
-            
-            dayAssignments.forEach(assignment => {
-                // Create a key based on task type, shift type, and time range
-                let key = assignment.taskType;
-                
-                if (assignment.shiftType) {
-                    key += `:${assignment.shiftType}`;
-                } else if (assignment.startTime && assignment.endTime) {
-                    key += `:${assignment.startTime}-${assignment.endTime}`;
-                }
-                
-                if (!groupedAssignments[key]) {
-                    groupedAssignments[key] = {
-                        taskType: assignment.taskType,
-                        shiftType: assignment.shiftType,
-                        startTime: assignment.startTime,
-                        endTime: assignment.endTime,
-                        soldiers: [],
-                        notes: [],
-                        originalAssignments: []
-                    };
-                }
-                
-                // Handle both old (soldierId) and new (soldierIds) formats
-                if (assignment.soldierIds && Array.isArray(assignment.soldierIds)) {
-                    assignment.soldierIds.forEach(soldierId => {
-                        const soldier = findSoldierById(soldierId);
-                        if (soldier && !groupedAssignments[key].soldiers.some(s => s.id === soldier.id)) {
-                            groupedAssignments[key].soldiers.push(soldier);
-                        }
-                    });
-                } else if (assignment.soldierId) {
-                    const soldier = findSoldierById(assignment.soldierId);
-                    if (soldier && !groupedAssignments[key].soldiers.some(s => s.id === soldier.id)) {
-                        groupedAssignments[key].soldiers.push(soldier);
-                    }
-                }
-                
-                // Add notes if they exist and are not already included
-                if (assignment.notes && assignment.notes.trim() !== '') {
-                    if (!groupedAssignments[key].notes.includes(assignment.notes)) {
-                        groupedAssignments[key].notes.push(assignment.notes);
-                    }
-                }
-                
-                // Store original assignment for click handling
-                groupedAssignments[key].originalAssignments.push(assignment);
-            });
-            
-            // Sort assignments by task type, shift/time
-            const sortedGroups = Object.values(groupedAssignments).sort((a, b) => {
-                // First by shift
-                if (a.shiftType && b.shiftType) {
-                    const shiftOrder = { morning: 0, afternoon: 1, night: 2 };
-                    return shiftOrder[a.shiftType] - shiftOrder[b.shiftType];
-                }
-                
-                // Then by start time
-                if (a.startTime && b.startTime) {
-                    return a.startTime.localeCompare(b.startTime);
-                }
-                
-                // Regular assignments at the top
-                if (!a.shiftType && !a.startTime) return -1;
-                if (!b.shiftType && !b.startTime) return 1;
-                
-                // Shifts before specific times
-                if (a.shiftType) return -1;
-                if (b.shiftType) return 1;
-                
-                return 0;
-            });
-            
-            sortedGroups.forEach(group => {
-                const taskType = taskTypes[group.taskType];
-                
-                const taskGroupEl = document.createElement('div');
-                taskGroupEl.className = `task-group ${group.taskType}`;
-                
-                // Task group header with task name
-                const taskGroupHeader = document.createElement('div');
-                taskGroupHeader.className = 'task-group-header';
-                taskGroupHeader.textContent = taskType.name;
-                taskGroupHeader.style.backgroundColor = taskType.color;
-                
-                taskGroupEl.appendChild(taskGroupHeader);
-                
-                // Task group content - display each individual assignment
-                const taskGroupContent = document.createElement('div');
-                taskGroupContent.className = 'task-group-content';
-                
-                // Loop through each original assignment to display them individually
-                group.originalAssignments.forEach(assignment => {
-                    const assignmentEl = document.createElement('div');
-                    assignmentEl.className = 'individual-assignment';
-                    
-                    // Get soldier info
-                    let soldierName = 'לא ידוע';
-                    if (assignment.soldierIds && Array.isArray(assignment.soldierIds)) {
-                        const soldierNames = assignment.soldierIds.map(id => {
-                            const soldier = findSoldierById(id);
-                            return soldier ? soldier.name : 'לא ידוע';
-                        });
-                        soldierName = soldierNames.join(', ');
-                    } else if (assignment.soldierId) {
-                        const soldier = findSoldierById(assignment.soldierId);
-                        soldierName = soldier ? soldier.name : 'לא ידוע';
-                    }
-                    
-                    // Get time info
-                    let timeInfo = '';
-                    if (assignment.shiftType) {
-                        timeInfo = `${shifts[assignment.shiftType].name} (${shifts[assignment.shiftType].timeRange})`;
-                    } else if (assignment.startTime && assignment.endTime) {
-                        timeInfo = `${assignment.startTime}-${assignment.endTime}`;
-                    }
-                    
-                    // Notes
-                    const notes = assignment.notes && assignment.notes.trim() !== '' ? assignment.notes : '';
-                    
-                    assignmentEl.innerHTML = `
-                        <div class="assignment-soldier"><strong>חייל:</strong> ${soldierName}</div>
-                        ${timeInfo ? `<div class="assignment-time"><strong>זמן:</strong> ${timeInfo}</div>` : ''}
-                        ${notes ? `<div class="assignment-notes"><strong>הערות:</strong> ${notes}</div>` : ''}
-                    `;
-                    
-                    assignmentEl.addEventListener('click', () => {
-                        showAssignmentModal(dayDate, assignment);
-                    });
-                    
-                    taskGroupContent.appendChild(assignmentEl);
-                });
-                
-                taskGroupEl.appendChild(taskGroupContent);
-                dayContent.appendChild(taskGroupEl);
-            });
-            
-            // Add new assignment button
-            const addBtn = document.createElement('button');
-            addBtn.className = 'btn primary-btn add-assignment-btn';
-            addBtn.innerHTML = '<i class="fas fa-plus"></i>';
-            addBtn.addEventListener('click', () => {
-                showAssignmentModal(dayDate);
-            });
-            
-            dayContent.appendChild(addBtn);
-            
-            dayColumn.appendChild(dayContent);
-            weekView.appendChild(dayColumn);
-        }
-        
-        calendarContainer.appendChild(weekView);
-    }
-
-    // Render month view
-    function renderMonthView() {
-        calendarContainer.innerHTML = '';
-        
-        const monthView = document.createElement('div');
-        monthView.className = 'month-view';
-        
-        // Add day headers (Sun-Sat)
-        for (let i = 0; i < 7; i++) {
-            const dayHeader = document.createElement('div');
-            dayHeader.className = 'day-column-header';
-            dayHeader.textContent = getDayName(i);
-            monthView.appendChild(dayHeader);
-        }
-        
-        // Get first day of month
-        const firstDay = new Date(currentMonthStart);
-        
-        // Get the day of the week (0-6)
-        let firstDayOfWeek = firstDay.getDay();
-        // Adjust for Sunday being the first day of the week
-        if (firstDayOfWeek === 0) firstDayOfWeek = 7;
-        
-        // Get last day of month
-        const lastDay = new Date(currentMonthStart);
-        lastDay.setMonth(lastDay.getMonth() + 1);
-        lastDay.setDate(0);
-        const daysInMonth = lastDay.getDate();
-        
-        // Get days from previous month to fill the first week
-        const prevMonth = new Date(currentMonthStart);
-        prevMonth.setDate(0);
-        const daysInPrevMonth = prevMonth.getDate();
-        
-        // Create array of dates to display
-        const dates = [];
-        
-        // Add days from previous month
-        for (let i = 0; i < firstDayOfWeek - 1; i++) {
-            const day = daysInPrevMonth - firstDayOfWeek + i + 2;
-            const date = new Date(currentMonthStart);
-            date.setMonth(date.getMonth() - 1);
-            date.setDate(day);
-            dates.push({ date, isCurrentMonth: false });
-        }
-        
-        // Add days from current month
-        for (let i = 1; i <= daysInMonth; i++) {
-            const date = new Date(currentMonthStart);
-            date.setDate(i);
-            dates.push({ date, isCurrentMonth: true });
-        }
-        
-        // Add days from next month
-        const remainingDays = 42 - dates.length; // 6 rows of 7 days
-        for (let i = 1; i <= remainingDays; i++) {
-            const date = new Date(currentMonthStart);
-            date.setMonth(date.getMonth() + 1);
-            date.setDate(i);
-            dates.push({ date, isCurrentMonth: false });
-        }
-        
-        // Create day cells
-        dates.forEach(({ date, isCurrentMonth }) => {
-            const dayCell = document.createElement('div');
-            dayCell.className = 'month-day';
-            
-            if (!isCurrentMonth) {
-                dayCell.classList.add('other-month');
-            }
-            
-            if (isToday(date)) {
-                dayCell.classList.add('today');
-            }
-            
-            // Day number
-            const dayNumber = document.createElement('div');
-            dayNumber.className = 'day-number';
-            dayNumber.textContent = date.getDate();
-            dayCell.appendChild(dayNumber);
-            
-            // Add holiday information if available
-            const dayDateString = normalizeDateString(date);
-            const holidaysForDay = holidays.filter(holiday => {
-                const holidayDate = new Date(holiday.date);
-                return normalizeDateString(holidayDate) === dayDateString;
-            });
-            
-            if (holidaysForDay.length > 0) {
-                const holidayInfo = document.createElement('div');
-                holidayInfo.className = 'holiday-info month-holiday';
-                holidayInfo.textContent = holidaysForDay.map(h => h.title).join(', ');
-                dayCell.appendChild(holidayInfo);
-            }
-            
-            // Add assignments for this day
-            const dayAssignments = assignments.filter(assignment => {
-                const assignmentDateNormalized = normalizeDateString(assignment.date);
-                return assignmentDateNormalized === dayDateString;
-            });
-            
-            // Limit to max 3 visible assignments
-            const visibleAssignments = dayAssignments.slice(0, 3);
-            const hiddenCount = dayAssignments.length - visibleAssignments.length;
-            
-            visibleAssignments.forEach(assignment => {
-                const soldierObj = findSoldierById(assignment.soldierId);
-                const soldierName = soldierObj ? soldierObj.name : 'לא ידוע';
-                const taskType = taskTypes[assignment.taskType];
-                
-                const assignmentEl = document.createElement('div');
-                assignmentEl.className = `assignment ${assignment.taskType}`;
-                
-                if (assignment.shiftType) {
-                    assignmentEl.classList.add(assignment.shiftType);
-                }
-                
-                assignmentEl.innerHTML = `
-                    <span class="task-name">${taskType.name}</span>
-                    <span class="soldier-name">${soldierName}</span>
-                `;
-                
-                assignmentEl.addEventListener('click', () => {
-                    showAssignmentModal(date, assignment);
-                });
-                
-                dayCell.appendChild(assignmentEl);
-            });
-            
-            // Show indicator for hidden assignments
-            if (hiddenCount > 0) {
-                const moreIndicator = document.createElement('div');
-                moreIndicator.className = 'more-indicator';
-                moreIndicator.textContent = `+ ${hiddenCount} נוספים`;
-                dayCell.appendChild(moreIndicator);
-            }
-            
-            // Add click event to add new assignment
-            dayCell.addEventListener('click', (event) => {
-                if (event.target === dayCell || event.target === dayNumber) {
-                    showAssignmentModal(date);
-                }
-            });
-            
-            monthView.appendChild(dayCell);
-        });
-        
-        calendarContainer.appendChild(monthView);
-    }
-
     // Show offline indicator
     function showOfflineIndicator() {
         const offlineBadge = document.createElement('div');
@@ -2275,43 +2066,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Helper functions
-    function getWeekStart(date) {
-        const result = new Date(date);
-        // קביעת תחילת השבוע ליום ראשון
-        const day = result.getDay(); // 0 = ראשון, 1 = שני, וכו'
-        result.setDate(result.getDate() - day); // חזור אחורה ליום ראשון של אותו שבוע
-        result.setHours(0, 0, 0, 0);
-        return result;
-    }
-
-    function getMonthStart(date) {
-        const result = new Date(date);
-        result.setDate(1);
-        result.setHours(0, 0, 0, 0);
-        return result;
-    }
-
     function formatDate(date) {
         const options = { day: 'numeric', month: 'long', year: 'numeric' };
         return date.toLocaleDateString('he-IL', options);
     }
 
-    function formatMonth(date) {
-        const options = { month: 'long', year: 'numeric' };
-        return date.toLocaleDateString('he-IL', options);
-    }
-
     function formatDateForFirestore(date) {
         return date.toISOString().split('T')[0];
-    }
-
-    function getDayName(dayIndex) {
-        if (typeof dayIndex === 'object') {
-            dayIndex = dayIndex.getDay();
-        }
-        
-        const days = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
-        return days[dayIndex];
     }
 
     function isToday(date) {
@@ -2443,22 +2204,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Load Jewish holidays
     async function loadHolidays() {
         try {
-            // Get the date range for holidays
-            let startDate, endDate;
-            
-            if (currentView === 'day') {
-                startDate = new Date(currentDate);
-                endDate = new Date(currentDate);
-            } else if (currentView === 'week') {
-                startDate = new Date(currentWeekStart);
-                endDate = new Date(currentWeekStart);
-                endDate.setDate(endDate.getDate() + 6);
-            } else if (currentView === 'month') {
-                startDate = new Date(currentMonthStart);
-                endDate = new Date(currentMonthStart);
-                endDate.setMonth(endDate.getMonth() + 1);
-                endDate.setDate(0);
-            }
+            // Get the date range for holidays - always use day view
+            const startDate = new Date(currentDate);
+            const endDate = new Date(currentDate);
             
             // Format date range for API
             const startYear = startDate.getFullYear();
@@ -2615,6 +2363,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateSelectedSoldiersList() {
         const selectedOptions = Array.from(soldierSelect.selectedOptions);
         
+        console.log('Updating selected soldiers list:', selectedOptions.length, 'selected soldiers');
+        
         if (selectedOptions.length === 0) {
             selectedSoldiersList.innerHTML = '<div class="no-selection">לא נבחרו חיילים</div>';
             return;
@@ -2625,6 +2375,31 @@ document.addEventListener('DOMContentLoaded', () => {
         selectedOptions.forEach(option => {
             const chip = document.createElement('div');
             chip.className = 'soldier-chip';
+            
+            // הוספת מחלקה כמחלקה לצ'יפ (אם קיימת)
+            if (option.dataset.department) {
+                let deptClass = '';
+                const dept = option.dataset.department.toString();
+                
+                if (['1', '2', '3'].includes(dept)) {
+                    deptClass = 'dept-' + dept;
+                } else if (dept === 'chamal' || dept === 'hamal') {
+                    deptClass = 'chamal';
+                } else if (dept === 'maflag') {
+                    deptClass = 'maflag';
+                } else if (dept === 'unit1') {
+                    deptClass = 'dept-1';
+                } else if (dept === 'unit2') {
+                    deptClass = 'dept-2';
+                } else if (dept === 'unit3') {
+                    deptClass = 'dept-3';
+                }
+                
+                if (deptClass) {
+                    chip.classList.add(deptClass);
+                    console.log('Added class to chip:', deptClass);
+                }
+            }
             
             const nameSpan = document.createElement('span');
             nameSpan.textContent = option.text;
@@ -2642,6 +2417,11 @@ document.addEventListener('DOMContentLoaded', () => {
             chip.appendChild(removeBtn);
             selectedSoldiersList.appendChild(chip);
         });
+        
+        // וידוא שהרשימה מוצגת בצורה נכונה
+        console.log('Updated soldiers list. Is visible:', 
+            getComputedStyle(selectedSoldiersList).display !== 'none', 
+            'Parent visible:', getComputedStyle(selectedSoldiersList.parentElement).display !== 'none');
     }
     
     // Populate the soldiers table with all soldiers
@@ -2785,5 +2565,30 @@ document.addEventListener('DOMContentLoaded', () => {
         // Add event listeners for search and filter
         searchInput.addEventListener('input', filterSoldiers);
         departmentFilter.addEventListener('change', filterSoldiers);
+    }
+
+    // Helper to get department CSS class for a soldier
+    function getSoldierDepartmentClass(soldier) {
+        if (!soldier || !soldier.department) return '';
+        
+        let deptClass = '';
+        const dept = soldier.department.toString();
+        
+        if (['1', '2', '3'].includes(dept)) {
+            deptClass = 'soldier-dept-' + dept;
+        } else if (dept === 'chamal' || dept === 'hamal') {
+            deptClass = 'soldier-chamal';
+        } else if (dept === 'maflag') {
+            deptClass = 'soldier-maflag';
+        } else if (dept === 'unit1') {
+            deptClass = 'soldier-dept-1';
+        } else if (dept === 'unit2') {
+            deptClass = 'soldier-dept-2';
+        } else if (dept === 'unit3') {
+            deptClass = 'soldier-dept-3';
+        }
+        
+        console.log('getSoldierDepartmentClass', soldier.department, '→', deptClass);
+        return deptClass;
     }
 });

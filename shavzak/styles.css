@@ -22,6 +22,13 @@
     --morning-color: #f1c40f;
     --afternoon-color: #e67e22;
     --night-color: #34495e;
+    
+    /* Department colors */
+    --dept-1-color: #3498db; /* כחול */
+    --dept-2-color: #2ecc71; /* ירוק */
+    --dept-3-color: #e74c3c; /* אדום */
+    --chamal-color: #f1c40f; /* צהוב */
+    --maflag-color: #2c3e50; /* שחור */
 }
 
 * {
@@ -1375,5 +1382,142 @@ main {
     .soldiers-table .tag {
         padding: 2px 6px;
         font-size: 0.75rem;
+    }
+}
+
+/* בסוף הקובץ אוסיף את ההתאמות למובייל */
+@media (max-width: 768px) {
+    .selected-soldiers-container {
+        max-height: 150px;
+        overflow-y: auto;
+        padding: 8px;
+    }
+    
+    #selected-soldiers-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 3px;
+    }
+    
+    .soldier-chip {
+        font-size: 0.85rem;
+        padding: 4px 8px;
+    }
+}
+
+@media (max-width: 480px) {
+    #soldier-select {
+        max-height: 120px;
+    }
+    
+    .selected-soldiers-container {
+        max-height: 180px;
+    }
+}
+
+/* Department styling for soldiers */
+.soldier-dept-1 {
+    color: var(--dept-1-color);
+    font-weight: 500;
+}
+
+.soldier-dept-2 {
+    color: var(--dept-2-color);
+    font-weight: 500;
+}
+
+.soldier-dept-3 {
+    color: var(--dept-3-color);
+    font-weight: 500;
+}
+
+.soldier-chamal {
+    color: var(--chamal-color);
+    font-weight: 500;
+}
+
+.soldier-maflag {
+    color: var(--maflag-color);
+    font-weight: 500;
+}
+
+/* Department styling in assignment form */
+#soldier-select option.dept-1 {
+    color: var(--dept-1-color);
+    font-weight: 500;
+}
+
+#soldier-select option.dept-2 {
+    color: var(--dept-2-color);
+    font-weight: 500;
+}
+
+#soldier-select option.dept-3 {
+    color: var(--dept-3-color);
+    font-weight: 500;
+}
+
+#soldier-select option.chamal {
+    color: var(--chamal-color);
+    font-weight: 500;
+}
+
+#soldier-select option.maflag {
+    color: var(--maflag-color);
+    font-weight: 500;
+}
+
+/* Override for selected options to ensure visibility */
+#soldier-select option:checked {
+    background-color: var(--primary-color);
+    color: white !important;
+    background-image: none;
+    font-weight: 500;
+}
+
+/* For selected soldiers chips */
+.soldier-chip.dept-1 {
+    background-color: var(--dept-1-color);
+}
+
+.soldier-chip.dept-2 {
+    background-color: var(--dept-2-color);
+}
+
+.soldier-chip.dept-3 {
+    background-color: var(--dept-3-color);
+}
+
+.soldier-chip.chamal {
+    background-color: var(--chamal-color);
+}
+
+.soldier-chip.maflag {
+    background-color: var(--maflag-color);
+}
+
+.filter-controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.filter-controls input,
+.filter-controls select {
+    flex: 1;
+}
+
+.department-filter {
+    padding: 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    font-family: inherit;
+    font-size: 1rem;
+}
+
+@media (max-width: 480px) {
+    .filter-controls {
+        flex-direction: column;
+        gap: 5px;
     }
 }

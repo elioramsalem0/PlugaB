@@ -12,7 +12,7 @@
     <div class="app-container">
         <!-- Header -->
         <header>
-            <h1>שבצ"ק <span id="current-view-title">יומי</span></h1>
+            <h1>שבצ״ק - פלוגה ב׳ 7660</h1>
             <div class="header-actions">
                 <button id="admin-btn" class="icon-btn"><i class="fas fa-cog"></i></button>
                 <button id="login-btn" class="icon-btn"><i class="fas fa-user"></i></button>
@@ -55,10 +55,8 @@
             </div>
 
             <!-- View Selector -->
-            <div class="view-selector">
+            <div class="view-selector" style="display: none;">
                 <button data-view="day" class="view-btn active">יום</button>
-                <button data-view="week" class="view-btn">שבוע</button>
-                <button data-view="month" class="view-btn">חודש</button>
             </div>
 
             <!-- Calendar Container -->
@@ -146,7 +144,17 @@
                     <div class="form-group">
                         <label for="soldier-select">חייל</label>
                         <div class="search-container">
-                            <input type="text" id="soldier-search" placeholder="חפש חייל...">
+                            <div class="filter-controls">
+                                <input type="text" id="soldier-search" placeholder="חפש חייל...">
+                                <select id="department-filter" class="department-filter">
+                                    <option value="">כל המחלקות</option>
+                                    <option value="1">מחלקה 1 (כחול)</option>
+                                    <option value="2">מחלקה 2 (ירוק)</option>
+                                    <option value="3">מחלקה 3 (אדום)</option>
+                                    <option value="chamal">חמ"ל (צהוב)</option>
+                                    <option value="maflag">מפל"ג (שחור)</option>
+                                </select>
+                            </div>
                             <select id="soldier-select" required size="5" multiple>
                                 <!-- Will be populated from Firebase -->
                             </select>
